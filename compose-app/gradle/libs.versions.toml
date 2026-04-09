@@ -1,0 +1,84 @@
+[versions]
+# Kotlin & KMP
+kotlin = "2.1.0"
+kotlinSerialization = "2.1.0"
+
+# Android
+agp = "8.7.3"
+compileSdk = "35"
+minSdk = "26"
+targetSdk = "35"
+
+# Compose
+composeBom = "2024.12.01"
+composeMultiplatform = "1.7.3"
+
+# Ktor
+ktor = "3.0.3"
+
+# Coil
+coil = "3.0.4"
+
+# Coroutines
+coroutines = "1.10.1"
+
+# kotlinx-datetime (KMP; replaces java.time in commonMain)
+kotlinx-datetime = "0.6.1"
+
+# Multiplatform Settings
+multiplatformSettings = "1.2.0"
+
+# Google Maps (Android only)
+mapsCompose = "4.4.1"
+playServicesMaps = "19.0.0"
+playServicesLocation = "21.3.0"
+
+# Firebase
+firebaseBom = "33.7.0"
+googleServices = "4.4.2"
+
+[libraries]
+# Compose BOM (Android)
+compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+
+# Ktor client
+ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
+ktor-client-cio = { group = "io.ktor", name = "ktor-client-cio", version.ref = "ktor" }
+ktor-client-mock = { group = "io.ktor", name = "ktor-client-mock", version.ref = "ktor" }
+ktor-client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-client-logging = { group = "io.ktor", name = "ktor-client-logging", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
+
+# Kotlinx
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version = "1.7.3" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version.ref = "kotlinx-datetime" }
+
+# Coil
+coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
+coil-network-ktor = { group = "io.coil-kt.coil3", name = "coil-network-ktor3", version.ref = "coil" }
+
+# Multiplatform Settings (key-value store — rememberSettings)
+multiplatform-settings = { group = "com.russhwolf", name = "multiplatform-settings", version.ref = "multiplatformSettings" }
+multiplatform-settings-no-arg = { group = "com.russhwolf", name = "multiplatform-settings-no-arg", version.ref = "multiplatformSettings" }
+
+# Google Maps (Android)
+maps-compose = { group = "com.google.maps.android", name = "maps-compose", version.ref = "mapsCompose" }
+play-services-maps = { group = "com.google.android.gms", name = "play-services-maps", version.ref = "playServicesMaps" }
+play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
+
+# Firebase
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
+
+# AndroidX
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version = "1.9.3" }
+
+[plugins]
+androidApplication = { id = "com.android.application", version.ref = "agp" }
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
+composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlinSerialization" }
+googleServices = { id = "com.google.gms.google-services", version.ref = "googleServices" }

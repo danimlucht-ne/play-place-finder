@@ -1,0 +1,18 @@
+# Keep Kotlinx Serialization
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.AnnotationsKt
+-keepclassmembers class kotlinx.serialization.json.** { *** Companion; }
+-keepclasseswithmembers class **$$serializer { *; }
+-keep @kotlinx.serialization.Serializable class * { *; }
+
+# Keep Ktor
+-keep class io.ktor.** { *; }
+-dontwarn io.ktor.**
+
+# Keep Coil
+-keep class coil3.** { *; }
+-dontwarn coil3.**
+
+# Keep app data classes (used by Ktor deserialization)
+-keep class org.community.playgroundfinder.data.** { *; }
+-keep class org.community.playgroundfinder.models.** { *; }
