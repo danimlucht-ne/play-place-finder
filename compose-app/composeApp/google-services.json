@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "970586351610",
+    "project_id": "device-streaming-7d2f9bb5",
+    "storage_bucket": "device-streaming-7d2f9bb5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:970586351610:android:a5cc346272a6d62a966643",
+        "android_client_info": {
+          "package_name": "org.community.playgroundfinder.android"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "970586351610-jpgc3igeie0io76rp6dik0ql9999isji.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "org.community.playgroundfinder.android",
+            "certificate_hash": "38c72c8c5ac3c51deb98bec1d20176e4fa4e8617"
+          }
+        },
+        {
+          "client_id": "970586351610-p35rosklfsg2magmogfh4vgpmbgt8b7m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "org.community.playgroundfinder.android",
+            "certificate_hash": "1a410be4c66e26d189cec7538043579a86a8b6e2"
+          }
+        },
+        {
+          "client_id": "970586351610-v4r7kh1p9co8mg0fr6tu69p32is3u2p3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC5HZjtXk5pQ0aWzVF0rumLV2ZgWgceCec"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "970586351610-v4r7kh1p9co8mg0fr6tu69p32is3u2p3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="PlayPlace Finder">
+  <!-- Launcher / marketing background (#05B4C6) -->
+  <rect x="170" y="170" width="684" height="684" rx="148" fill="#05B4C6"/>
+  <!-- Filled silhouette only (no strokes) — stays crisp at mip map sizes -->
+  <g fill="#FFFFFF">
+    <!-- Top beam -->
+    <rect x="288" y="384" width="448" height="64" rx="28"/>
+    <!-- Left / right frame legs -->
+    <path d="M 308 432 L 256 716 L 304 716 L 356 432 Z"/>
+    <path d="M 716 432 L 768 716 L 720 716 L 668 432 Z"/>
+    <!-- Swing 1: chains + seat -->
+    <rect x="418" y="448" width="18" height="168" rx="9"/>
+    <rect x="446" y="448" width="18" height="168" rx="9"/>
+    <rect x="400" y="608" width="82" height="36" rx="12"/>
+    <!-- Swing 2 -->
+    <rect x="560" y="448" width="18" height="168" rx="9"/>
+    <rect x="588" y="448" width="18" height="168" rx="9"/>
+    <rect x="542" y="608" width="82" height="36" rx="12"/>
+  </g>
+</svg>

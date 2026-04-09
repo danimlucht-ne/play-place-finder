@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Legal copy helper — PlayPlace Finder</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; line-height: 1.5; color: #222; }
+    body { max-width: 960px; margin: 0 auto; padding: 24px; background: #f8fffe; }
+    h1 { font-size: 1.35rem; }
+    p.note { color: #555; font-size: 0.95rem; }
+    label { display: block; font-weight: 600; margin: 16px 0 6px; }
+    select, button { font: inherit; padding: 8px 12px; border-radius: 8px; border: 1px solid #ccc; }
+    button { background: #00ced1; color: #022; border-color: #00b4b8; cursor: pointer; font-weight: 600; }
+    button:hover { filter: brightness(0.95); }
+    textarea {
+      width: 100%;
+      min-height: 220px;
+      font: 14px/1.45 ui-monospace, monospace;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+    #preview {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin-top: 16px;
+      min-height: 120px;
+    }
+    #preview h2 { font-size: 1.1rem; margin-top: 1.25em; }
+    #preview ul { padding-left: 1.25rem; }
+    .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 12px; }
+    code { background: #eef7f7; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <h1>Legal copy helper</h1>
+  <p class="note">
+    Edit Markdown below (YAML frontmatter + body). Download the file and replace the matching document under
+    <code>website/content/legal/</code>, then run <code>npm run build</code> (or deploy). This page does not save to the server —
+    it is only a local editor and preview for static hosting.
+  </p>
+
+  <label for="doc">Document file</label>
+  <select id="doc">
+    <option value="privacy.md">privacy.md</option>
+    <option value="terms.md">terms.md</option>
+    <option value="advertiser-agreement.md">advertiser-agreement.md</option>
+  </select>
+
+  <label for="source">Frontmatter + Markdown</label>
+  <textarea id="source" spellcheck="false"></textarea>
+
+  <div class="row">
+    <button type="button" id="previewBtn">Refresh preview</button>
+    <button type="button" id="downloadBtn">Download .md</button>
+  </div>
+
+  <h2 style="margin-top: 28px; font-size: 1.05rem;">Preview (body only)</h2>
+  <div id="preview"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    const templates = {
+      'privacy.md': `---\ntitle: Privacy Policy\ndescription: PlayPlace Finder privacy policy. How we collect, use, and protect your data.\nversion: "1.0"\nlastUpdated: "March 25, 2026"\n---\n\n## 1. Overview\n\nYour sections here.\n`,
+      'terms.md': `---\ntitle: Terms of Service\ndescription: PlayPlace Finder terms of service and conditions of use.\nversion: "1.0"\nlastUpdated: "March 25, 2026"\n---\n\n## 1. Acceptance\n\nYour sections here.\n`,
+      'advertiser-agreement.md': `---\ntitle: Advertiser Agreement\ndescription: PlayPlace Finder advertiser agreement governing ad submissions, approval, and display.\nversion: "1.0"\nlastUpdated: "March 26, 2026"\n---\n\nIntro paragraph.\n\n## 1. First section\n\nContent.\n`,
+    };
+
+    const docEl = document.getElementById('doc');
+    const sourceEl = document.getElementById('source');
+    const previewEl = document.getElementById('preview');
+
+    function splitFrontmatter(raw) {
+      const m = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+      if (!m) return { body: raw };
+      return { body: m[2] || '' };
+    }
+
+    function renderPreview() {
+      const { body } = splitFrontmatter(sourceEl.value);
+      previewEl.innerHTML = marked.parse(body, { mangle: false, headerIds: false });
+    }
+
+    docEl.addEventListener('change', () => {
+      sourceEl.value = templates[docEl.value] || '';
+      renderPreview();
+    });
+
+    document.getElementById('previewBtn').addEventListener('click', renderPreview);
+
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      const name = docEl.value;
+      const blob = new Blob([sourceEl.value], { type: 'text/markdown;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    sourceEl.value = templates['privacy.md'];
+    renderPreview();
+  </script>
+</body>
+</html>

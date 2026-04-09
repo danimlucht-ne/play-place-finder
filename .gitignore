@@ -1,0 +1,19 @@
+playground-app-418018-971ef28669c3.json
+node_modules/
+.env
+
+# Firebase Admin (never commit; use GOOGLE_APPLICATION_CREDENTIALS on the server)
+server/serviceAccountKey.json
+
+# Android/KMP build
+local.properties
+*.keystore
+.gradle/
+build/
+
+# compose-app (KMP) local / IDE
+compose-app/.gradle-user-home/
+compose-app/.idea/
+compose-app/composeApp/.idea/
+compose-app/.kotlin/
+compose-app/composeApp/release/

@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  server-tests:
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Run unit tests with coverage
+        env:
+          MONGODB_URI: mongodb://127.0.0.1:27017/ci
+          GOOGLE_MAPS_API_KEY: ci-test-key
+        run: npm run test:ci
+
+  compose-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Locate compose app directory
+        id: locate_compose
+        shell: bash
+        run: |
+          dir=""
+          echo "available=false" >> "$GITHUB_OUTPUT"
+          if [ -f "compose-app/settings.gradle.kts" ] || [ -f "compose-app/settings.gradle" ]; then
+            dir="compose-app"
+          elif [ -f "composeApp/settings.gradle.kts" ] || [ -f "composeApp/settings.gradle" ]; then
+            dir="composeApp"
+          elif [ -f "playground-app/compose-app/settings.gradle.kts" ] || [ -f "playground-app/compose-app/settings.gradle" ]; then
+            dir="playground-app/compose-app"
+          elif [ -f "playground-app/composeApp/settings.gradle.kts" ] || [ -f "playground-app/composeApp/settings.gradle" ]; then
+            dir="playground-app/composeApp"
+          fi
+
+          if [ -n "$dir" ]; then
+            echo "dir=$dir" >> "$GITHUB_OUTPUT"
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ -n "$dir" ] && [ -f "$dir/gradlew" ]; then
+            echo "use_wrapper=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "use_wrapper=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Compose project missing (skip)
+        if: steps.locate_compose.outputs.available != 'true'
+        run: |
+          echo "Compose Gradle project not present in this checkout; skipping compose verification."
+          ls -la
+      - name: Setup standalone Gradle (no wrapper fallback)
+        if: steps.locate_compose.outputs.available == 'true' && steps.locate_compose.outputs.use_wrapper != 'true'
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: current
+      - name: Ensure gradlew executable
+        if: steps.locate_compose.outputs.available == 'true' && steps.locate_compose.outputs.use_wrapper == 'true'
+        working-directory: ${{ steps.locate_compose.outputs.dir }}
+        run: chmod +x ./gradlew
+      - name: Verify compile
+        if: steps.locate_compose.outputs.available == 'true'
+        working-directory: ${{ steps.locate_compose.outputs.dir }}
+        run: |
+          if [ "${{ steps.locate_compose.outputs.use_wrapper }}" = "true" ]; then
+            ./gradlew :composeApp:compileDebugKotlinAndroid --no-daemon
+          else
+            gradle :composeApp:compileDebugKotlinAndroid --no-daemon
+          fi
+      - name: Verify shared source compile (migration gate)
+        if: steps.locate_compose.outputs.available == 'true'
+        working-directory: ${{ steps.locate_compose.outputs.dir }}
+        run: |
+          if [ "${{ steps.locate_compose.outputs.use_wrapper }}" = "true" ]; then
+            ./gradlew :composeApp:compileKotlinMetadata --no-daemon
+          else
+            gradle :composeApp:compileKotlinMetadata --no-daemon
+          fi
+      - name: Run unit tests
+        if: steps.locate_compose.outputs.available == 'true'
+        working-directory: ${{ steps.locate_compose.outputs.dir }}
+        run: |
+          if [ "${{ steps.locate_compose.outputs.use_wrapper }}" = "true" ]; then
+            ./gradlew :composeApp:testDebugUnitTest --no-daemon
+          else
+            gradle :composeApp:testDebugUnitTest --no-daemon
+          fi

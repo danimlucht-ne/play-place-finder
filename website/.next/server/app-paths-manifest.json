@@ -1,0 +1,13 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/privacy/page": "app/privacy/page.js",
+  "/page": "app/page.js",
+  "/advertiser-agreement/page": "app/advertiser-agreement/page.js",
+  "/terms/page": "app/terms/page.js",
+  "/account/page": "app/account/page.js",
+  "/login/page": "app/login/page.js",
+  "/admin-hub/page": "app/admin-hub/page.js",
+  "/advertiser-hub/page": "app/advertiser-hub/page.js",
+  "/advertise/page": "app/advertise/page.js",
+  "/delete-account/page": "app/delete-account/page.js"
+}
