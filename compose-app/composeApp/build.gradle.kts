@@ -114,7 +114,8 @@ android {
         applicationId = "org.community.playgroundfinder.android"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 2
+        // Must increase for every upload to Play Console (internal integer; unrelated to git tags).
+        versionCode = 4
         versionName = "1.0.0-beta1"
         // Overridden per buildType; release must not allow cleartext HTTP.
         manifestPlaceholders["usesCleartextTraffic"] = "false"

@@ -70,6 +70,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -276,7 +277,15 @@ private fun MetaChip(label: String) {
 private fun SubVenueRow(sv: SubVenue) {
     Surface(shape = RoundedCornerShape(10.dp), color = Color(0xFFF0F4F8), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
-            Text(sv.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Color(0xFF212121))
+            Text(
+                sv.name,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
+                color = Color(0xFF212121),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 18.sp,
+            )
             sv.playgroundType?.takeIf { it.isNotBlank() }?.let { type ->
                 Spacer(Modifier.height(6.dp))
                 MetaChip(type)
@@ -284,7 +293,14 @@ private fun SubVenueRow(sv: SubVenue) {
             val combined = (sv.features + sv.equipment).distinct().filter { it.isNotBlank() }
             if (combined.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
-                Text(combined.joinToString(" · "), fontSize = 12.sp, color = Color(0xFF616161), lineHeight = 16.sp)
+                Text(
+                    combined.joinToString(" · "),
+                    fontSize = 12.sp,
+                    color = Color(0xFF616161),
+                    lineHeight = 16.sp,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }
@@ -869,20 +885,41 @@ fun PlaygroundDetailScreen(
             }
 
             if (pg.subVenues.isNotEmpty()) {
+                val sortedSubVenues = remember(pg.subVenues) {
+                    pg.subVenues.sortedBy { it.name.trim().lowercase() }
+                }
                 AccordionSection(
                     title = "🏛️ Areas & sub-venues (${pg.subVenues.size})",
                     expanded = subVenuesExpanded,
                     onToggle = { subVenuesExpanded = !subVenuesExpanded },
                 ) {
                     Text(
-                        "Separate listings merged into this place so one screen shows the whole venue.",
+                        "Separate listings merged into this place so one screen shows the whole venue. " +
+                            "Names are A–Z; tap below if the list is long.",
                         fontSize = 12.sp,
                         color = Color(0xFF757575),
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
-                    pg.subVenues.forEachIndexed { index, sv ->
+                    var showAllSubvenues by remember(pg.id, sortedSubVenues.size) { mutableStateOf(false) }
+                    val previewCount = 14
+                    val visible = if (showAllSubvenues || sortedSubVenues.size <= previewCount) {
+                        sortedSubVenues
+                    } else {
+                        sortedSubVenues.take(previewCount)
+                    }
+                    visible.forEachIndexed { index, sv ->
                         SubVenueRow(sv)
-                        if (index < pg.subVenues.lastIndex) Spacer(Modifier.height(10.dp))
+                        if (index < visible.lastIndex) Spacer(Modifier.height(10.dp))
+                    }
+                    if (sortedSubVenues.size > previewCount && !showAllSubvenues) {
+                        Spacer(Modifier.height(8.dp))
+                        TextButton(onClick = { showAllSubvenues = true }) {
+                            Text(
+                                "Show all ${sortedSubVenues.size} areas",
+                                color = FormColors.PrimaryButton,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
                     }
                 }
             }

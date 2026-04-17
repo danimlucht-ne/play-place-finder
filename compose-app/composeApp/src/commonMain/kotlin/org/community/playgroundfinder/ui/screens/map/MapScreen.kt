@@ -62,6 +62,38 @@ fun MapScreen(
                 when {
                     filteredPlaygrounds != null -> {
                         playgrounds = filteredPlaygrounds
+                        val regionKey = filteredPlaygrounds
+                            .asSequence()
+                            .mapNotNull { it.regionKey?.trim()?.takeIf { k -> k.isNotEmpty() } }
+                            .firstOrNull()
+                        if (regionKey != null) {
+                            launch {
+                                try {
+                                    val regionAll = mutableListOf<Playground>()
+                                    var skip = 0
+                                    val pageSize = 200
+                                    var guard = 0
+                                    while (guard++ < 60) {
+                                        val resp = service.getPlaygroundsByRegion(
+                                            regionKey = regionKey,
+                                            limit = pageSize,
+                                            skip = skip,
+                                        )
+                                        if (resp.data.isEmpty()) break
+                                        regionAll.addAll(resp.data)
+                                        if (resp.data.size < pageSize) break
+                                        skip += pageSize
+                                    }
+                                    if (regionAll.isNotEmpty()) {
+                                        playgrounds = mergePlaygroundsForFilteredMap(
+                                            searchRows = filteredPlaygrounds,
+                                            regionRows = regionAll,
+                                        )
+                                    }
+                                } catch (_: Exception) {
+                                }
+                            }
+                        }
                     }
                     useInitialAsAuthoritative -> {
                         playgrounds = initialPlaces
@@ -260,6 +292,25 @@ fun MapScreen(
             }
         }
     }
+}
+
+/**
+ * Union of region pins and home search rows. [searchRows] overwrite [regionRows] on the same stable key
+ * so favorited / search-enriched fields from Home are preserved.
+ */
+private fun mergePlaygroundsForFilteredMap(
+    searchRows: List<Playground>,
+    regionRows: List<Playground>,
+): List<Playground> {
+    fun keyOf(p: Playground): String {
+        val id = p.id?.trim()?.takeIf { it.isNotEmpty() }
+        if (id != null) return "id:$id"
+        return "loc:${p.latitude},${p.longitude},${p.name}"
+    }
+    val byKey = LinkedHashMap<String, Playground>()
+    for (p in regionRows) byKey[keyOf(p)] = p
+    for (p in searchRows) byKey[keyOf(p)] = p
+    return byKey.values.toList()
 }
 
 @Composable

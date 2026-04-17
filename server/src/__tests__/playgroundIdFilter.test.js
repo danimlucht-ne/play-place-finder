@@ -2,6 +2,8 @@ const { ObjectId } = require('mongodb');
 const {
   resolvePlaygroundIdFilter,
   collectSubsumedPlaygroundIdsForRegion,
+  stablePlaygroundIdKey,
+  collectAllSubsumedPlaygroundIdsForRegions,
 } = require('../utils/playgroundIdFilter');
 
 describe('resolvePlaygroundIdFilter', () => {
@@ -56,5 +58,27 @@ describe('collectSubsumedPlaygroundIdsForRegion', () => {
 
     await expect(collectSubsumedPlaygroundIdsForRegion(db, '')).resolves.toEqual([]);
     expect(db.collection).not.toHaveBeenCalled();
+  });
+});
+
+describe('stablePlaygroundIdKey', () => {
+  test('stringifies ObjectId consistently', () => {
+    const id = new ObjectId('64f1a9f7c2a7d9b123456789');
+    expect(stablePlaygroundIdKey(id)).toBe('64f1a9f7c2a7d9b123456789');
+  });
+});
+
+describe('collectAllSubsumedPlaygroundIdsForRegions', () => {
+  test('dedupes across multiple region keys', async () => {
+    const toArray = jest.fn().mockResolvedValueOnce([{ subVenues: [{ id: 'dup' }] }]).mockResolvedValueOnce([{ subVenues: [{ id: 'dup' }, { id: 'x' }] }]);
+    const project = jest.fn(() => ({ toArray }));
+    const find = jest.fn(() => ({ project }));
+    const collection = jest.fn(() => ({ find }));
+    const db = { collection };
+
+    const ids = await collectAllSubsumedPlaygroundIdsForRegions(db, ['omaha-ne', 'omaha-ne', 'bellevue-ne']);
+
+    expect(find).toHaveBeenCalledTimes(2);
+    expect(ids).toEqual(['dup', 'x']);
   });
 });

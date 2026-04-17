@@ -73,7 +73,10 @@ sealed class Screen {
         val initialPlaces: List<Playground> = emptyList(),
         val useInitialAsAuthoritative: Boolean = false,
         val filterSummary: String? = null,
-        /** When set, map shows only these markers (no full-catalog fetch). Overrides [useInitialAsAuthoritative]. */
+        /**
+         * When set (from Home), the map first paints this search subset, then merges the full
+         * [regionKey] catalog from `/regions/by-region` so panning is not empty outside the home list.
+         */
         val filteredPlaygrounds: List<Playground>? = null,
     ) : Screen()
     /** Sponsored events calendar for the user’s current discovery region (same ads as inline listings). */

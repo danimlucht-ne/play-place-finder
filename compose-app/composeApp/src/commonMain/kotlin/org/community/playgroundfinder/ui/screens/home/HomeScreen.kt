@@ -94,7 +94,8 @@ fun HomeScreen(
     openFilterReturnToMap: Boolean = false,
     onConsumedOpenFilterSheetRequest: () -> Unit = {},
 ) {
-    val initialNearbyCount = 25
+    /** Home carousel + quick map preview: sorted-by-distance cap only; full list stays in [syncedResults] for Map / All Sites. */
+    val initialNearbyCount = 45
     val scope = rememberCoroutineScope()
     /** Cancels overlapping [performSearch] runs so an older request cannot clear the list after a newer one. */
     var performSearchJob by remember { mutableStateOf<Job?>(null) }

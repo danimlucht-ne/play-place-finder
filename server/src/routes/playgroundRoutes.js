@@ -13,7 +13,12 @@ const {
 const { hydratePlaygroundFromPlaceDetails } = require('../services/seedOrchestratorService');
 const { reviewPlaygroundSubmission } = require('../services/playgroundSubmissionReviewService');
 const { recordVerificationFromPlaygroundEdit } = require('../services/recordVerificationFromEdit');
-const { resolvePlaygroundIdFilter, collectSubsumedPlaygroundIdsForRegion } = require('../utils/playgroundIdFilter');
+const {
+    resolvePlaygroundIdFilter,
+    collectSubsumedPlaygroundIdsForRegion,
+    stablePlaygroundIdKey,
+    collectAllSubsumedPlaygroundIdsForRegions,
+} = require('../utils/playgroundIdFilter');
 const { ACTIVE_PLAYGROUND_FILTER } = require('../services/activePlaygroundFilter');
 
 const SubmissionType = {
@@ -285,12 +290,23 @@ router.get("/search", async (req, res) => {
 
     try {
         const results = await db.collection("playgrounds").find({ ...query, ...ACTIVE_FILTER }).toArray();
+        const regionKeysForSubsumed = new Set();
+        for (const p of results) {
+            if (p.regionKey) regionKeysForSubsumed.add(String(p.regionKey).trim());
+            for (const ck of p.coveredRegionKeys || []) {
+                if (ck) regionKeysForSubsumed.add(String(ck).trim());
+            }
+        }
+        const subsumedRaw = await collectAllSubsumedPlaygroundIdsForRegions(db, [...regionKeysForSubsumed]);
+        const subsumedKeys = new Set(subsumedRaw.map(stablePlaygroundIdKey));
+        const pruned = results.filter((p) => p && p._id != null && !subsumedKeys.has(stablePlaygroundIdKey(p._id)));
+
         const favIds = new Set();
         if (req.user?.uid) {
             const favs = await db.collection("favorites").find({ userId: req.user.uid }).toArray();
             favs.forEach(f => favIds.add(f.placeId));
         }
-        res.json({ message: "success", data: results.map(p => {
+        res.json({ message: "success", data: pruned.map(p => {
             const t = transformPlayground(p);
             t.isFavorited = favIds.has(p._id.toString()) || favIds.has(p._id);
             return t;

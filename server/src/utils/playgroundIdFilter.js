@@ -1,5 +1,35 @@
 const { ObjectId } = require('mongodb');
 
+/** Stable string key for comparing playground ids (ObjectId vs string place ids). */
+function stablePlaygroundIdKey(id) {
+  if (id == null || id === '') return '';
+  if (typeof id === 'object' && id !== null && typeof id.toHexString === 'function') {
+    return id.toHexString();
+  }
+  return String(id);
+}
+
+/**
+ * Union of [collectSubsumedPlaygroundIdsForRegion] across many keys (deduped).
+ * Used by geo search so rows that only exist as another venue’s `subVenues[].id` are not top-level hits.
+ */
+async function collectAllSubsumedPlaygroundIdsForRegions(db, regionKeys) {
+  const keys = [...new Set((regionKeys || []).map((k) => String(k).trim()).filter(Boolean))];
+  if (keys.length === 0) return [];
+  const seenKeys = new Set();
+  const out = [];
+  for (const rk of keys) {
+    const chunk = await collectSubsumedPlaygroundIdsForRegion(db, rk);
+    for (const id of chunk) {
+      const k = stablePlaygroundIdKey(id);
+      if (!k || seenKeys.has(k)) continue;
+      seenKeys.add(k);
+      out.push(id);
+    }
+  }
+  return out;
+}
+
 /**
  * Resolve a playground _id that may be an ObjectId hex string or a plain string (e.g. Google place_id).
  */
@@ -53,4 +83,9 @@ async function collectSubsumedPlaygroundIdsForRegion(db, regionKey) {
     return out;
 }
 
-module.exports = { resolvePlaygroundIdFilter, collectSubsumedPlaygroundIdsForRegion };
+module.exports = {
+  resolvePlaygroundIdFilter,
+  collectSubsumedPlaygroundIdsForRegion,
+  stablePlaygroundIdKey,
+  collectAllSubsumedPlaygroundIdsForRegions,
+};
