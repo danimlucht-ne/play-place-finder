@@ -370,6 +370,170 @@ async function discoverCampusSubvenues(regionKey, options = {}) {
     };
 }
 
+function clampNumber(x, lo, hi) {
+    return Math.min(hi, Math.max(lo, x));
+}
+
+/**
+ * Build up to [maxPoints] grid centers inside the map viewport (lat/lng box), using the same ~10 mi
+ * step as [generateSearchGrid]. Steps up spacing if the box would need more than [maxPoints] cells.
+ * @param {number} maxPoints — caps Google Nearby calls (each point runs full BACKGROUND_EXPANSION_SEARCHES).
+ * @throws {Error} code BAD_BOUNDS | VIEWPORT_TOO_LARGE
+ */
+function generateSearchGridForBounds(swLat, swLng, neLat, neLng, maxPoints = 12) {
+    const sLat = Math.min(swLat, neLat);
+    const nLat = Math.max(swLat, neLat);
+    const sLng = Math.min(swLng, neLng);
+    const eLng = Math.max(swLng, neLng);
+    const latSpan = nLat - sLat;
+    const lngSpan = eLng - sLng;
+    if (!Number.isFinite(latSpan) || !Number.isFinite(lngSpan) || latSpan <= 0 || lngSpan <= 0) {
+        const err = new Error('Invalid viewport bounds');
+        err.code = 'BAD_BOUNDS';
+        throw err;
+    }
+    const latMid = (sLat + nLat) / 2;
+    const cosLat = Math.max(Math.cos((latMid * Math.PI) / 180), 0.35);
+    // Roughly cap at ~17 mi N–S and ~22 mi E–W at mid-latitudes so one action cannot fan out too wide.
+    if (latSpan > 0.24 || lngSpan > 0.32 / cosLat) {
+        const err = new Error('Map view is too large. Zoom in closer, then try again.');
+        err.code = 'VIEWPORT_TOO_LARGE';
+        throw err;
+    }
+    const baseStepLat = 10 / 69.0;
+    const baseStepLng = 10 / (69.0 * cosLat);
+    let stepLat = baseStepLat;
+    let stepLng = baseStepLng;
+    for (let attempt = 0; attempt < 24; attempt += 1) {
+        const rows = Math.max(1, Math.ceil((latSpan + 1e-9) / stepLat));
+        const cols = Math.max(1, Math.ceil((lngSpan + 1e-9) / stepLng));
+        if (rows * cols <= maxPoints) {
+            const pts = [];
+            for (let i = 0; i < rows; i += 1) {
+                for (let j = 0; j < cols; j += 1) {
+                    const lat = clampNumber(sLat + (i + 0.5) * stepLat, sLat, nLat);
+                    const lng = clampNumber(sLng + (j + 0.5) * stepLng, sLng, eLng);
+                    pts.push({ lat, lng });
+                }
+            }
+            return pts;
+        }
+        stepLat *= 1.12;
+        stepLng *= 1.12;
+    }
+    const err = new Error('Could not fit viewport to seed grid; zoom in and retry.');
+    err.code = 'VIEWPORT_TOO_LARGE';
+    throw err;
+}
+
+/**
+ * Places grid crawl for the visible map rectangle only (upserts + campus discovery + venue merge).
+ * Does not touch algorithmRecrawlInFlight (separate from scheduled lightweight algorithm recrawl).
+ */
+async function runViewportPlacesRecrawl(regionKey, gridPoints, meta = {}) {
+    const db = getDb();
+    const SEARCHES = backgroundExpansionSearches();
+    try {
+        const allRaw = [];
+        for (const point of gridPoints) {
+            const raw = await fetchGooglePlaces(point.lat, point.lng, 24140, SEARCHES);
+            allRaw.push(...raw);
+        }
+        const newPlaces = normalizeAndDedupe(allRaw, regionKey);
+        const newToUpsert = await filterOutPlacesArchivedAfterMerge(db, newPlaces);
+        let inserted = 0;
+        if (newToUpsert.length > 0) {
+            const bulkOps = newToUpsert.map((p) => ({
+                updateOne: {
+                    filter: { _id: p._id },
+                    update: { $setOnInsert: p },
+                    upsert: true,
+                },
+            }));
+            const bgResult = await db.collection('playgrounds').bulkWrite(bulkOps);
+            inserted = bgResult.upsertedCount || 0;
+        }
+        const campusDiscovery = await discoverCampusSubvenues(regionKey, { db });
+        let canonicalization = null;
+        try {
+            const { canonicalizeRegionVenues } = require('./venueMergeService');
+            canonicalization = await canonicalizeRegionVenues(regionKey);
+        } catch (mergeErr) {
+            canonicalization = { errorMessage: mergeErr.message };
+        }
+        console.log(
+            `[seed] Viewport map seed ${regionKey}: grid=${gridPoints.length} pts, ${inserted} inserted, ${newPlaces.length} kid-filtered candidates`,
+        );
+        await db.collection('seeded_regions').updateOne(
+            { regionKey },
+            {
+                $set: {
+                    lastViewportSeedAt: new Date(),
+                    lastViewportSeed: {
+                        ...meta,
+                        gridPointCount: gridPoints.length,
+                        inserted,
+                        kidFilteredCandidates: newPlaces.length,
+                        campusDiscovery,
+                        canonicalization,
+                    },
+                },
+            },
+        );
+    } catch (err) {
+        console.error(`[seed] Viewport map seed failed for ${regionKey}:`, err.message);
+        await db.collection('seeded_regions').updateOne(
+            { regionKey },
+            {
+                $set: {
+                    lastViewportSeedAt: new Date(),
+                    lastViewportSeed: {
+                        ...meta,
+                        gridPointCount: gridPoints.length,
+                        error: err.message,
+                    },
+                },
+            },
+        ).catch(() => {});
+    }
+}
+
+/**
+ * Validates bounds, builds grid, returns summary; runs crawl on next tick (heavy Google + DB work).
+ * @throws {Error} code NOT_FOUND | BAD_BOUNDS | VIEWPORT_TOO_LARGE
+ */
+async function scheduleViewportPlacesRecrawlForRegion(regionKey, bounds, userId) {
+    const region = await getDb().collection('seeded_regions').findOne({ regionKey });
+    if (!region) {
+        const err = new Error(`Region not found: ${regionKey}`);
+        err.code = 'NOT_FOUND';
+        throw err;
+    }
+    const swLat = Number(bounds.southWestLat);
+    const swLng = Number(bounds.southWestLng);
+    const neLat = Number(bounds.northEastLat);
+    const neLng = Number(bounds.northEastLng);
+    if (![swLat, swLng, neLat, neLng].every((x) => Number.isFinite(x))) {
+        const err = new Error('southWestLat, southWestLng, northEastLat, northEastLng must be finite numbers');
+        err.code = 'BAD_BOUNDS';
+        throw err;
+    }
+    const gridPoints = generateSearchGridForBounds(swLat, swLng, neLat, neLng);
+    const meta = {
+        southWestLat: swLat,
+        southWestLng: swLng,
+        northEastLat: neLat,
+        northEastLng: neLng,
+        requestedByUserId: userId ?? null,
+    };
+    setImmediate(() => {
+        runViewportPlacesRecrawl(regionKey, gridPoints, meta).catch((e) =>
+            console.error(`[seed-viewport] ${regionKey}:`, e.message),
+        );
+    });
+    return { regionKey, gridPointCount: gridPoints.length };
+}
+
 /**
  * Re-fetch Places for an already-seeded region when `seedAlgorithmVersion` is behind (no full scrub/merge).
  */
@@ -1726,6 +1890,8 @@ module.exports = {
     generateSearchGrid,
     SEED_ALGORITHM_VERSION,
     scheduleLightweightAlgorithmRecrawlForRegion,
+    scheduleViewportPlacesRecrawlForRegion,
+    generateSearchGridForBounds,
     startFullRegionReseed,
     completeAdminExpandRegion,
     ADMIN_EXPAND_RADIUS_METERS,

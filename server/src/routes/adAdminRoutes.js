@@ -483,6 +483,37 @@ router.post('/regions/:regionKey/lightweight-reseed', async (req, res) => {
   }
 });
 
+// POST /regions/:regionKey/seed-viewport — Places crawl for the visible map bounds (admin map “Seed this view”)
+router.post('/regions/:regionKey/seed-viewport', async (req, res) => {
+  try {
+    const { regionKey } = req.params;
+    const b = req.body || {};
+    const data = await seedOrchestratorService.scheduleViewportPlacesRecrawlForRegion(
+      regionKey,
+      {
+        southWestLat: b.southWestLat,
+        southWestLng: b.southWestLng,
+        northEastLat: b.northEastLat,
+        northEastLng: b.northEastLng,
+      },
+      req.user?.uid ?? null,
+    );
+    res.json({
+      message: 'success',
+      data: {
+        ...data,
+        note:
+          'Places crawl scheduled for this map rectangle (upserts + campus discovery + venue merge). New pins may take a few minutes; pull to refresh on Home.',
+      },
+    });
+  } catch (err) {
+    if (err.code === 'NOT_FOUND') return res.status(404).json({ error: err.message });
+    if (err.code === 'BAD_BOUNDS') return res.status(400).json({ error: err.message });
+    if (err.code === 'VIEWPORT_TOO_LARGE') return res.status(400).json({ error: err.message });
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /advertisers — list all advertisers with submission and campaign counts
 router.get('/advertisers', async (req, res) => {
   try {

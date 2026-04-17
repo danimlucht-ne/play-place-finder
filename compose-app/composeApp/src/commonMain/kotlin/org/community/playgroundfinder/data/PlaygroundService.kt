@@ -398,6 +398,16 @@ data class LightweightReseedPayload(val regionKey: String = "", val note: String
 @Serializable
 data class LightweightReseedEnvelope(val message: String = "", val data: LightweightReseedPayload = LightweightReseedPayload())
 
+@Serializable
+data class SeedMapViewportPayload(
+    val regionKey: String = "",
+    val gridPointCount: Int = 0,
+    val note: String = "",
+)
+
+@Serializable
+data class SeedMapViewportEnvelope(val message: String = "", val data: SeedMapViewportPayload = SeedMapViewportPayload())
+
 private val adminJson = Json {
     ignoreUnknownKeys = true
     isLenient = true
@@ -1277,6 +1287,33 @@ class PlaygroundService(
         val response = client.post("$serverBaseUrl/admin/ads/regions/$regionKey/lightweight-reseed") { withAuth() }
         response.requireHttpSuccess("Light re-seed failed")
         return response.body<LightweightReseedEnvelope>().data
+    }
+
+    /**
+     * Admin: schedule a Google Places crawl for the **visible map** rectangle (current camera),
+     * attributed to [regionKey]. Does not wipe data.
+     */
+    suspend fun adminSeedMapViewport(
+        regionKey: String,
+        southWestLat: Double,
+        southWestLng: Double,
+        northEastLat: Double,
+        northEastLng: Double,
+    ): SeedMapViewportPayload {
+        val response = client.post("$serverBaseUrl/admin/ads/regions/$regionKey/seed-viewport") {
+            withAuth()
+            contentType(ContentType.Application.Json)
+            setBody(
+                mapOf(
+                    "southWestLat" to southWestLat,
+                    "southWestLng" to southWestLng,
+                    "northEastLat" to northEastLat,
+                    "northEastLng" to northEastLng,
+                ),
+            )
+        }
+        response.requireHttpSuccess("Seed this map view failed")
+        return response.body<SeedMapViewportEnvelope>().data
     }
 
     // ─── Rating & Quick Verify ───────────────────────────────────────────────

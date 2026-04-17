@@ -648,6 +648,7 @@ fun App() {
                                 filteredPlaygrounds = screen.filteredPlaygrounds,
                                 userLat = userLat,
                                 userLng = userLng,
+                                isAdmin = isAdmin,
                                 onPlaygroundClick = { navigateTo(Screen.PlaygroundDetail(it)) },
                                 onAddPlaygroundAt = { lat, lng ->
                                     navigateTo(

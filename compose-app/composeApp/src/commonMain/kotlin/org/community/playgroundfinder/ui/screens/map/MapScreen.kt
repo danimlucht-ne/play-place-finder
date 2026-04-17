@@ -39,6 +39,8 @@ fun MapScreen(
     onOpenFilters: (() -> Unit)? = null,
     /** Opens promoted listing / event URLs (map pins). */
     onPromotedMapPinUrl: (String) -> Unit = {},
+    /** When true, shows “Seed this map view” (admin-only; uses visible camera bounds). */
+    isAdmin: Boolean = false,
 ) {
     var playgrounds by remember { mutableStateOf(initialPlaces) }
     var isLoading by remember { mutableStateOf(true) }
@@ -46,6 +48,8 @@ fun MapScreen(
     var resolvedLng by remember { mutableStateOf(userLng) }
     val scope = rememberCoroutineScope()
     val getLocation = rememberLocationService()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var visibleBoundsReader by remember { mutableStateOf<(() -> MapVisibleRegionBounds?)?>(null) }
 
     LaunchedEffect(filteredPlaygrounds, initialPlaces, useInitialAsAuthoritative) {
         scope.launch {
@@ -196,6 +200,9 @@ fun MapScreen(
                     draftPin = lat to lng
                 } else null,
                 sponsorPins = sponsorPins,
+                onVisibleRegionReaderChange = if (isAdmin) {
+                    { reader -> visibleBoundsReader = reader }
+                } else null,
                 onSponsorPinClick = { pin ->
                     scope.launch {
                         if (!mapRegionKey.isNullOrBlank()) {
@@ -232,6 +239,58 @@ fun MapScreen(
                     Icon(Icons.Filled.FilterList, contentDescription = "Filters")
                 }
             }
+            if (isAdmin && !mapRegionKey.isNullOrBlank()) {
+                OutlinedButton(
+                    onClick = {
+                        scope.launch {
+                            val rk = mapRegionKey ?: return@launch
+                            val read = visibleBoundsReader
+                            if (read == null) {
+                                snackbarHostState.showSnackbar("Open the map, then try again.")
+                                return@launch
+                            }
+                            val b = read.invoke()
+                            if (b == null) {
+                                snackbarHostState.showSnackbar("Could not read map bounds. Pan slightly and retry.")
+                                return@launch
+                            }
+                            try {
+                                val r = service.adminSeedMapViewport(
+                                    regionKey = rk,
+                                    southWestLat = b.southWestLat,
+                                    southWestLng = b.southWestLng,
+                                    northEastLat = b.northEastLat,
+                                    northEastLng = b.northEastLng,
+                                )
+                                snackbarHostState.showSnackbar(
+                                    "Scheduled ${r.gridPointCount} seed grid point(s). Check back in a few minutes.",
+                                )
+                            } catch (e: Exception) {
+                                val msg = e.message?.take(200)?.ifBlank { "Request failed" } ?: "Request failed"
+                                snackbarHostState.showSnackbar(msg)
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(
+                            start = 8.dp,
+                            top = if (!filterSummary.isNullOrBlank()) 56.dp else 8.dp,
+                        ),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.White.copy(alpha = 0.94f),
+                        contentColor = FormColors.PrimaryButton,
+                    ),
+                ) {
+                    Text("Seed this map view", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 72.dp),
+            )
             MapLegend(
                 modifier = Modifier.align(Alignment.BottomStart).padding(8.dp),
                 showAddByPinHint = onAddPlaygroundAt != null,
@@ -323,6 +382,7 @@ expect fun MapContent(
     draftPinLng: Double? = null,
     onMapLongClick: ((Double, Double) -> Unit)? = null,
     sponsorPins: List<MapSponsorPin> = emptyList(),
+    onVisibleRegionReaderChange: (((() -> MapVisibleRegionBounds?)?) -> Unit)? = null,
     onSponsorPinClick: (MapSponsorPin) -> Unit = {},
 )
 

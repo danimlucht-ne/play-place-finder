@@ -15,7 +15,14 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.*
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapEffect
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.rememberCameraPositionState
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import org.community.playgroundfinder.data.Playground
 
@@ -55,6 +62,7 @@ actual fun MapContent(
     draftPinLng: Double?,
     onMapLongClick: ((Double, Double) -> Unit)?,
     sponsorPins: List<MapSponsorPin>,
+    onVisibleRegionReaderChange: (((() -> MapVisibleRegionBounds?)?) -> Unit)?,
     onSponsorPinClick: (MapSponsorPin) -> Unit,
 ) {
     val defaultPosition = LatLng(39.5, -98.35) // Center of US
@@ -91,6 +99,29 @@ actual fun MapContent(
             { latLng: LatLng -> handler(latLng.latitude, latLng.longitude) }
         },
     ) {
+        val registerBounds = onVisibleRegionReaderChange
+        if (registerBounds != null) {
+            MapEffect(registerBounds) { map ->
+                registerBounds {
+                    try {
+                        val b = map.projection.visibleRegion.latLngBounds
+                        MapVisibleRegionBounds(
+                            southWestLat = b.southwest.latitude,
+                            southWestLng = b.southwest.longitude,
+                            northEastLat = b.northeast.latitude,
+                            northEastLng = b.northeast.longitude,
+                        )
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+                try {
+                    awaitCancellation()
+                } finally {
+                    registerBounds(null)
+                }
+            }
+        }
         if (draftPinLat != null && draftPinLng != null) {
             Marker(
                 state = MarkerState(position = LatLng(draftPinLat, draftPinLng)),

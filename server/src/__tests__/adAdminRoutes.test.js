@@ -27,6 +27,7 @@ jest.mock('../services/advertiserEmailService', () => ({
 }));
 jest.mock('../services/seedOrchestratorService', () => ({
   scheduleLightweightAlgorithmRecrawlForRegion: jest.fn(),
+  scheduleViewportPlacesRecrawlForRegion: jest.fn().mockResolvedValue({ regionKey: 'omaha-ne', gridPointCount: 4 }),
   startFullRegionReseed: jest.fn().mockResolvedValue(undefined),
   completeAdminExpandRegion: jest.fn().mockResolvedValue(undefined),
   seededRegionCenterToLatLng: jest.fn(() => ({ lat: 41.25, lng: -96.0 })),
@@ -273,6 +274,26 @@ describe('adAdminRoutes', () => {
 
     await request(buildApp()).post('/regions/omaha-ne/lightweight-reseed').expect(200);
     expect(seedOrchestratorService.scheduleLightweightAlgorithmRecrawlForRegion).toHaveBeenCalledWith('omaha-ne');
+
+    await request(buildApp())
+      .post('/regions/omaha-ne/seed-viewport')
+      .send({
+        southWestLat: 41.2,
+        southWestLng: -96.1,
+        northEastLat: 41.22,
+        northEastLng: -96.05,
+      })
+      .expect(200);
+    expect(seedOrchestratorService.scheduleViewportPlacesRecrawlForRegion).toHaveBeenCalledWith(
+      'omaha-ne',
+      expect.objectContaining({
+        southWestLat: 41.2,
+        southWestLng: -96.1,
+        northEastLat: 41.22,
+        northEastLng: -96.05,
+      }),
+      'admin-1',
+    );
 
     await request(buildApp()).post('/regions/omaha-ne/reseed').expect(200);
     expect(seedOrchestratorService.startFullRegionReseed).toHaveBeenCalledWith('omaha-ne', 'admin-1');
