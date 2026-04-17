@@ -4,6 +4,7 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -191,12 +192,10 @@ private fun AdCardContent(
     userLat: Double? = null, userLng: Double? = null,
 ) {
     val scope = rememberCoroutineScope()
-    val openExternalUrl = rememberOpenExternalUrl()
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = HomeDiscoverFeaturedHomeAdMaxTotalHeight)
             .wrapContentHeight(align = Alignment.Top)
             .clickable {
                 scope.launch {
@@ -210,48 +209,79 @@ private fun AdCardContent(
         border = BorderStroke(1.dp, Color(0xFF00CED1).copy(alpha = 0.4f)),
         colors = CardDefaults.cardColors(containerColor = Color.White),
     ) {
+        val businessTitle = ad.businessName.trim().let { bn ->
+            if (bn.isBlank() || bn.equals("Your Business Name Here", ignoreCase = true)) "" else bn
+        }
+        val displayTitle = when {
+            ad.isEvent && !ad.eventName.isNullOrBlank() -> ad.eventName!!.trim()
+            businessTitle.isNotBlank() -> businessTitle
+            ad.headline.isNotBlank() -> ad.headline.trim()
+            else -> "Sponsored"
+        }
+        val ctaLabel = when (adType) {
+            "house" -> "Advertise with us"
+            else -> ad.ctaText.trim().ifBlank { "Learn more" }
+        }
+
         Column(Modifier.fillMaxWidth()) {
-            Box(
+            // Taller when the card is wide so ultra-wide creatives (ContentScale.Fit) are not a razor-thin strip.
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(HomeDiscoverFeaturedAdHeroHeight)
-                    .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)),
+                    .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .then(
+                        if (!ad.imageUrl.isNullOrBlank()) {
+                            Modifier.background(Color(0xFFEEEEEE))
+                        } else {
+                            Modifier
+                        },
+                    ),
             ) {
-                if (!ad.imageUrl.isNullOrBlank()) {
-                    AsyncImage(
-                        model = ad.imageUrl,
-                        contentDescription = ad.headline,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color(0xFFB2EBF2).copy(alpha = 0.5f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("Sponsored", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF00838F))
-                    }
+                val heroHeight = when {
+                    maxWidth <= 0.dp -> HomeDiscoverFeaturedAdHeroHeight
+                    else -> (maxWidth * 0.48f).coerceIn(HomeDiscoverFeaturedAdHeroMinHeight, HomeDiscoverFeaturedAdHeroMaxHeight)
                 }
-                if (adCount > 1) {
-                    Row(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 6.dp),
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        repeat(adCount) { i ->
-                            Box(
-                                modifier = Modifier
-                                    .padding(horizontal = 3.dp)
-                                    .size(if (i == currentIndex) 7.dp else 5.dp),
-                            ) {
-                                Surface(
-                                    shape = RoundedCornerShape(50),
-                                    color = if (i == currentIndex) Color(0xFF00CED1) else Color(0xFFBDBDBD),
-                                    modifier = Modifier.fillMaxSize(),
-                                ) {}
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(heroHeight),
+                ) {
+                    if (!ad.imageUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = ad.imageUrl,
+                            contentDescription = displayTitle,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit,
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color(0xFFB2EBF2).copy(alpha = 0.5f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("Sponsored", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF00838F))
+                        }
+                    }
+                    if (adCount > 1) {
+                        Row(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 6.dp),
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            repeat(adCount) { i ->
+                                Box(
+                                    modifier = Modifier
+                                        .padding(horizontal = 3.dp)
+                                        .size(if (i == currentIndex) 7.dp else 5.dp),
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(50),
+                                        color = if (i == currentIndex) Color(0xFF00CED1) else Color(0xFFBDBDBD),
+                                        modifier = Modifier.fillMaxSize(),
+                                    ) {}
+                                }
                             }
                         }
                     }
@@ -263,53 +293,18 @@ private fun AdCardContent(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        ad.headline,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    val badgeColor = when {
-                        adType == "house" -> Color(0xFF808080)
-                        ad.isEvent -> Color(0xFFFF8F00)
-                        else -> Color(0xFF00CED1)
-                    }
-                    val badgeText = when {
-                        adType == "house" -> "Sample"
-                        ad.isEvent -> "Event"
-                        else -> "Ad"
-                    }
-                    Surface(shape = RoundedCornerShape(6.dp), color = badgeColor) {
-                        Text(badgeText, fontSize = 9.sp, color = Color.White, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
-                    }
-                }
-
-                if (ad.businessName.isNotBlank() && !ad.businessName.equals("Your Business Name Here", ignoreCase = true)) {
-                    Text(
-                        ad.businessName,
-                        fontSize = 10.sp,
-                        color = Color.Gray,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-
-                if (ad.showDistance && ad.businessLat != 0.0 && ad.businessLng != 0.0 && userLat != null && userLng != null) {
-                    val distMeters = haversineMeters(userLat, userLng, ad.businessLat, ad.businessLng)
-                    val distMiles = distMeters / 1609.34
-                    val distText = if (distMiles < 0.1) "${distMeters.toInt()} m" else "%.1f mi".format(distMiles)
-                    Text("📍 $distText", fontSize = 10.sp, color = Color(0xFF00CED1), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+                Text(
+                    displayTitle,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = Color(0xFF212121),
+                    lineHeight = 18.sp,
+                )
 
                 if (ad.isEvent) {
                     val dateDisplay = formatEventDateDisplay(ad.eventDate, ad.isRecurring)
@@ -322,26 +317,26 @@ private fun AdCardContent(
                     Text(
                         ad.body,
                         fontSize = 11.sp,
-                        maxLines = 2,
+                        maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
                         color = Color(0xFF424242),
+                        lineHeight = 15.sp,
                     )
                 }
 
                 if (adType == "house") {
-                    // Box instead of Surface so no shadow/tonal overlap on the body text above.
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFF5E5E5E), RoundedCornerShape(8.dp)),
+                            .background(Color(0xFF5E5E5E), RoundedCornerShape(10.dp)),
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                "Advertise with us",
-                                fontSize = 11.sp,
+                                ctaLabel,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color.White,
                                 modifier = Modifier.weight(1f),
@@ -353,16 +348,31 @@ private fun AdCardContent(
                             }
                         }
                     }
-                    TextButton(
-                        onClick = { openExternalUrl(MarketingLinks.advertiserLanding()) },
-                        modifier = Modifier.align(Alignment.Start),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(BorderStroke(1.5.dp, Color(0xFF00CED1)), RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp, vertical = 9.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Text("View packages on website", fontSize = 11.sp, color = Color(0xFF00838F))
+                        Text(
+                            ctaLabel,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF00CED1),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
 
-                Spacer(Modifier.height(4.dp))
+                if (ad.showDistance && ad.businessLat != 0.0 && ad.businessLng != 0.0 && userLat != null && userLng != null) {
+                    val distMeters = haversineMeters(userLat, userLng, ad.businessLat, ad.businessLng)
+                    val distMiles = distMeters / 1609.34
+                    val distText = if (distMiles < 0.1) "${distMeters.toInt()} m" else "%.1f mi".format(distMiles)
+                    Text("📍 $distText", fontSize = 10.sp, color = Color(0xFF00CED1), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
     }

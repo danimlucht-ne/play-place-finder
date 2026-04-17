@@ -42,16 +42,14 @@ val HomeDiscoverInlineAdCompactMinTotalHeight =
     HomeDiscoverInlineAdImageHeight + HomeDiscoverCardBelowHeroSpacing + 56.dp
 
 /**
- * Hero for [FeaturedAdCard] only — shorter than [HomeDiscoverHeroImageHeight] so the ad slot
- * does not match full playground tile height on the home stack.
+ * Fallback hero height for [FeaturedAdCard] when constraints are not yet known.
+ * Actual height uses [HomeDiscoverFeaturedAdHeroMinHeight]..[HomeDiscoverFeaturedAdHeroMaxHeight]
+ * from card width (~48% of width) so wide banner creatives are not a thin strip under [ContentScale.Fit].
  */
-val HomeDiscoverFeaturedAdHeroHeight = 72.dp
+val HomeDiscoverFeaturedAdHeroHeight = 120.dp
 
-/** Spacer between featured hero and text block (tighter than carousel tiles). */
-val HomeDiscoverFeaturedAdBelowHeroSpacing = 6.dp
+val HomeDiscoverFeaturedAdHeroMinHeight = 136.dp
+val HomeDiscoverFeaturedAdHeroMaxHeight = 220.dp
 
-/**
- * Hard cap on [FeaturedAdCard] ([AdCardContent]) total height. The card wraps its content (no
- * nested vertical scroll); unusually long copy ellipsizes (see body maxLines in the composable).
- */
-val HomeDiscoverFeaturedHomeAdMaxTotalHeight = 260.dp
+/** Spacer between featured hero and text block. */
+val HomeDiscoverFeaturedAdBelowHeroSpacing = 4.dp
