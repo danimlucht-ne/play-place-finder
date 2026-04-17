@@ -12,6 +12,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -223,12 +225,26 @@ private fun AdCardContent(
             else -> ad.ctaText.trim().ifBlank { "Learn more" }
         }
 
-        Column(Modifier.fillMaxWidth()) {
-            // Taller when the card is wide so ultra-wide creatives (ContentScale.Fit) are not a razor-thin strip.
-            BoxWithConstraints(
+        // Half-width image column (layout start) + half-width copy: image height tracks text stack so the
+        // creative fills the full vertical half (Crop), avoiding a short letterboxed strip on wide art.
+        val layoutDir = LocalLayoutDirection.current
+        val imageHalfShape = if (layoutDir == LayoutDirection.Rtl) {
+            RoundedCornerShape(topStart = 0.dp, bottomStart = 0.dp, topEnd = 20.dp, bottomEnd = 20.dp)
+        } else {
+            RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp, topEnd = 0.dp, bottomEnd = 0.dp)
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = HomeDiscoverFeaturedAdSplitMinRowHeight)
+                .height(IntrinsicSize.Min),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(imageHalfShape)
                     .then(
                         if (!ad.imageUrl.isNullOrBlank()) {
                             Modifier.background(Color(0xFFEEEEEE))
@@ -237,155 +253,179 @@ private fun AdCardContent(
                         },
                     ),
             ) {
-                val heroHeight = when {
-                    maxWidth <= 0.dp -> HomeDiscoverFeaturedAdHeroHeight
-                    else -> (maxWidth * HomeDiscoverFeaturedAdHeroWidthFraction).coerceIn(
-                        HomeDiscoverFeaturedAdHeroMinHeight,
-                        HomeDiscoverFeaturedAdHeroMaxHeight,
+                if (!ad.imageUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = ad.imageUrl,
+                        contentDescription = displayTitle,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFFB2EBF2).copy(alpha = 0.5f)),
                     )
                 }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(heroHeight),
-                ) {
-                    if (!ad.imageUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = ad.imageUrl,
-                            contentDescription = displayTitle,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit,
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color(0xFFB2EBF2).copy(alpha = 0.5f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text("Sponsored", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF00838F))
-                        }
-                    }
-                    if (adCount > 1) {
-                        Row(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(bottom = 6.dp),
-                            horizontalArrangement = Arrangement.Center,
-                        ) {
-                            repeat(adCount) { i ->
-                                Box(
-                                    modifier = Modifier
-                                        .padding(horizontal = 3.dp)
-                                        .size(if (i == currentIndex) 7.dp else 5.dp),
-                                ) {
-                                    Surface(
-                                        shape = RoundedCornerShape(50),
-                                        color = if (i == currentIndex) Color(0xFF00CED1) else Color(0xFFBDBDBD),
-                                        modifier = Modifier.fillMaxSize(),
-                                    ) {}
-                                }
+                if (adCount > 1) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 6.dp),
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        repeat(adCount) { i ->
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 3.dp)
+                                    .size(if (i == currentIndex) 7.dp else 5.dp),
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = if (i == currentIndex) Color(0xFF00CED1) else Color(0xFFBDBDBD),
+                                    modifier = Modifier.fillMaxSize(),
+                                ) {}
                             }
                         }
                     }
                 }
             }
 
-            Spacer(Modifier.height(HomeDiscoverFeaturedAdBelowHeroSpacing))
-            HorizontalDivider(
-                modifier = Modifier.fillMaxWidth(),
-                thickness = 1.dp,
-                color = Color(0xFFE8E8E8),
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(1.dp)
+                    .background(Color(0xFFE8E8E8)),
             )
 
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(start = 8.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text(
-                    displayTitle,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = Color(0xFF212121),
-                    lineHeight = 17.sp,
-                )
+                val dateReadable =
+                    if (ad.isEvent) formatEventDateReadableLine(ad.eventDate, ad.isRecurring) else null
 
-                if (ad.isEvent) {
-                    val dateDisplay = formatEventDateDisplay(ad.eventDate, ad.isRecurring)
-                    if (dateDisplay != null) {
-                        Text("\uD83D\uDCC5 $dateDisplay", fontSize = 10.sp, color = Color(0xFFFF8F00), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-
-                if (ad.body.isNotBlank()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
                     Text(
-                        ad.body,
-                        fontSize = 11.sp,
+                        displayTitle,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        color = Color(0xFF424242),
-                        lineHeight = 14.sp,
+                        color = Color(0xFF212121),
+                        lineHeight = 17.sp,
                     )
-                }
 
-                if (adType == "house") {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFF5E5E5E), RoundedCornerShape(8.dp)),
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                ctaLabel,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White,
-                                modifier = Modifier.weight(1f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            if (dailyViews != null && dailyViews > 0) {
-                                Text("👤 $dailyViews", fontSize = 9.sp, color = Color.White.copy(alpha = 0.85f))
-                            }
-                        }
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(BorderStroke(1.dp, Color(0xFF00CED1)), RoundedCornerShape(8.dp))
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
+                    if (!dateReadable.isNullOrBlank()) {
                         Text(
-                            ctaLabel,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF00CED1),
-                            maxLines = 1,
+                            "\uD83D\uDCC5 $dateReadable",
+                            fontSize = 12.sp,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
+                            color = Color(0xFF212121),
+                            lineHeight = 16.sp,
+                        )
+                    }
+
+                    if (ad.body.isNotBlank()) {
+                        Text(
+                            ad.body,
+                            fontSize = 11.sp,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                            color = Color(0xFF424242),
+                            lineHeight = 14.sp,
                         )
                     }
                 }
 
-                if (ad.showDistance && ad.businessLat != 0.0 && ad.businessLng != 0.0 && userLat != null && userLng != null) {
-                    val distMeters = haversineMeters(userLat, userLng, ad.businessLat, ad.businessLng)
-                    val distMiles = distMeters / 1609.34
-                    val distText = if (distMiles < 0.1) "${distMeters.toInt()} m" else "%.1f mi".format(distMiles)
-                    Text(
-                        "📍 $distText",
-                        fontSize = 9.sp,
-                        color = Color(0xFF757575),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.Start,
+                ) {
+                    if (ad.showDistance && ad.businessLat != 0.0 && ad.businessLng != 0.0 && userLat != null && userLng != null) {
+                        val distMeters = haversineMeters(userLat, userLng, ad.businessLat, ad.businessLng)
+                        val distMiles = distMeters / 1609.34
+                        val distText = if (distMiles < 0.1) "${distMeters.toInt()} m" else "%.1f mi".format(distMiles)
+                        Text(
+                            "📍 $distText",
+                            fontSize = 9.sp,
+                            color = Color(0xFF757575),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        when {
+                            ad.isEvent -> EventBadgePill()
+                            adType == "house" -> {
+                                Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFF808080)) {
+                                    Text(
+                                        "Sample",
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.White,
+                                    )
+                                }
+                            }
+                            else -> AdIndicatorPill()
+                        }
+                        if (adType == "house") {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .background(Color(0xFF5E5E5E), RoundedCornerShape(8.dp)),
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        ctaLabel,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.White,
+                                        modifier = Modifier.weight(1f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    if (dailyViews != null && dailyViews > 0) {
+                                        Text("👤 $dailyViews", fontSize = 9.sp, color = Color.White.copy(alpha = 0.85f))
+                                    }
+                                }
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .border(BorderStroke(1.dp, Color(0xFF00CED1)), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    ctaLabel,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF00CED1),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

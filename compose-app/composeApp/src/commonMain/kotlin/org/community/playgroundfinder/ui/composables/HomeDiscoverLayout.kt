@@ -42,16 +42,10 @@ val HomeDiscoverInlineAdCompactMinTotalHeight =
     HomeDiscoverInlineAdImageHeight + HomeDiscoverCardBelowHeroSpacing + 56.dp
 
 /**
- * Fallback hero height for [FeaturedAdCard] when constraints are not yet known.
- * Live height is ~[HomeDiscoverFeaturedAdHeroWidthFraction] of card width, clamped to
- * [HomeDiscoverFeaturedAdHeroMinHeight]..[HomeDiscoverFeaturedAdHeroMaxHeight] — enough for wide
- * banners under [ContentScale.Fit] without letting square art dominate the whole card.
+ * Minimum row height for [FeaturedAdCard] split layout (image half + text half) so very short copy
+ * still leaves a usable image column.
  */
-val HomeDiscoverFeaturedAdHeroHeight = 120.dp
+val HomeDiscoverFeaturedAdSplitMinRowHeight = 120.dp
 
-const val HomeDiscoverFeaturedAdHeroWidthFraction = 0.36f
-val HomeDiscoverFeaturedAdHeroMinHeight = 112.dp
-val HomeDiscoverFeaturedAdHeroMaxHeight = 168.dp
-
-/** Spacer between featured hero and text block. */
-val HomeDiscoverFeaturedAdBelowHeroSpacing = 2.dp
+/** Minimum split-row height for [SponsoredListingCard] horizontal split layout (list / fluid width). */
+val HomeDiscoverSponsoredListingSplitMinRowHeight = 120.dp

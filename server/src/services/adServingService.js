@@ -213,6 +213,10 @@ function formatPaidAd(campaign, creative, placement, advertiser) {
   };
 }
 
+/** Stock creative for house/demo ads (Unsplash — family indoor play). */
+const HOUSE_AD_STOCK_IMAGE_URL =
+  'https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&w=960&q=80';
+
 function houseAd(cityId, placement, ctaText) {
   return {
     id: `house_${cityId}`,
@@ -221,7 +225,7 @@ function houseAd(cityId, placement, ctaText) {
     // Headline is the sample business name; omit businessName so clients don’t show a duplicate placeholder line.
     businessName: '',
     body: 'Indoor play area, coffee bar & snacks for the whole family. Book a birthday party today!',
-    imageUrl: null,
+    imageUrl: HOUSE_AD_STOCK_IMAGE_URL,
     ctaText,
     ctaUrl: '/advertise',
     placement,

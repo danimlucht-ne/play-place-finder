@@ -1236,6 +1236,8 @@ fun PlaygroundListScreen(
                                     matchCarouselMinHeight = false,
                                     showCategory = false,
                                     imageContentScale = ContentScale.Fit,
+                                    useSplitLayout = true,
+                                    onAdvertiseWithUs = onNavigateToAdvertise,
                                 )
                             }
                             sponsoredBusiness != null -> {
@@ -1257,6 +1259,8 @@ fun PlaygroundListScreen(
                                     matchCarouselMinHeight = false,
                                     showCategory = false,
                                     imageContentScale = ContentScale.Fit,
+                                    useSplitLayout = true,
+                                    onAdvertiseWithUs = onNavigateToAdvertise,
                                 )
                             }
                             else -> {
@@ -1270,6 +1274,7 @@ fun PlaygroundListScreen(
                                     onSampleTap = onNavigateToAdvertise,
                                     matchCarouselMinHeight = false,
                                     showCategory = false,
+                                    useSplitLayout = true,
                                 )
                             }
                         }

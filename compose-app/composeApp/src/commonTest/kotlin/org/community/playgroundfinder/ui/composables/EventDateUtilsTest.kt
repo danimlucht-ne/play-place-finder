@@ -136,4 +136,25 @@ class EventDateUtilsTest {
     fun `getEventCountdown returns null for past dates`() {
         assertNull(getEventCountdown(today().plus(DatePeriod(days = -1)).toString()))
     }
+
+    @Test
+    fun `formatEventDateReadableLine returns full calendar line`() {
+        assertEquals(
+            "Thursday, Aug 20, 2026",
+            formatEventDateReadableLine(eventDate = "2026-08-20", isRecurring = false),
+        )
+    }
+
+    @Test
+    fun `formatEventDateReadableLine recurring uses weekday`() {
+        assertEquals(
+            "Every Thursday",
+            formatEventDateReadableLine(eventDate = "2026-08-20", isRecurring = true),
+        )
+    }
+
+    @Test
+    fun `formatEventDateReadableLine null for invalid`() {
+        assertNull(formatEventDateReadableLine(eventDate = "not-a-date", isRecurring = false))
+    }
 }

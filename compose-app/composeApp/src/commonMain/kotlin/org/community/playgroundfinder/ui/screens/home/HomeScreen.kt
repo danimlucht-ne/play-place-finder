@@ -61,15 +61,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.*
-import org.community.playgroundfinder.models.AdCreativePayload
 import org.community.playgroundfinder.models.AllAdsResponse
 import org.community.playgroundfinder.models.HybridSearchResponse
-
-private sealed class DiscoverCarouselItem {
-    data class PlaceItem(val playground: Playground) : DiscoverCarouselItem()
-    /** [slotOrdinal] distinguishes repeated placements when the same creative appears in multiple breaks. */
-    data class InlineListingAdItem(val ad: AdCreativePayload, val slotOrdinal: Int) : DiscoverCarouselItem()
-}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -1682,15 +1675,16 @@ fun HomeScreen(
                 }
             }
 
-            // Persisted first: when lists clear during a new search, featured/inline ads keep a stable region key
-            // (avoids house ad flashing away while results reload).
+            // Prefer the region from current results so ads match what the user is viewing. Persisted key is
+            // only a fallback when lists are empty mid-load (avoids flashing); it must not override a stale
+            // saved key after the user moves or searches elsewhere — that previously required "Clear filters".
             val discoverCityId = remember(nearbyPlaygrounds, syncedResults, adsRegionKeyHint) {
                 val persisted = settings.getString("home_ads_region_key", "").trim().takeIf { it.isNotBlank() }
                 sequenceOf(
-                    persisted,
                     nearbyPlaygrounds.firstOrNull()?.regionKey,
                     syncedResults.firstOrNull()?.regionKey,
                     adsRegionKeyHint,
+                    persisted,
                 ).mapNotNull { it?.trim()?.takeIf { k -> k.isNotBlank() } }.firstOrNull()
             }
             LaunchedEffect(adsRegionKeyHint) {
@@ -1717,36 +1711,6 @@ fun HomeScreen(
                     }
                 }
             }
-            // House + paid both return `ads` from GET /ads/all; carousel used to ignore house, so inline never appeared in seeding cities.
-            val inlineCarouselAds = remember(inlineListingAdsResponse) {
-                val r = inlineListingAdsResponse ?: return@remember emptyList()
-                if (r.type == "paid" || r.type == "house") r.ads else emptyList()
-            }
-            // Match PlaygroundListScreen: first break after five places, then every six (indices 5, 11, …).
-            // Short carousels (2–5): one ad between first and second tile; single place: ad after it.
-            val discoverCarouselItems = remember(nearbyPlaygrounds, inlineCarouselAds) {
-                if (inlineCarouselAds.isEmpty()) {
-                    nearbyPlaygrounds.map { DiscoverCarouselItem.PlaceItem(it) }
-                } else {
-                    buildList<DiscoverCarouselItem> {
-                        nearbyPlaygrounds.forEachIndexed { index, place ->
-                            val longListSlot = index >= 5 && (index - 5) % 6 == 0
-                            if (longListSlot) {
-                                val slotOrdinal = (index - 5) / 6
-                                val ad = inlineCarouselAds[slotOrdinal % inlineCarouselAds.size]
-                                add(DiscoverCarouselItem.InlineListingAdItem(ad, slotOrdinal))
-                            } else if (index == 1 && nearbyPlaygrounds.size in 2..5) {
-                                add(DiscoverCarouselItem.InlineListingAdItem(inlineCarouselAds[0], 0))
-                            }
-                            add(DiscoverCarouselItem.PlaceItem(place))
-                        }
-                        if (nearbyPlaygrounds.size == 1) {
-                            add(DiscoverCarouselItem.InlineListingAdItem(inlineCarouselAds[0], 0))
-                        }
-                    }
-                }
-            }
-
             if (isSearching && nearbyPlaygrounds.isEmpty() && !isSeedingState && !isRemoteSeeding) {
                 Column(
                     modifier = Modifier.fillMaxWidth().height(160.dp).padding(horizontal = 24.dp),
@@ -1773,149 +1737,100 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(
-                        items = discoverCarouselItems,
-                        key = { item ->
-                            when (item) {
-                                is DiscoverCarouselItem.PlaceItem ->
-                                    item.playground.id?.takeIf { it.isNotBlank() }
-                                        ?: "${item.playground.name}_${item.playground.latitude}_${item.playground.longitude}"
-                                is DiscoverCarouselItem.InlineListingAdItem ->
-                                    "inline_${item.slotOrdinal}_${item.ad.campaignId ?: item.ad.id}"
-                            }
+                        items = nearbyPlaygrounds,
+                        key = { place ->
+                            place.id?.takeIf { it.isNotBlank() }
+                                ?: "${place.name}_${place.latitude}_${place.longitude}"
                         },
-                    ) { item ->
-                        when (item) {
-                            is DiscoverCarouselItem.InlineListingAdItem -> {
-                                val ad = item.ad
-                                val cityForTrack = discoverCityId ?: ""
-                                LaunchedEffect(ad.id, item.slotOrdinal, cityForTrack) {
-                                    if (cityForTrack.isNotBlank()) {
-                                        try {
-                                            service.trackAdEvent(
-                                                type = "impression",
-                                                adId = ad.id,
-                                                campaignId = ad.campaignId ?: "",
-                                                cityId = cityForTrack,
-                                                placement = "inline_listing",
-                                            )
-                                        } catch (_: Exception) {}
-                                    }
-                                }
-                                Column(Modifier.width(300.dp)) {
-                                    val title = ad.eventName?.takeIf { it.isNotBlank() } ?: ad.businessName.ifBlank { ad.headline }
-                                    SponsoredListingCard(
-                                        businessName = title,
-                                        category = ad.businessCategory.takeIf { it.isNotBlank() },
-                                        description = ad.body.takeIf { it.isNotBlank() },
-                                        websiteUrl = ad.ctaUrl.takeIf { it.isNotBlank() },
-                                        imageUrl = ad.imageUrl?.takeIf { it.isNotBlank() },
-                                        onLearnMore = { url ->
-                                            scope.launch {
-                                                try {
-                                                    service.trackAdEvent(
-                                                        type = "click",
-                                                        adId = ad.id,
-                                                        campaignId = ad.campaignId ?: "",
-                                                        cityId = cityForTrack,
-                                                        placement = "inline_listing",
-                                                    )
-                                                } catch (_: Exception) {}
-                                                onAdClick(url)
-                                            }
-                                        },
-                                        isEvent = ad.isEvent,
-                                        eventDate = ad.eventDate,
-                                        isRecurring = ad.isRecurring,
-                                        userLat = userLat,
-                                        userLng = userLng,
-                                        businessLat = ad.businessLat.takeIf { it != 0.0 },
-                                        businessLng = ad.businessLng.takeIf { it != 0.0 },
-                                        showDistance = ad.showDistance,
-                                        compactCarouselHero = true,
-                                        showCategory = false,
-                                        imageContentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    ) { place ->
+                        // Fixed height so carousel tiles share a consistent row height.
+                        Column(
+                            modifier = Modifier
+                                .width(300.dp)
+                                .height(HomeDiscoverPlaygroundCardMinTotalHeight)
+                                .clickable { onNavigateToDetail(place) },
+                        ) {
+                            Box {
+                                if (place.imageUrls.isNotEmpty()) {
+                                    AsyncImage(
+                                        model = place.imageUrls.first(),
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxWidth().height(HomeDiscoverHeroImageHeight).clip(RoundedCornerShape(24.dp)),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
                                     )
-                                }
-                            }
-                            is DiscoverCarouselItem.PlaceItem -> {
-                                val place = item.playground
-                                Column(modifier = Modifier.width(300.dp).clickable { onNavigateToDetail(place) }) {
-                                    Box {
-                                        if (place.imageUrls.isNotEmpty()) {
-                                            AsyncImage(
-                                                model = place.imageUrls.first(),
-                                                contentDescription = null,
-                                                modifier = Modifier.fillMaxWidth().height(HomeDiscoverHeroImageHeight).clip(RoundedCornerShape(24.dp)),
-                                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                            )
-                                        } else {
-                                            Box(
-                                                modifier = Modifier.fillMaxWidth().height(HomeDiscoverHeroImageHeight).clip(RoundedCornerShape(24.dp)).background(Color.White),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Image(
-                                                    painter = playgroundPlaceholderPainter(place.playgroundType),
-                                                    contentDescription = place.playgroundType ?: "Play Place",
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    contentScale = ContentScale.FillWidth
-                                                )
-                                            }
-                                        }
-                                        Surface(
-                                            modifier = Modifier.padding(12.dp).align(Alignment.TopEnd),
-                                            shape = CircleShape,
-                                            color = Color.White.copy(alpha = 0.8f)
-                                        ) {
-                                            val isFav = favoritedIds.contains(place.id) || place.isFavorited
-                                            Icon(if (isFav) MaterialIcons.Filled.Favorite else MaterialIcons.Filled.FavoriteBorder, null, modifier = Modifier.padding(8.dp).size(20.dp), tint = Color.Red)
-                                        }
-                                    }
-                                    Spacer(Modifier.height(HomeDiscoverCardBelowHeroSpacing))
-                                    Text(place.name, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White, maxLines = 1)
-
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(place.playgroundType ?: "Public", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
-                                        if (userLat != null && userLng != null && place.latitude != 0.0) {
-                                            val distance = calculateDistance(userLat!!, userLng!!, place.latitude, place.longitude)
-                                            Text(" • ${((distance * 10.0).roundToInt() / 10.0)} mi away", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
-                                        }
-                                    }
-                                    if (place.subVenues.isNotEmpty()) {
-                                        Text(
-                                            "Includes ${place.subVenues.size} areas",
-                                            fontSize = 12.sp,
-                                            color = Color.White.copy(alpha = 0.88f),
-                                            modifier = Modifier.padding(top = 4.dp),
+                                } else {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().height(HomeDiscoverHeroImageHeight).clip(RoundedCornerShape(24.dp)).background(Color.White),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Image(
+                                            painter = playgroundPlaceholderPainter(place.playgroundType),
+                                            contentDescription = place.playgroundType ?: "Play Place",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.FillWidth
                                         )
                                     }
-
-                                    val placeListNames = listMembership[place.id] ?: emptyList()
+                                }
+                                Surface(
+                                    modifier = Modifier.padding(12.dp).align(Alignment.TopEnd),
+                                    shape = CircleShape,
+                                    color = Color.White.copy(alpha = 0.8f)
+                                ) {
                                     val isFav = favoritedIds.contains(place.id) || place.isFavorited
-                                    if (isFav || placeListNames.isNotEmpty()) {
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                            modifier = Modifier.padding(top = 4.dp)
-                                        ) {
-                                            if (isFav) {
-                                                Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFFFCE4EC).copy(alpha = 0.9f)) {
-                                                    Row(modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                        Icon(MaterialIcons.Filled.Favorite, null, modifier = Modifier.size(10.dp), tint = Color(0xFFF06292))
-                                                        Spacer(Modifier.width(2.dp))
-                                                        Text("Favorite", fontSize = 10.sp, color = Color(0xFFC62828))
-                                                    }
+                                    Icon(if (isFav) MaterialIcons.Filled.Favorite else MaterialIcons.Filled.FavoriteBorder, null, modifier = Modifier.padding(8.dp).size(20.dp), tint = Color.Red)
+                                }
+                            }
+                            Spacer(Modifier.height(HomeDiscoverCardBelowHeroSpacing))
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                verticalArrangement = Arrangement.Top,
+                            ) {
+                                Text(place.name, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White, maxLines = 1)
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(place.playgroundType ?: "Public", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+                                    if (userLat != null && userLng != null && place.latitude != 0.0) {
+                                        val distance = calculateDistance(userLat!!, userLng!!, place.latitude, place.longitude)
+                                        Text(" • ${((distance * 10.0).roundToInt() / 10.0)} mi away", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+                                    }
+                                }
+                                if (place.subVenues.isNotEmpty()) {
+                                    Text(
+                                        "Includes ${place.subVenues.size} areas",
+                                        fontSize = 12.sp,
+                                        color = Color.White.copy(alpha = 0.88f),
+                                        modifier = Modifier.padding(top = 4.dp),
+                                    )
+                                }
+
+                                val placeListNames = listMembership[place.id] ?: emptyList()
+                                val isFav = favoritedIds.contains(place.id) || place.isFavorited
+                                if (isFav || placeListNames.isNotEmpty()) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    ) {
+                                        if (isFav) {
+                                            Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFFFCE4EC).copy(alpha = 0.9f)) {
+                                                Row(modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(MaterialIcons.Filled.Favorite, null, modifier = Modifier.size(10.dp), tint = Color(0xFFF06292))
+                                                    Spacer(Modifier.width(2.dp))
+                                                    Text("Favorite", fontSize = 10.sp, color = Color(0xFFC62828))
                                                 }
                                             }
-                                            placeListNames.forEach { (name, chipColor) ->
-                                                val parsedColor = chipColor?.let { parseHexColor(it) }
-                                                val bgColor = parsedColor?.copy(alpha = 0.85f) ?: FormColors.ListChipDefaultBg
-                                                val textColor = when {
-                                                    parsedColor != null && isColorDark(parsedColor) -> Color.White
-                                                    parsedColor != null -> Color(0xFF212121)
-                                                    else -> FormColors.ListChipDefaultFg
-                                                }
-                                                Surface(shape = RoundedCornerShape(6.dp), color = bgColor) {
-                                                    Text(name, fontSize = 10.sp, color = textColor, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
-                                                }
+                                        }
+                                        placeListNames.forEach { (name, chipColor) ->
+                                            val parsedColor = chipColor?.let { parseHexColor(it) }
+                                            val bgColor = parsedColor?.copy(alpha = 0.85f) ?: FormColors.ListChipDefaultBg
+                                            val textColor = when {
+                                                parsedColor != null && isColorDark(parsedColor) -> Color.White
+                                                parsedColor != null -> Color(0xFF212121)
+                                                else -> FormColors.ListChipDefaultFg
+                                            }
+                                            Surface(shape = RoundedCornerShape(6.dp), color = bgColor) {
+                                                Text(name, fontSize = 10.sp, color = textColor, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                                             }
                                         }
                                     }
@@ -1966,7 +1881,7 @@ fun HomeScreen(
                     MaterialIcons.Filled.Event,
                     "Events near you",
                     Color.White,
-                    Color(0xFF7B1FA2),
+                    Color(0xFF00CED1),
                     Modifier.fillMaxWidth(),
                 ) {
                     val preloaded = inlineListingAdsResponse?.takeIf { discoverCityId.isNullOrBlank().not() }

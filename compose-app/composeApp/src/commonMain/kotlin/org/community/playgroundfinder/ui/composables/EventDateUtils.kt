@@ -58,6 +58,20 @@ fun formatEventDateDisplay(eventDate: String?, isRecurring: Boolean): String? {
     }
 }
 
+/** Full calendar line for ad cards (high contrast body text), e.g. "Wednesday, Apr 16, 2026". */
+fun formatEventDateReadableLine(eventDate: String?, isRecurring: Boolean): String? {
+    if (eventDate == null) return null
+    val date = try {
+        LocalDate.parse(eventDate.take(10))
+    } catch (_: Exception) {
+        return null
+    }
+    if (isRecurring) return "Every ${date.dayOfWeek.toEnglishFull()}"
+    val dow = date.dayOfWeek.toEnglishFull()
+    val monthName = date.month.toEnglishShort()
+    return "$dow, $monthName ${date.dayOfMonth}, ${date.year}"
+}
+
 /** Returns countdown text when event is within 3 days, null otherwise. */
 fun getEventCountdown(eventDate: String?): String? {
     if (eventDate == null) return null

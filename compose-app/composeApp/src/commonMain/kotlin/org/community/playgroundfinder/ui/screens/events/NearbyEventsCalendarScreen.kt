@@ -267,7 +267,9 @@ fun NearbyEventsCalendarScreen(
                                 showDistance = ad.showDistance,
                                 matchCarouselMinHeight = false,
                                 showCategory = false,
+                                useSplitLayout = true,
                                 imageContentScale = ContentScale.Fit,
+                                onAdvertiseWithUs = onAdvertise,
                             )
                         }
                     }

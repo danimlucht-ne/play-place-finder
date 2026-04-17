@@ -24,6 +24,13 @@ const { resolveMongoDbName } = require('../src/resolveMongoDbName');
 const SEED_TAG = 'ad-rotation-test-v1';
 const N = 5;
 
+/** Stock photos for seeded demo creatives (Unsplash). Sync conceptually with `HOUSE_AD_STOCK_IMAGE_URL` in adServingService.js if you change defaults. */
+const SEED_DEMO_IMAGE_URLS = [
+  'https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&w=960&q=80',
+  'https://images.unsplash.com/photo-1587654780291-39c9404d746b?auto=format&fit=crop&w=960&q=80',
+  'https://images.unsplash.com/photo-1566454825481-f3accfa8a1de?auto=format&fit=crop&w=960&q=80',
+];
+
 function argVal(name) {
   const p = process.argv.find((a) => a.startsWith(`${name}=`));
   return p ? p.slice(name.length + 1).trim().toLowerCase() : null;
@@ -134,13 +141,14 @@ async function main() {
 
   const campaignIds = [];
 
-  for (const p of plan) {
+  for (let idx = 0; idx < plan.length; idx += 1) {
+    const p = plan[idx];
     const creative = {
       submissionId: null,
       advertiserId: advertiser._id,
       headline: p.headline,
       body: 'Synthetic creative for rotation / analytics testing. Safe to delete with --remove.',
-      imageUrl: null,
+      imageUrl: SEED_DEMO_IMAGE_URLS[idx % SEED_DEMO_IMAGE_URLS.length],
       ctaText: 'Learn more',
       ctaUrl: 'https://example.com',
       businessName: advertiser.businessName || 'Test Business',

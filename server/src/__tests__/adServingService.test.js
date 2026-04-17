@@ -35,6 +35,7 @@ describe('adServingService', () => {
         headline: expect.stringContaining('Sunny Day Play'),
         ctaText: 'Advertise Your Business',
         placement: 'featured_home',
+        imageUrl: expect.stringContaining('images.unsplash.com'),
       },
     });
   });

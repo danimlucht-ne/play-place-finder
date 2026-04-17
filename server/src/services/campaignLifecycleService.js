@@ -138,7 +138,8 @@ async function activateCampaign(submissionId) {
     advertiserId: submission.advertiserId,
     creativeId: submission.creativeId,
     status,
-    // Event spotlight is a sponsored-slot add-on (same surface as monthly inline), not prime featured carousel.
+    // Event spotlight packages default to sponsored inline slots. The app can render [isEvent] creatives on
+    // prime (featured_home) too whenever adTargeting includes that placement (e.g. featured + event bundle).
     placement: isEventPackage ? 'inline_listing' : submission.package.type,
     startDate,
     endDate,
