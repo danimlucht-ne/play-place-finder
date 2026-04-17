@@ -43,13 +43,15 @@ val HomeDiscoverInlineAdCompactMinTotalHeight =
 
 /**
  * Fallback hero height for [FeaturedAdCard] when constraints are not yet known.
- * Actual height uses [HomeDiscoverFeaturedAdHeroMinHeight]..[HomeDiscoverFeaturedAdHeroMaxHeight]
- * from card width (~48% of width) so wide banner creatives are not a thin strip under [ContentScale.Fit].
+ * Live height is ~[HomeDiscoverFeaturedAdHeroWidthFraction] of card width, clamped to
+ * [HomeDiscoverFeaturedAdHeroMinHeight]..[HomeDiscoverFeaturedAdHeroMaxHeight] — enough for wide
+ * banners under [ContentScale.Fit] without letting square art dominate the whole card.
  */
 val HomeDiscoverFeaturedAdHeroHeight = 120.dp
 
-val HomeDiscoverFeaturedAdHeroMinHeight = 136.dp
-val HomeDiscoverFeaturedAdHeroMaxHeight = 220.dp
+const val HomeDiscoverFeaturedAdHeroWidthFraction = 0.36f
+val HomeDiscoverFeaturedAdHeroMinHeight = 112.dp
+val HomeDiscoverFeaturedAdHeroMaxHeight = 168.dp
 
 /** Spacer between featured hero and text block. */
-val HomeDiscoverFeaturedAdBelowHeroSpacing = 4.dp
+val HomeDiscoverFeaturedAdBelowHeroSpacing = 2.dp

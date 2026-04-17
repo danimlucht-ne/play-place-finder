@@ -239,7 +239,10 @@ private fun AdCardContent(
             ) {
                 val heroHeight = when {
                     maxWidth <= 0.dp -> HomeDiscoverFeaturedAdHeroHeight
-                    else -> (maxWidth * 0.48f).coerceIn(HomeDiscoverFeaturedAdHeroMinHeight, HomeDiscoverFeaturedAdHeroMaxHeight)
+                    else -> (maxWidth * HomeDiscoverFeaturedAdHeroWidthFraction).coerceIn(
+                        HomeDiscoverFeaturedAdHeroMinHeight,
+                        HomeDiscoverFeaturedAdHeroMaxHeight,
+                    )
                 }
                 Box(
                     modifier = Modifier
@@ -289,21 +292,26 @@ private fun AdCardContent(
             }
 
             Spacer(Modifier.height(HomeDiscoverFeaturedAdBelowHeroSpacing))
+            HorizontalDivider(
+                modifier = Modifier.fillMaxWidth(),
+                thickness = 1.dp,
+                color = Color(0xFFE8E8E8),
+            )
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
                     displayTitle,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     color = Color(0xFF212121),
-                    lineHeight = 18.sp,
+                    lineHeight = 17.sp,
                 )
 
                 if (ad.isEvent) {
@@ -317,10 +325,10 @@ private fun AdCardContent(
                     Text(
                         ad.body,
                         fontSize = 11.sp,
-                        maxLines = 3,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         color = Color(0xFF424242),
-                        lineHeight = 15.sp,
+                        lineHeight = 14.sp,
                     )
                 }
 
@@ -328,10 +336,10 @@ private fun AdCardContent(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFF5E5E5E), RoundedCornerShape(10.dp)),
+                            .background(Color(0xFF5E5E5E), RoundedCornerShape(8.dp)),
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
@@ -352,13 +360,13 @@ private fun AdCardContent(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(BorderStroke(1.5.dp, Color(0xFF00CED1)), RoundedCornerShape(10.dp))
-                            .padding(horizontal = 12.dp, vertical = 9.dp),
+                            .border(BorderStroke(1.dp, Color(0xFF00CED1)), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             ctaLabel,
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF00CED1),
                             maxLines = 1,
@@ -371,7 +379,13 @@ private fun AdCardContent(
                     val distMeters = haversineMeters(userLat, userLng, ad.businessLat, ad.businessLng)
                     val distMiles = distMeters / 1609.34
                     val distText = if (distMiles < 0.1) "${distMeters.toInt()} m" else "%.1f mi".format(distMiles)
-                    Text("📍 $distText", fontSize = 10.sp, color = Color(0xFF00CED1), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        "📍 $distText",
+                        fontSize = 9.sp,
+                        color = Color(0xFF757575),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }
