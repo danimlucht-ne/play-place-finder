@@ -80,10 +80,11 @@ private fun SubmissionRow(row: Map<String, Any>) {
     val name = row["playgroundName"]?.toString() ?: "Submission"
     val reason = noteForDisplay(row["reason"])
     val created = row["createdAt"]?.toString() ?: ""
+    val source = row["source"]?.toString()?.uppercase() ?: "MODERATION"
 
     val statusColor = when (status) {
         "NEEDS_ADMIN_REVIEW", "PENDING" -> Color(0xFFFF9800)
-        "APPROVED", "AUTO_APPROVED" -> Color(0xFF2E7D32)
+        "APPROVED", "AUTO_APPROVED", "RESOLVED" -> Color(0xFF2E7D32)
         "REJECTED" -> Color(0xFFC62828)
         else -> Color.Gray
     }
@@ -101,6 +102,11 @@ private fun SubmissionRow(row: Map<String, Any>) {
                         "PLAYGROUND_EDIT" -> "✏️"
                         "NEW_PLAYGROUND" -> "🆕"
                         "DELETE_REQUEST" -> "🗑️"
+                        "SUGGESTION" -> "💡"
+                        "REQUEST_UPDATE" -> "🛠️"
+                        "REPORT_ISSUE" -> "🚩"
+                        "QUESTION" -> "❓"
+                        "COMPLAINT" -> "⚠️"
                         else -> "📋"
                     },
                     fontSize = 20.sp,
@@ -108,14 +114,31 @@ private fun SubmissionRow(row: Map<String, Any>) {
                 )
                 Column(Modifier.weight(1f)) {
                     Text(name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                    Text(
-                        when (type) {
-                            "DELETE_REQUEST" -> "Removal request"
-                            else -> type.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
-                        },
-                        fontSize = 12.sp,
-                        color = Color.Gray
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            when (type) {
+                                "DELETE_REQUEST" -> "Removal request"
+                                "REQUEST_UPDATE" -> "Update request"
+                                "REPORT_ISSUE" -> "Issue report"
+                                else -> type.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
+                            },
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFFE3F2FD),
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) {
+                            Text(
+                                if (source == "SUPPORT") "Support" else "Moderation",
+                                fontSize = 10.sp,
+                                color = Color(0xFF1565C0),
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                 }
                 Surface(shape = RoundedCornerShape(8.dp), color = statusColor.copy(alpha = 0.15f)) {
                     Text(

@@ -154,18 +154,11 @@ describe('userRoutes', () => {
   });
 
   test('returns profile, contributor rank, and leaderboard data', async () => {
-    const user = { _id: 'user-1', email: 'u@test.invalid', role: 'admin', score: 20, level: 'Guide', regionKey: 'omaha-ne' };
-    const supportToArray = jest.fn().mockResolvedValue([
-      { _id: 'NEEDS_ADMIN_REVIEW', count: 1 },
-      { _id: 'RESOLVED', count: 2 },
-    ]);
+    const user = { _id: 'user-1', email: 'u@example.com', role: 'admin', score: 20, level: 'Guide', regionKey: 'omaha-ne' };
     getDb.mockReturnValue(makeDb({
       users: {
         findOne: jest.fn().mockResolvedValue(user),
         countDocuments: jest.fn().mockResolvedValue(4),
-      },
-      support_tickets: {
-        aggregate: jest.fn().mockReturnValue({ toArray: supportToArray }),
       },
     }));
     contributionService.getLeaderboard.mockResolvedValue([{ userId: 'user-1', score: 20 }]);
@@ -176,19 +169,13 @@ describe('userRoutes', () => {
 
     expect(me.body.data).toEqual({
       _id: 'user-1',
-      email: 'u@test.invalid',
+      email: 'u@example.com',
       role: 'admin',
       score: 20,
       level: 'Guide',
       adFree: false,
     });
     expect(profile.body.data.rank).toBe(5);
-    expect(profile.body.data.supportTickets).toEqual({
-      pending: 1,
-      resolved: 2,
-      rejected: 0,
-      total: 3,
-    });
     expect(contributionService.getLeaderboard).toHaveBeenCalledWith('omaha-ne', 5);
     expect(leaderboard.body.data).toEqual([{ userId: 'user-1', score: 20 }]);
   });
@@ -212,9 +199,10 @@ describe('userRoutes', () => {
     expect(updateMany).toHaveBeenNthCalledWith(2, { userId: 'user-1' }, { $set: { read: true } });
   });
 
-  test('returns user moderation submissions including photo upload ids', async () => {
+  test('returns user submissions from moderation and support tickets', async () => {
     const photoId = new ObjectId();
     const moderationId = new ObjectId();
+    const supportId = new ObjectId();
     getDb.mockReturnValue(makeDb({
       photo_uploads: { find: jest.fn().mockReturnValue(makeCursor([{ _id: photoId }])) },
       moderation_queue: {
@@ -229,21 +217,47 @@ describe('userRoutes', () => {
           createdAt: new Date('2026-04-09T12:00:00Z'),
         }])),
       },
+      support_tickets: {
+        find: jest.fn().mockReturnValue(makeCursor([{
+          _id: supportId,
+          ticketType: 'suggestion',
+          status: 'NEEDS_ADMIN_REVIEW',
+          targetPlaygroundSummary: { name: 'Neighborhood Park' },
+          targetId: 'pg-2',
+          message: 'Add toddler swing',
+          createdAt: new Date('2026-04-10T12:00:00Z'),
+        }])),
+      },
     }));
 
     const res = await request(buildApp()).get('/users/me/submissions?limit=200').expect(200);
 
-    expect(res.body.data).toEqual([{
-      id: moderationId.toHexString(),
-      submissionType: 'PHOTO',
-      status: 'APPROVED',
-      playgroundName: 'Park',
-      playgroundId: 'place-1',
-      previewUrl: 'https://example.com/p.jpg',
-      reason: 'Looks good',
-      reviewedAt: null,
-      createdAt: '2026-04-09T12:00:00.000Z',
-    }]);
+    expect(res.body.data).toEqual([
+      {
+        id: supportId.toHexString(),
+        source: 'SUPPORT',
+        submissionType: 'SUGGESTION',
+        status: 'NEEDS_ADMIN_REVIEW',
+        playgroundName: 'Neighborhood Park',
+        playgroundId: 'pg-2',
+        previewUrl: null,
+        reason: 'Add toddler swing',
+        reviewedAt: null,
+        createdAt: '2026-04-10T12:00:00.000Z',
+      },
+      {
+        id: moderationId.toHexString(),
+        source: 'MODERATION',
+        submissionType: 'PHOTO',
+        status: 'APPROVED',
+        playgroundName: 'Park',
+        playgroundId: 'place-1',
+        previewUrl: 'https://example.com/p.jpg',
+        reason: 'Looks good',
+        reviewedAt: null,
+        createdAt: '2026-04-09T12:00:00.000Z',
+      },
+    ]);
   });
 
   test('clears contributor display name with null body or clearDisplayName flag', async () => {

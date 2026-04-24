@@ -13,9 +13,13 @@ const {
 const { hydratePlaygroundFromPlaceDetails } = require('../services/seedOrchestratorService');
 const { reviewPlaygroundSubmission } = require('../services/playgroundSubmissionReviewService');
 const { recordVerificationFromPlaygroundEdit } = require('../services/recordVerificationFromEdit');
-const { resolvePlaygroundIdFilter, collectSubsumedPlaygroundIdsForRegion } = require('../utils/playgroundIdFilter');
+const {
+    resolvePlaygroundIdFilter,
+    collectSubsumedPlaygroundIdsForRegion,
+    stablePlaygroundIdKey,
+    collectAllSubsumedPlaygroundIdsForRegions,
+} = require('../utils/playgroundIdFilter');
 const { ACTIVE_PLAYGROUND_FILTER } = require('../services/activePlaygroundFilter');
-const { inferAmenityBooleansFromPlace } = require('../services/venueMergeService');
 
 const SubmissionType = {
     PHOTO: 'PHOTO',
@@ -27,27 +31,6 @@ const SubmissionType = {
 };
 
 const ACTIVE_FILTER = ACTIVE_PLAYGROUND_FILTER;
-
-/** When filtering by splash/spray playground types, also return rows with inferred or explicit hasSplashPad. */
-function isSplashPlaygroundTypeQuery(playgroundTypeParam) {
-    if (playgroundTypeParam == null || playgroundTypeParam === '') return false;
-    const s = String(playgroundTypeParam).toLowerCase();
-    return /\bsplash|\bspray|sprayground|splashpad|water\s*play\b/.test(s);
-}
-
-/** When filtering by dog-park style types, also return rows flagged isDogFriendly. */
-function isDogParkPlaygroundTypeQuery(playgroundTypeParam) {
-    if (playgroundTypeParam == null || playgroundTypeParam === '') return false;
-    const s = String(playgroundTypeParam).toLowerCase();
-    return /\bdog\s*park|dog\s*friendly|off[\s-]?leash\b/.test(s);
-}
-
-/** When filtering by skate-park style types, also return rows with hasSkatePark (e.g. merged under a larger park). */
-function isSkateParkPlaygroundTypeQuery(playgroundTypeParam) {
-    if (playgroundTypeParam == null || playgroundTypeParam === '') return false;
-    const s = String(playgroundTypeParam).toLowerCase();
-    return /\bskate\s*park\b|skateboard\s*park/.test(s);
-}
 
 /** Aggregation expression: lowercase trimmed tokens from `groundType` CSV on the document. */
 function groundTypeNormalizedTokensExpr() {
@@ -260,7 +243,7 @@ router.get("/search", async (req, res) => {
         lat, lng, radius, groundType, groundTypeExclude, equipment, ageRange, sportsCourts,
         isIndoor, isOutdoor, costRange, isAccessible, hasWalkingPath, playgroundType,
         parkingSituation, swingTypes, hasBathrooms, hasShade, isFenced, hasPicnicTables,
-        hasBottleFiller, hasWaterFountain, isToddlerFriendly, hasSplashPad, hasSkatePark, isDogFriendly, hasWalkingTrail,
+        hasWaterFountain, isToddlerFriendly, hasSplashPad, isDogFriendly, hasWalkingTrail,
         hasBenches, hasTrashCans, hasParking, hasWifi, needsGripSocks, requiresWaiver
     } = req.query;
 
@@ -284,63 +267,16 @@ router.get("/search", async (req, res) => {
     if (costRange) query.costRange = costRange;
     if (isAccessible === 'true') query.isAccessible = true;
     if (hasWalkingPath === 'true') query.hasWalkingPath = true;
-    if (playgroundType) {
-        if (isSplashPlaygroundTypeQuery(playgroundType)) {
-            query.$and = [
-                ...(query.$and || []),
-                { playgroundType: { $ne: 'Library' } },
-                {
-                    $or: [
-                        { playgroundType: { $regex: new RegExp(String(playgroundType).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') } },
-                        { playgroundType: /splash|spray|sprayground|splashpad|water\s*play/i },
-                        { hasSplashPad: true },
-                    ],
-                },
-            ];
-        } else if (isDogParkPlaygroundTypeQuery(playgroundType)) {
-            query.$and = [
-                ...(query.$and || []),
-                { playgroundType: { $ne: 'Library' } },
-                {
-                    $or: [
-                        { playgroundType: { $regex: new RegExp(String(playgroundType).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') } },
-                        { playgroundType: /dog\s*park|dog\s*friendly|off[\s-]?leash/i },
-                        { isDogFriendly: true },
-                    ],
-                },
-            ];
-        } else if (isSkateParkPlaygroundTypeQuery(playgroundType)) {
-            query.$and = [
-                ...(query.$and || []),
-                { playgroundType: { $ne: 'Library' } },
-                {
-                    $or: [
-                        { playgroundType: { $regex: new RegExp(String(playgroundType).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') } },
-                        { playgroundType: /\bskate\s*park\b/i },
-                        { hasSkatePark: true },
-                    ],
-                },
-            ];
-        } else {
-            query.playgroundType = playgroundType;
-        }
-    } else {
-        query.playgroundType = { $ne: 'Library' }; // hide libraries unless explicitly filtered
-    }
+    if (playgroundType) query.playgroundType = playgroundType;
+    else query.playgroundType = { $ne: 'Library' }; // hide libraries unless explicitly filtered
     if (parkingSituation) query.parkingSituation = parkingSituation;
     if (hasBathrooms === 'true') query.hasBathrooms = true;
     if (hasShade === 'true') query.hasShade = true;
     if (isFenced === 'true') query.isFenced = true;
     if (hasPicnicTables === 'true') query.hasPicnicTables = true;
-    if (hasBottleFiller === 'true' || hasWaterFountain === 'true') {
-        query.$and = [
-            ...(query.$and || []),
-            { $or: [{ hasBottleFiller: true }, { hasWaterFountain: true }] },
-        ];
-    }
+    if (hasWaterFountain === 'true') query.hasWaterFountain = true;
     if (isToddlerFriendly === 'true') query.isToddlerFriendly = true;
     if (hasSplashPad === 'true') query.hasSplashPad = true;
-    if (hasSkatePark === 'true') query.hasSkatePark = true;
     if (isDogFriendly === 'true') query.isDogFriendly = true;
     if (hasWalkingTrail === 'true') query.hasWalkingTrail = true;
     if (hasBenches === 'true') query.hasBenches = true;
@@ -354,12 +290,23 @@ router.get("/search", async (req, res) => {
 
     try {
         const results = await db.collection("playgrounds").find({ ...query, ...ACTIVE_FILTER }).toArray();
+        const regionKeysForSubsumed = new Set();
+        for (const p of results) {
+            if (p.regionKey) regionKeysForSubsumed.add(String(p.regionKey).trim());
+            for (const ck of p.coveredRegionKeys || []) {
+                if (ck) regionKeysForSubsumed.add(String(ck).trim());
+            }
+        }
+        const subsumedRaw = await collectAllSubsumedPlaygroundIdsForRegions(db, [...regionKeysForSubsumed]);
+        const subsumedKeys = new Set(subsumedRaw.map(stablePlaygroundIdKey));
+        const pruned = results.filter((p) => p && p._id != null && !subsumedKeys.has(stablePlaygroundIdKey(p._id)));
+
         const favIds = new Set();
         if (req.user?.uid) {
             const favs = await db.collection("favorites").find({ userId: req.user.uid }).toArray();
             favs.forEach(f => favIds.add(f.placeId));
         }
-        res.json({ message: "success", data: results.map(p => {
+        res.json({ message: "success", data: pruned.map(p => {
             const t = transformPlayground(p);
             t.isFavorited = favIds.has(p._id.toString()) || favIds.has(p._id);
             return t;
@@ -421,7 +368,7 @@ router.post("/", verifyToken, ensureCanSubmit, async (req, res) => {
         latitude, longitude, isIndoor, isOutdoor, costRange, isAccessible, hasWalkingPath,
         ageRange, costToEnter, cleanlinessRating, atmosphereRating, crowdRating, modernityRating,
         playgroundType, parkingSituation, swingTypes, customIdentifiers, hasBathrooms, hasShade,
-        isFenced, hasPicnicTables, hasBottleFiller, hasWaterFountain, isToddlerFriendly, hasSplashPad, hasSkatePark, isDogFriendly,
+        isFenced, hasPicnicTables, hasWaterFountain, isToddlerFriendly, hasSplashPad, isDogFriendly,
         hasWalkingTrail, safetyScore, amenityScore, hasBenches, hasTrashCans, hasParking, hasWifi,
         needsGripSocks, requiresWaiver, customAmenities, atmosphereList, modernity, kidRating,
         parentRating, notesForAdmin, isAnonymous,
@@ -467,10 +414,8 @@ router.post("/", verifyToken, ensureCanSubmit, async (req, res) => {
         parkingSituation: parkingSituation || "Unknown",
         swingTypes: swingTypes || [], customIdentifiers: customIdentifiers || null,
         hasBathrooms: !!hasBathrooms, hasShade: !!hasShade, isFenced: !!isFenced,
-        hasPicnicTables: !!hasPicnicTables,
-        hasBottleFiller: !!(hasBottleFiller || hasWaterFountain),
+        hasPicnicTables: !!hasPicnicTables, hasWaterFountain: !!hasWaterFountain,
         isToddlerFriendly: !!isToddlerFriendly, hasSplashPad: !!hasSplashPad,
-        hasSkatePark: !!hasSkatePark,
         isDogFriendly: !!isDogFriendly, hasWalkingTrail: !!hasWalkingTrail,
         hasBenches: !!hasBenches, hasTrashCans: !!hasTrashCans, hasParking: !!hasParking,
         hasWifi: !!hasWifi, needsGripSocks: !!needsGripSocks, requiresWaiver: !!requiresWaiver,
@@ -507,15 +452,6 @@ router.post("/", verifyToken, ensureCanSubmit, async (req, res) => {
         ...userLocationPatch,
     };
 
-    const nameAmenityHints = inferAmenityBooleansFromPlace({
-        name,
-        playgroundType,
-        ...(Array.isArray(req.body.types) ? { types: req.body.types } : {}),
-    });
-    if (nameAmenityHints.hasSplashPad) newPlayground.hasSplashPad = true;
-    if (nameAmenityHints.hasSkatePark) newPlayground.hasSkatePark = true;
-    if (nameAmenityHints.isDogFriendly) newPlayground.isDogFriendly = true;
-
     try {
         const submissionReview = await reviewPlaygroundSubmission({
             name,
@@ -538,6 +474,20 @@ router.post("/", verifyToken, ensureCanSubmit, async (req, res) => {
                 },
             };
             const result = await db.collection("playgrounds").insertOne(doc);
+            await db.collection("moderation_queue").insertOne({
+                submissionType: SubmissionType.NEW_PLAYGROUND,
+                submissionId: result.insertedId.toHexString(),
+                playgroundId: result.insertedId.toHexString(),
+                playgroundName: doc.name || null,
+                proposedNewPlayground: doc,
+                submittedByUserId: req.user.uid,
+                status: 'AUTO_APPROVED',
+                geminiSubmissionReview: submissionReview,
+                reviewedAt: new Date(),
+                reviewedBy: 'system:auto-approve',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            });
             await contributionService.recordContribution(
                 req.user.uid, SubmissionType.NEW_PLAYGROUND,
                 result.insertedId.toHexString(), newPlayground.city
@@ -605,15 +555,6 @@ router.put("/:id", verifyToken, ensureCanSubmit, async (req, res) => {
         const idFilter = { _id: playground._id };
 
         const merged = { ...playground, ...updates };
-        const inferredEdit = inferAmenityBooleansFromPlace({
-            name: merged.name,
-            playgroundType: merged.playgroundType,
-            types: merged.types,
-        });
-        if (inferredEdit.hasSplashPad) updates.hasSplashPad = true;
-        if (inferredEdit.hasSkatePark) updates.hasSkatePark = true;
-        if (inferredEdit.isDogFriendly) updates.isDogFriendly = true;
-
         const submissionReview = await reviewPlaygroundSubmission({
             name: merged.name,
             description: merged.description,
@@ -648,6 +589,20 @@ router.put("/:id", verifyToken, ensureCanSubmit, async (req, res) => {
                 req.params.id,
                 playground.city,
             );
+            await db.collection("moderation_queue").insertOne({
+                submissionType: SubmissionType.PLAYGROUND_EDIT,
+                submissionId: String(playground._id),
+                playgroundId: String(playground._id),
+                playgroundName: playground.name || 'Unknown',
+                proposedChanges: updates,
+                submittedByUserId: req.user.uid,
+                status: 'AUTO_APPROVED',
+                geminiSubmissionReview: submissionReview,
+                reviewedAt: new Date(),
+                reviewedBy: 'system:auto-approve',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            });
             try {
                 await recordVerificationFromPlaygroundEdit(
                     db,
@@ -766,8 +721,8 @@ router.post("/:id/verify", verifyToken, ensureCanSubmit, async (req, res) => {
         // 9.2 — increment trust scores for all verifiable fields (capped at 1.0)
         const TRUST_INCREMENT = parseFloat(process.env.TRUST_SCORE_INCREMENT || '0.1');
         const verifiableFields = [
-            'hasBathrooms', 'hasShade', 'isFenced', 'hasPicnicTables', 'hasBottleFiller',
-            'isToddlerFriendly', 'hasSplashPad', 'hasSkatePark', 'isDogFriendly', 'hasWalkingTrail', 'hasParking',
+            'hasBathrooms', 'hasShade', 'isFenced', 'hasPicnicTables', 'hasWaterFountain',
+            'isToddlerFriendly', 'hasSplashPad', 'isDogFriendly', 'hasWalkingTrail', 'hasParking',
             'hasOutdoorShower', 'hasChangingRooms', 'hasLockers', 'hasNursingRoom', 'hasPartyRoom',
             'hasCoveredSeating', 'hasFoodServices', 'hasSnackBar', 'hasAlcoholOnSite', 'hasGiftShop',
             'hasRentalEquipment', 'isCardOnly', 'hasATM', 'hasHeightAgeRestrictions', 'hasArcadeGames',
@@ -983,8 +938,8 @@ router.get("/cities/:regionKey/completion", async (req, res) => {
         }
 
         const enrichedFields = [
-            'hasBathrooms', 'hasShade', 'isFenced', 'hasPicnicTables', 'hasBottleFiller',
-            'isToddlerFriendly', 'hasSplashPad', 'hasSkatePark', 'isDogFriendly', 'hasWalkingTrail', 'hasParking',
+            'hasBathrooms', 'hasShade', 'isFenced', 'hasPicnicTables', 'hasWaterFountain',
+            'isToddlerFriendly', 'hasSplashPad', 'isDogFriendly', 'hasWalkingTrail', 'hasParking',
             'hasOutdoorShower', 'hasChangingRooms', 'hasLockers', 'hasNursingRoom', 'hasPartyRoom',
             'hasCoveredSeating', 'hasFoodServices', 'hasSnackBar', 'hasAlcoholOnSite', 'hasGiftShop',
             'hasRentalEquipment', 'isCardOnly', 'hasATM', 'hasHeightAgeRestrictions', 'hasArcadeGames',
@@ -998,11 +953,7 @@ router.get("/cities/:regionKey/completion", async (req, res) => {
         const totalPlaces = allActive.length;
         const verifiedPlaces = allActive.filter(p => {
             if ((p.verificationCount || 0) < 1) return false;
-            const nonNullCount = enrichedFields.filter((f) => {
-                if (p[f] !== null && p[f] !== undefined) return true;
-                if (f === 'hasBottleFiller' && p.hasWaterFountain === true) return true;
-                return false;
-            }).length;
+            const nonNullCount = enrichedFields.filter(f => p[f] !== null && p[f] !== undefined).length;
             return nonNullCount >= 3;
         }).length;
 

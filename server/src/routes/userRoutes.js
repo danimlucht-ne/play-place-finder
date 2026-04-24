@@ -491,19 +491,6 @@ router.get("/users/me/contributor-profile", async (req, res) => {    const db = 
         const higherCount = await db.collection("users").countDocuments(rankQuery);
         const rank = higherCount + 1;
 
-        const supportRows = await db.collection("support_tickets").aggregate([
-            { $match: { actorUserId: userId } },
-            { $group: { _id: "$status", count: { $sum: 1 } } },
-        ]).toArray();
-        const supportTickets = { pending: 0, resolved: 0, rejected: 0, total: 0 };
-        for (const row of supportRows) {
-            const c = row.count || 0;
-            supportTickets.total += c;
-            if (row._id === "NEEDS_ADMIN_REVIEW") supportTickets.pending = c;
-            else if (row._id === "RESOLVED") supportTickets.resolved = c;
-            else if (row._id === "REJECTED") supportTickets.rejected = c;
-        }
-
         res.json({
             message: "success",
             data: {
@@ -511,7 +498,6 @@ router.get("/users/me/contributor-profile", async (req, res) => {    const db = 
                 rank,
                 adFree: user.adFree || false,
                 regionKey: user.regionKey || null,
-                supportTickets,
             }
         });
     } catch (err) {
@@ -588,35 +574,34 @@ router.get('/users/me/submissions', async (req, res) => {
             .find({ uploadedBy: userId })
             .project({ _id: 1 })
             .toArray();
-        const photoObjectIds = photoRows.map((p) => p._id).filter((id) => id != null);
-        const photoIdStrings = [...new Set(photoObjectIds.map((id) => String(id)))];
+        const photoSubmissionIds = photoRows.map((p) => p._id);
 
         const orClauses = [
             { submittedByUserId: userId },
             { requestedBy: userId },
         ];
-        if (photoIdStrings.length > 0) {
-            // moderation_queue may store submissionId as ObjectId or hex string — match both
-            orClauses.push({
-                submissionType: 'PHOTO',
-                $or: [
-                    { submissionId: { $in: photoObjectIds } },
-                    { submissionId: { $in: photoIdStrings } },
-                ],
-            });
+        if (photoSubmissionIds.length > 0) {
+            orClauses.push({ submissionType: 'PHOTO', submissionId: { $in: photoSubmissionIds } });
         }
 
-        const items = await db.collection('moderation_queue')
+        const moderationItems = await db.collection('moderation_queue')
             .find({ $or: orClauses })
             .sort({ createdAt: -1 })
             .limit(limit)
             .toArray();
 
-        const data = items.map((doc) => {
+        const supportItems = await db.collection('support_tickets')
+            .find({ actorUserId: userId })
+            .sort({ createdAt: -1 })
+            .limit(limit)
+            .toArray();
+
+        const moderationRows = moderationItems.map((doc) => {
             const note = doc.reason || doc.decisionReason || null;
             const noteStr = note && String(note).trim() ? String(note).trim() : null;
             return {
                 id: doc._id.toHexString(),
+                source: 'MODERATION',
                 submissionType: doc.submissionType,
                 status: doc.status,
                 playgroundName: doc.playgroundName || doc.targetName || doc.proposedNewPlayground?.name || null,
@@ -627,6 +612,41 @@ router.get('/users/me/submissions', async (req, res) => {
                 createdAt: doc.createdAt,
             };
         });
+
+        const supportRows = supportItems.map((doc) => {
+            const type = String(doc.ticketType || 'other').toUpperCase();
+            const displayName =
+                doc.targetPlaygroundSummary?.name
+                || doc.targetName
+                || doc.playgroundName
+                || doc.suggestionLabel
+                || 'Support request';
+            const note = doc.resolutionReason || doc.rejectionReason || doc.message || null;
+            const noteStr = note && String(note).trim() ? String(note).trim() : null;
+            return {
+                id: doc._id.toHexString(),
+                source: 'SUPPORT',
+                submissionType: type,
+                status: doc.status || 'NEEDS_ADMIN_REVIEW',
+                playgroundName: displayName,
+                playgroundId: doc.targetId ? String(doc.targetId) : null,
+                previewUrl: doc.screenshotUrl || null,
+                reason: noteStr,
+                reviewedAt: doc.resolvedAt || doc.rejectedAt || null,
+                createdAt: doc.createdAt,
+            };
+        });
+
+        const parseCreatedAtMs = (row) => {
+            if (!row || !row.createdAt) return 0;
+            const ms = new Date(row.createdAt).getTime();
+            return Number.isFinite(ms) ? ms : 0;
+        };
+
+        const data = moderationRows
+            .concat(supportRows)
+            .sort((a, b) => parseCreatedAtMs(b) - parseCreatedAtMs(a))
+            .slice(0, limit);
 
         res.json({ message: 'success', data });
     } catch (err) {
