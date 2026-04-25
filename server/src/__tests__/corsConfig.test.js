@@ -6,9 +6,9 @@ const {
 
 describe('corsConfig', () => {
   test('allows the production website domains by default', () => {
-    expect(DEFAULT_ALLOWED_ORIGINS).toContain('https://www.play-place-finder.com');
-    expect(DEFAULT_ALLOWED_ORIGINS).toContain('https://play-place-finder.com');
-    expect(isOriginAllowed('https://www.play-place-finder.com', {})).toBe(true);
+    expect(DEFAULT_ALLOWED_ORIGINS).toContain('https://www.play-spotter.com');
+    expect(DEFAULT_ALLOWED_ORIGINS).toContain('https://play-spotter.com');
+    expect(isOriginAllowed('https://www.play-spotter.com', {})).toBe(true);
   });
 
   test('allows local development origins by default', () => {

@@ -52,7 +52,7 @@ router.post('/register', async (req, res) => {
                 firebaseActionCodeSettings('/account'),
             );
             const { html, text } = verificationEmail(verificationLink);
-            await sendEmail(email, 'Confirm your email — Play Place Finder', text, html);
+            await sendEmail(email, 'Confirm your email — Play Spotter', text, html);
         } catch (emailErr) {
             console.warn('Could not send verification email:', emailErr.message);
         }
@@ -151,7 +151,7 @@ router.post('/resend-verification', async (req, res) => {
             firebaseActionCodeSettings('/account'),
         );
         const { html, text } = verificationEmail(verificationLink);
-        await sendEmail(email, 'Confirm your email — Play Place Finder', text, html);
+        await sendEmail(email, 'Confirm your email — Play Spotter', text, html);
         res.json({ message: 'Verification email sent.' });
     } catch (err) {
         console.error('Resend verification error:', err.message);
@@ -169,7 +169,7 @@ router.post('/reset-password', async (req, res) => {
             firebaseActionCodeSettings('/account'),
         );
         const { html, text } = passwordResetEmail(resetLink);
-        await sendEmail(email, 'Reset your password — Play Place Finder', text, html);
+        await sendEmail(email, 'Reset your password — Play Spotter', text, html);
         // Always return success to avoid leaking whether email exists
         res.json({ message: 'If that email is registered, a reset link has been sent.' });
     } catch (err) {

@@ -1,7 +1,7 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'PlayPlace Finder — Find Kid-Friendly Play Places Near You',
+  title: 'Play Spotter — Find Kid-Friendly Play Places Near You',
   description: 'Discover playgrounds, indoor play areas, parks, and family-friendly activities in your neighborhood. Community-verified, free to use.',
   keywords: 'playground finder, kids activities, family fun, parks near me, indoor play, play places',
 };

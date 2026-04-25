@@ -18,7 +18,7 @@ object MarketingLinks {
     /** Public marketing / product home (same host as legal pages). */
     fun playplaceHome(): String = base()
 
-    /** Developer / parent company site (Play Place Finder is a Lucht Applications project). */
+    /** Developer / parent company site (Play Spotter is a Lucht Applications project). */
     fun luchtApplications(): String = "https://www.luchtapplications.com"
 
     const val SUPPORT_EMAIL: String = "playplacefinder@gmail.com"

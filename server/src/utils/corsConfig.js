@@ -3,6 +3,8 @@ const DEFAULT_ALLOWED_ORIGINS = [
   'http://127.0.0.1:3000',
   'http://localhost:3001',
   'http://127.0.0.1:3001',
+  'https://play-spotter.com',
+  'https://www.play-spotter.com',
   'https://play-place-finder.com',
   'https://www.play-place-finder.com',
   'https://playplacefinder.com',

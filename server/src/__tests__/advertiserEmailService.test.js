@@ -17,7 +17,7 @@ describe('advertiserEmailService', () => {
       { businessName: 'Tiny Gym' },
     );
 
-    expect(email.subject).toBe('We received your PlayPlace Finder ad payment');
+    expect(email.subject).toBe('We received your Play Spotter ad payment');
     expect(email.text).toContain('Hi Tiny Gym');
     expect(email.text).toContain('$12.99');
     expect(email.text).toContain('April 15, 2026');
@@ -79,7 +79,7 @@ describe('advertiserEmailService', () => {
     expect(findOne).toHaveBeenCalledWith({ _id: 'adv-1' });
     expect(sendEmail).toHaveBeenCalledWith(
       'owner@test.invalid',
-      'Your PlayPlace Finder ad is live!',
+      'Your Play Spotter ad is live!',
       expect.stringContaining('Play Cafe'),
     );
   });

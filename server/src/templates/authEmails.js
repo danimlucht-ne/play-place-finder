@@ -3,7 +3,7 @@
  * To change branding, edit styles here once — used for verify + password reset.
  */
 
-const BRAND = 'Play Place Finder';
+const BRAND = 'Play Spotter';
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'playplacefinder@gmail.com';
 const SUPPORT_TEXT = `Need help? Reply to this email or contact ${SUPPORT_EMAIL}.`;
 const TEAL = '#00838f';

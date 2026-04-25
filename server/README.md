@@ -1,6 +1,6 @@
-# Play Place Finder Server
+# Play Spotter Server
 
-Node.js + Express backend for Play Place Finder.
+Node.js + Express backend for Play Spotter.
 
 ## Requirements
 

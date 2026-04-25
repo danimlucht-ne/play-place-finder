@@ -118,7 +118,7 @@ android {
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         // Must increase for every upload to Play Console (internal integer; unrelated to git tags).
-        versionCode = 20
+        versionCode = 3
         versionName = "1.0.0-beta1"
         // Overridden per buildType; release must not allow cleartext HTTP.
         manifestPlaceholders["usesCleartextTraffic"] = "false"
@@ -157,7 +157,7 @@ android {
             buildConfigField(
                 "String",
                 "MARKETING_SITE_BASE_URL",
-                "\"${localProps.stringProp("MARKETING_SITE_BASE_URL").ifEmpty { "https://www.play-place-finder.com" }.escapeForBuildConfig()}\"",
+                "\"${localProps.stringProp("MARKETING_SITE_BASE_URL").ifEmpty { "https://www.play-spotter.com" }.escapeForBuildConfig()}\"",
             )
             manifestPlaceholders["GOOGLE_MAPS_API_KEY"] =
                 localProps.stringProp("GOOGLE_MAPS_API_KEY")
@@ -177,7 +177,7 @@ android {
             buildConfigField(
                 "String",
                 "SERVER_BASE_URL",
-                "\"${localProps.stringProp("SERVER_BASE_URL").ifEmpty { "https://api.playplacefinder.com" }.escapeForBuildConfig()}\""
+                "\"${localProps.stringProp("SERVER_BASE_URL").ifEmpty { "https://api.play-spotter.com" }.escapeForBuildConfig()}\""
             )
             buildConfigField(
                 "String",
@@ -192,7 +192,7 @@ android {
             buildConfigField(
                 "String",
                 "MARKETING_SITE_BASE_URL",
-                "\"${localProps.stringProp("MARKETING_SITE_BASE_URL").ifEmpty { "https://www.play-place-finder.com" }.escapeForBuildConfig()}\"",
+                "\"${localProps.stringProp("MARKETING_SITE_BASE_URL").ifEmpty { "https://www.play-spotter.com" }.escapeForBuildConfig()}\"",
             )
             manifestPlaceholders["GOOGLE_MAPS_API_KEY"] =
                 localProps.stringProp("GOOGLE_MAPS_API_KEY")

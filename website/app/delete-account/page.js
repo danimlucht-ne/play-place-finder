@@ -3,9 +3,9 @@ import SiteNav from '../components/SiteNav';
 import FooterCreditBanner from '../components/FooterCreditBanner';
 
 export const metadata = {
-  title: 'Delete your account - PlayPlace Finder',
+  title: 'Delete your account - Play Spotter',
   description:
-    'How to delete your PlayPlace Finder account and associated data on the web or in the mobile app.',
+    'How to delete your Play Spotter account and associated data on the web or in the mobile app.',
 };
 
 export default function DeleteAccountPage() {
@@ -19,7 +19,7 @@ export default function DeleteAccountPage() {
             <p className="hub-eyebrow">Account</p>
             <h1>Delete your account</h1>
             <p className="hub-lead">
-              You can delete your PlayPlace Finder account after you sign in—on the web at{' '}
+              You can delete your Play Spotter account after you sign in—on the web at{' '}
               <Link href="/account/">My account</Link> or in the mobile app. No separate form or email is required.
             </p>
           </div>
@@ -32,7 +32,7 @@ export default function DeleteAccountPage() {
               <strong>Web:</strong> Go to <Link href="/account/">My account</Link>, sign in, then use <strong>Delete my account</strong> under Profile.
             </li>
             <li>
-              <strong>App:</strong> Open the PlayPlace Finder app and sign in, open Support from the menu, then tap <strong>Delete my account</strong> and confirm.
+              <strong>App:</strong> Open the Play Spotter app and sign in, open Support from the menu, then tap <strong>Delete my account</strong> and confirm.
             </li>
           </ol>
           <p className="hub-muted-copy" style={{ marginTop: '1rem' }}>
@@ -52,7 +52,7 @@ export default function DeleteAccountPage() {
             <Link href="/advertise">Advertise</Link>
             <Link href="/">Home</Link>
           </div>
-          <p>&copy; {new Date().getFullYear()} Lucht Applications LLC — PlayPlace Finder</p>
+          <p>&copy; {new Date().getFullYear()} Lucht Applications LLC — Play Spotter</p>
         </div>
       </footer>
     </>

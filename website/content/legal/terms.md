@@ -1,13 +1,13 @@
 ---
 title: Terms of Service
-description: PlayPlace Finder terms of service and conditions of use.
+description: Play Spotter terms of service and conditions of use.
 version: "1.1"
 lastUpdated: "April 15, 2026"
 ---
 
 ## 1. Acceptance
 
-By using Play Place Finder, you agree to these Terms.
+By using Play Spotter, you agree to these Terms.
 
 ## 2. Intended Use
 
@@ -25,7 +25,7 @@ By enabling location services, you consent to its use for local search results, 
 
 To the fullest extent permitted by law, we are not liable for injuries or damages from visiting locations, inaccurate or outdated information, or business practices of listed or advertised entities. Use of the app is at your own risk.
 
-Further, the User agrees to indemnify and hold PlayPlace Finder and its officers, directors, employees and agents harmless from any and all claims, damages, liabilities, and costs (including reasonable legal and accounting fees) related to (a) your access or use of our services or third-party services, (b) your violation of these terms, or (c) your negligence or willful misconduct.   OUR TOTAL LIABILITY TO YOU FOR ANY CLAIM ARISING FROM USE OF PLAYBOUND SHALL NOT EXCEED THE AMOUNT YOU PAID FOR YOUR CURRENT SUBSCRIPTION PERIOD AT THE TIME OF DISPUTE OR CLAIM. 
+Further, the User agrees to indemnify and hold Play Spotter and its officers, directors, employees and agents harmless from any and all claims, damages, liabilities, and costs (including reasonable legal and accounting fees) related to (a) your access or use of our services or third-party services, (b) your violation of these terms, or (c) your negligence or willful misconduct.   OUR TOTAL LIABILITY TO YOU FOR ANY CLAIM ARISING FROM USE OF PLAYBOUND SHALL NOT EXCEED THE AMOUNT YOU PAID FOR YOUR CURRENT SUBSCRIPTION PERIOD AT THE TIME OF DISPUTE OR CLAIM. 
 
 Any action, regardless of form, arising out of or relating to a dispute may be brought by either party not more than one (1) year after the cause of action has accrued. 
 

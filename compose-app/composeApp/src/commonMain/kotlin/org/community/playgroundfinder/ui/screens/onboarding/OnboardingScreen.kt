@@ -38,7 +38,7 @@ fun OnboardingScreen(
             Spacer(Modifier.height(24.dp))
 
             Text(
-                "Play Place Finder",
+                "Play Spotter",
                 fontSize = 32.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White,

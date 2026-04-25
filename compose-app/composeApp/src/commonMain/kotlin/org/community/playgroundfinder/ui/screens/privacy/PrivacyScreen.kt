@@ -35,7 +35,7 @@ fun PrivacyScreen() {
             "PLAY PLACE FINDER — PRIVACY POLICY\n\n" +
             "Last Updated: 03/25/2026\n\n" +
             "1. OVERVIEW\n\n" +
-            "Play Place Finder (\"we\", \"our\", or \"the app\") is a community-driven mobile application designed for adult parents and caregivers to discover family-friendly places and activities.\n\n" +
+            "Play Spotter (\"we\", \"our\", or \"the app\") is a community-driven mobile application designed for adult parents and caregivers to discover family-friendly places and activities.\n\n" +
             "This app is not directed to children under 13, and we do not knowingly collect personal data from children.\n\n" +
             "By using the app, you agree to this Privacy Policy.\n\n" +
             "2. INFORMATION WE COLLECT\n\n" +
@@ -86,7 +86,7 @@ fun PrivacyScreen() {
             "- infrastructure providers (hosting, storage)\n\n" +
             "All partners are required to protect user data.\n\n" +
             "5. CROWDSOURCED CONTENT DISCLAIMER\n\n" +
-            "Play Place Finder is a community-driven platform.\n\n" +
+            "Play Spotter is a community-driven platform.\n\n" +
             "- Content may be submitted by users or third parties.\n" +
             "- We do not guarantee accuracy, completeness, or reliability.\n" +
             "- Listings may be outdated or incorrect.\n\n" +

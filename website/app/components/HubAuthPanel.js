@@ -65,8 +65,8 @@ export default function HubAuthPanel({
           <h2>{audience === 'admin' ? 'Admin sign-in' : 'Sign in'}</h2>
           <p>
             {audience === 'admin'
-              ? 'Use your PlayPlace Finder email and password for admin access.'
-              : 'Use your PlayPlace Finder email and password to manage your business information and ads.'}
+              ? 'Use your Play Spotter email and password for admin access.'
+              : 'Use your Play Spotter email and password to manage your business information and ads.'}
           </p>
         </div>
         {token ? (

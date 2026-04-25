@@ -12,7 +12,7 @@ Source files for `/privacy`, `/terms`, and `/advertiser-agreement`:
 
 Each file starts with YAML between `---` lines:
 
-- `title` — page `<h1>` and metadata title (suffix ` — PlayPlace Finder` is added in code).
+- `title` — page `<h1>` and metadata title (suffix ` — Play Spotter` is added in code).
 - `description` — meta description for search and sharing.
 - `lastUpdated` — shown under the title (free-form string).
 - `version` — optional; shown next to the last-updated line when set.

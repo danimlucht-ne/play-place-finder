@@ -78,7 +78,7 @@ router.post('/search', async (req, res) => {
         } else {
             const gd = await geocodeLatLng(parsed.lat, parsed.lng);
             if (gd.country !== 'US') {
-                return res.status(400).json({ error: 'Play Place Finder is currently available in the United States only.' });
+                return res.status(400).json({ error: 'Play Spotter is currently available in the United States only.' });
             }
             geoResult = {
                 lat: parsed.lat,

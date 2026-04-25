@@ -29,6 +29,10 @@ import org.community.playgroundfinder.util.rememberOpenExternalUrl
 @Composable
 fun AdvertiserDashboardScreen(
     playgroundService: PlaygroundService,
+    /** Optional: when set, dashboard may open focused to a single campaign id. */
+    soloCampaignId: String? = null,
+    /** Optional: callback for switching from focused campaign to full list. */
+    onViewAllCampaigns: () -> Unit = {},
     onNavigateToAdvertise: () -> Unit = {},
     onRenew: (submissionId: String, regionKey: String) -> Unit = { _, _ -> },
     onBack: () -> Unit,

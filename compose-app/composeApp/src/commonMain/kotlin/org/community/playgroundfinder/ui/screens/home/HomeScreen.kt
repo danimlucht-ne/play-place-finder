@@ -1742,7 +1742,7 @@ fun HomeScreen(
                                             },
                                         )
                                         MoreMenuItem(
-                                            label = "Play Place Finder website",
+                                            label = "Play Spotter website",
                                             enabled = true,
                                             onClick = {
                                                 homeMoreMenuExpanded = false
@@ -2043,7 +2043,7 @@ fun HomeScreen(
                                 Text(
                                     "\u2022 Make sure Location (GPS) is turned on in your phone's quick settings\n" +
                                     "\u2022 Turn off Battery Saver / Power Saving mode\n" +
-                                    "\u2022 Go to Settings \u2192 Apps \u2192 PlayPlace Finder \u2192 Permissions \u2192 Location \u2192 Allow\n" +
+                                    "\u2022 Go to Settings \u2192 Apps \u2192 Play Spotter \u2192 Permissions \u2192 Location \u2192 Allow\n" +
                                     "\u2022 Try stepping outside or near a window for better GPS signal\n" +
                                     "\u2022 Restart the app after changing settings",
                                     color = Color.White.copy(alpha = 0.9f),
@@ -2373,7 +2373,7 @@ fun HomeScreen(
             if (showAboutDialog) {
                 AlertDialog(
                     onDismissRequest = { showAboutDialog = false },
-                    title = { Text("About Play Place Finder") },
+                    title = { Text("About Play Spotter") },
                     text = { Text("About content coming soon. For now, review the policy from the menu.") },
                     confirmButton = {
                         TextButton(onClick = { showAboutDialog = false }) {

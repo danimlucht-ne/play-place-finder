@@ -1095,7 +1095,7 @@ fun App() {
                                             currentPaymentResult = PaymentResult.Error("Missing payment client secret from server.")
                                         } else {
                                             val cfg = PaymentSheet.Configuration(
-                                                merchantDisplayName = "PlayPlace Finder",
+                                                merchantDisplayName = "Play Spotter",
                                             )
                                             // SetupIntent secrets look like seti_…_secret_…; PaymentIntent like pi_…_secret_…
                                             if (clientSecret.startsWith("seti_")) {

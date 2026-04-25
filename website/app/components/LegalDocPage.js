@@ -50,7 +50,7 @@ export default async function LegalDocPage({ slug, footer = 'standard' }) {
               </Link>
             ))}
           </div>
-          <p>&copy; {new Date().getFullYear()} Lucht Applications LLC — PlayPlace Finder</p>
+          <p>&copy; {new Date().getFullYear()} Lucht Applications LLC — Play Spotter</p>
         </div>
       </footer>
     </>

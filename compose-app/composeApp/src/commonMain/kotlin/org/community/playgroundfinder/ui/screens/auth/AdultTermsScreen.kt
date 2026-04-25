@@ -40,7 +40,7 @@ fun AdultTermsScreen(version: Int, onBack: () -> Unit) {
             "Last Updated: 03/25/2026\n\n" +
             "PRIVACY POLICY\n\n" +
             "1. OVERVIEW\n\n" +
-            "Play Place Finder (\"we\", \"our\", or \"the app\") is a community-driven mobile application designed for adult parents and caregivers to discover family-friendly places and activities.\n\n" +
+            "Play Spotter (\"we\", \"our\", or \"the app\") is a community-driven mobile application designed for adult parents and caregivers to discover family-friendly places and activities.\n\n" +
             "This app is not directed to children under 13, and we do not knowingly collect personal data from children.\n\n" +
             "By using the app, you agree to this Privacy Policy.\n\n" +
             "2. INFORMATION WE COLLECT\n\n" +
@@ -91,7 +91,7 @@ fun AdultTermsScreen(version: Int, onBack: () -> Unit) {
             "- infrastructure providers (hosting, storage)\n\n" +
             "All partners are required to protect user data.\n\n" +
             "5. CROWDSOURCED CONTENT DISCLAIMER\n\n" +
-            "Play Place Finder is a community-driven platform.\n\n" +
+            "Play Spotter is a community-driven platform.\n\n" +
             "- Content may be submitted by users or third parties.\n" +
             "- We do not guarantee accuracy, completeness, or reliability.\n" +
             "- Listings may be outdated or incorrect.\n\n" +
@@ -128,7 +128,7 @@ fun AdultTermsScreen(version: Int, onBack: () -> Unit) {
             "Advertising within the app is based on general location (such as city or ZIP code) and not on cross-app tracking.\n\n" +
             "TERMS OF USE\n\n" +
             "1. ACCEPTANCE\n\n" +
-            "By using Play Place Finder, you agree to these Terms.\n\n" +
+            "By using Play Spotter, you agree to these Terms.\n\n" +
             "2. INTENDED USE\n\n" +
             "This app is designed for adult users only.\n\n" +
             "You agree to:\n" +
@@ -173,7 +173,7 @@ fun AdultTermsScreen(version: Int, onBack: () -> Unit) {
             "- illegal content\n\n" +
             "We may remove content at our discretion.\n\n" +
             "9. INTELLECTUAL PROPERTY\n\n" +
-            "- The app and its design are owned by Play Place Finder\n" +
+            "- The app and its design are owned by Play Spotter\n" +
             "- Users retain ownership of their content\n" +
             "- You grant us a license to display submitted content\n\n" +
             "10. TERMINATION\n\n" +

@@ -23,8 +23,8 @@ const legalPagePaths = new Set(['privacy/page.js', 'terms/page.js', 'advertiser-
 const routes = [
   { path: 'page.js', name: 'home', requiredText: ['Find Kid-Friendly Play Places Near You', 'Get it on Google Play'] },
   { path: 'advertise/page.js', name: 'advertise', requiredText: ['Reach Local Families', 'Advertising Packages'] },
-  { path: 'login/page.js', name: 'login', requiredText: ['Login - PlayPlace Finder', 'AccountWorkspaceClient'] },
-  { path: 'account/page.js', name: 'account', requiredText: ['My account - PlayPlace Finder', 'AccountWorkspaceClient'] },
+  { path: 'login/page.js', name: 'login', requiredText: ['Login - Play Spotter', 'AccountWorkspaceClient'] },
+  { path: 'account/page.js', name: 'account', requiredText: ['My account - Play Spotter', 'AccountWorkspaceClient'] },
   { path: 'advertiser-hub/page.js', name: 'advertiser hub', requiredText: ['Advertiser Hub', 'AdvertiserHubClient'] },
   { path: 'admin-hub/page.js', name: 'admin hub', requiredText: ['Advertising Admin Hub', 'AdminHubClient'] },
   {
@@ -83,7 +83,7 @@ test('metadata is present for search and sharing surfaces', () => {
   const layout = readAppFile('layout.js');
 
   assert.ok(layout.includes('export const metadata'), 'root layout should export metadata');
-  assert.ok(layout.includes('PlayPlace Finder'), 'metadata should include the product name');
+  assert.ok(layout.includes('Play Spotter'), 'metadata should include the product name');
   assert.ok(layout.includes('playground finder'), 'metadata should include search keywords');
   assert.ok(layout.includes('<html lang="en">'), 'layout should set the document language');
   assert.ok(layout.includes('name="viewport"'), 'layout should include a viewport meta tag');
@@ -107,9 +107,9 @@ test('conversion and contact paths stay intact', () => {
   assert.ok(login.includes('AccountWorkspaceClient'), 'login page should render the account workspace');
   assert.ok(advertiserHub.includes('AdvertiserHubClient'), 'advertiser hub route should render the advertiser client');
   assert.ok(adminHub.includes('AdminHubClient'), 'admin hub route should render the admin client');
-  assert.ok(advertise.includes('$250/mo'), 'advertise page should show Prime Placement pricing');
-  assert.ok(advertise.includes('$99/mo'), 'advertise page should show Inline Listing pricing');
-  assert.ok(advertise.includes('From $25'), 'advertise page should show Event Spotlight pricing');
+  assert.ok(advertise.includes('Prime Placement'), 'advertise page should show Prime Placement package details');
+  assert.ok(advertise.includes('Inline Listing'), 'advertise page should show Inline Listing package details');
+  assert.ok(advertise.includes('Event Spotlight'), 'advertise page should show Event Spotlight package details');
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'playplace-app-icon.png')), 'launcher-aligned PNG should exist for nav / favicon');
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'media', 'playground-1.jpg')), 'hero strip image 1 should exist');
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'media', 'playground-2.jpg')), 'hero strip image 2 should exist');

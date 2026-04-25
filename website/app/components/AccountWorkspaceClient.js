@@ -69,7 +69,7 @@ export default function AccountWorkspaceClient() {
           <p className="hub-eyebrow">Account access</p>
           <h1>My account</h1>
           <p className="hub-lead">
-            Sign in with your PlayPlace Finder email and password. When you are signed in, your profile appears below,
+            Sign in with your Play Spotter email and password. When you are signed in, your profile appears below,
             including account deletion. Advertisers and admins can open their dashboards from here too.
           </p>
         </div>
@@ -137,7 +137,7 @@ export default function AccountWorkspaceClient() {
             <div>
               <h2 style={{ color: 'var(--error-red)', fontSize: '1.1rem' }}>Delete account</h2>
               <p className="hub-muted-copy" style={{ marginTop: '0.35rem' }}>
-                Permanently remove this account and associated personal data from PlayPlace Finder (same action as in
+                Permanently remove this account and associated personal data from Play Spotter (same action as in
                 the mobile app under Support).
               </p>
             </div>

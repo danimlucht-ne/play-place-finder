@@ -216,7 +216,7 @@ async function geocodeTextQuery(query) {
 
     // Limit to USA only
     if (country !== 'US') {
-        throw new Error('Play Place Finder is currently available in the United States only.');
+        throw new Error('Play Spotter is currently available in the United States only.');
     }
 
     return { lat, lng, city, state, country, normalizedRegion: nr };
@@ -1346,7 +1346,7 @@ async function handleHybridSearch(lat, lng, userId) {
 
     // Limit seeding to USA only
     if (geoData.country !== 'US') {
-        throw new Error('Play Place Finder is currently available in the United States only.');
+        throw new Error('Play Spotter is currently available in the United States only.');
     }
 
     const nr = geoData.normalizedRegion;

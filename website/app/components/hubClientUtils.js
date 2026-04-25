@@ -1,7 +1,7 @@
 'use client';
 
 const DEFAULT_LOCAL_API_BASE = 'http://localhost:3001';
-const DEFAULT_PRODUCTION_API_BASE = 'https://api.play-place-finder.com';
+const DEFAULT_PRODUCTION_API_BASE = 'https://api.play-spotter.com';
 export const HUB_AUTH_EVENT = 'playplace-auth-change';
 
 function storageKey(kind, field) {
@@ -97,7 +97,7 @@ export async function hubFetch(apiBase, token, path, options = {}) {
       body: options.body,
     });
   } catch (error) {
-    throw new Error(`Could not reach the PlayPlace Finder server at ${base}.`);
+    throw new Error(`Could not reach the Play Spotter server at ${base}.`);
   }
 
   const text = await response.text();

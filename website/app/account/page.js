@@ -2,9 +2,9 @@ import SiteNav from '../components/SiteNav';
 import AccountWorkspaceClient from '../components/AccountWorkspaceClient';
 
 export const metadata = {
-  title: 'My account - PlayPlace Finder',
+  title: 'My account - Play Spotter',
   description:
-    'Sign in to PlayPlace Finder, manage your profile, open advertiser or admin tools, or delete your account.',
+    'Sign in to Play Spotter, manage your profile, open advertiser or admin tools, or delete your account.',
 };
 
 export default function AccountPage() {

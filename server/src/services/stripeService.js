@@ -309,7 +309,7 @@ async function handleWebhook(rawBody, signature) {
           $set: {
             receipt: {
               businessEntity: 'Lucht Applications LLC',
-              appName: 'PlayPlace Finder',
+              appName: 'Play Spotter',
               packageType: submission?.package?.type || '',
               packageDurationDays: submission?.package?.durationDays || 30,
               amountInCents: transaction.amountInCents,

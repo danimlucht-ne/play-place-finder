@@ -3,8 +3,8 @@ import SiteNav from '../components/SiteNav';
 import FooterCreditBanner from '../components/FooterCreditBanner';
 
 export const metadata = {
-  title: 'Advertise Your Business â€” PlayPlace Finder',
-  description: 'Reach local families with targeted advertising on PlayPlace Finder. Regional rates for Prime, Inline, and Event packages — see live pricing in the app after you sign in.',
+  title: 'Advertise Your Business â€” Play Spotter',
+  description: 'Reach local families with targeted advertising on Play Spotter. Regional rates for Prime, Inline, and Event packages — see live pricing in the app after you sign in.',
 };
 
 const packageCards = [
@@ -51,7 +51,7 @@ const faqItems = [
   {
     question: 'What content is allowed?',
     answer:
-      'Every ad and every later edit must stay appropriate for parents and caregivers. We use automated checks and human review before a new or updated ad can replace an approved one. PlayPlace Finder is not directed at children, and child accounts do not receive advertising.',
+      'Every ad and every later edit must stay appropriate for parents and caregivers. We use automated checks and human review before a new or updated ad can replace an approved one. Play Spotter is not directed at children, and child accounts do not receive advertising.',
   },
   {
     question: 'Can I edit my ad after it goes live?',
@@ -122,7 +122,7 @@ export default function Advertise() {
             <p className="advertise-eyebrow">Why businesses use it</p>
             <h2>Built for the moments parents are deciding where to go next</h2>
             <p>
-              PlayPlace Finder reaches adults actively planning outings. That means your ad is shown in context, not dropped into a random audience that never intended to visit in the first place.
+              Play Spotter reaches adults actively planning outings. That means your ad is shown in context, not dropped into a random audience that never intended to visit in the first place.
             </p>
           </div>
           <div className="advertise-marquee__cards">
@@ -307,7 +307,7 @@ export default function Advertise() {
             <Link href="/advertiser-agreement">Advertiser Agreement</Link>
             <Link href="/admin-hub">Admin Sign In</Link>
           </div>
-          <p>&copy; {new Date().getFullYear()} Lucht Applications LLC â€” PlayPlace Finder</p>
+          <p>&copy; {new Date().getFullYear()} Lucht Applications LLC â€” Play Spotter</p>
         </div>
       </footer>
     </>

@@ -46,7 +46,7 @@ export default function Home() {
       {/* Features */}
       <section className="features">
         <div className="container">
-          <h2>Why Families Love PlayPlace Finder</h2>
+          <h2>Why Families Love Play Spotter</h2>
           <div className="features-grid">
             <div className="feature-card">
               <div className="emoji">📍</div>
@@ -86,7 +86,7 @@ export default function Home() {
       <section className="home-cta-band">
         <div className="container">
           <h2>Ready to find your next adventure?</h2>
-          <p>Download PlayPlace Finder and start exploring.</p>
+          <p>Download Play Spotter and start exploring.</p>
           <a href="https://play.google.com/store" className="btn btn-primary">Download Free on Google Play</a>
         </div>
       </section>
@@ -108,7 +108,7 @@ function Footer() {
           <Link href="/advertise">Advertise</Link>
           <Link href="/advertiser-agreement">Advertiser Agreement</Link>
         </div>
-        <p>&copy; {new Date().getFullYear()} Lucht Applications LLC — PlayPlace Finder</p>
+        <p>&copy; {new Date().getFullYear()} Lucht Applications LLC — Play Spotter</p>
         <p style={{ marginTop: '4px' }}>playplacefinder@gmail.com</p>
       </div>
     </footer>

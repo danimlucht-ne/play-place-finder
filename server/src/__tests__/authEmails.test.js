@@ -6,7 +6,7 @@ describe('auth email templates', () => {
     const email = verificationEmail(link);
 
     expect(email.html).toContain('Confirm your email');
-    expect(email.html).toContain('Play Place Finder');
+    expect(email.html).toContain('Play Spotter');
     expect(email.html).toContain(link);
     expect(email.text).toContain('Confirm your email');
     expect(email.text).toContain(link);

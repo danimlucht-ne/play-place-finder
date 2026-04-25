@@ -16,10 +16,10 @@ async function resolveAdDisplayName(db, creativeId) {
 }
 
 const BUSINESS_ENTITY = 'Lucht Applications LLC';
-const APP_NAME = 'PlayPlace Finder';
+const APP_NAME = 'Play Spotter';
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'playplacefinder@gmail.com';
 const CONTACT_LINE = `Questions? Reply to this email or contact ${SUPPORT_EMAIL}.`;
-const WEBSITE_BASE_URL = (process.env.MARKETING_SITE_BASE_URL || 'https://www.play-place-finder.com').replace(/\/+$/, '');
+const WEBSITE_BASE_URL = (process.env.MARKETING_SITE_BASE_URL || 'https://www.play-spotter.com').replace(/\/+$/, '');
 const ADVERTISER_DASHBOARD_URL = `${WEBSITE_BASE_URL}/account`;
 
 /**

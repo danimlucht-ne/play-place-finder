@@ -111,7 +111,7 @@ describe('regionRoutes', () => {
 
     const res = await request(buildApp()).post('/search').send({ lat: 49.89, lng: -97.13 }).expect(400);
 
-    expect(res.body).toEqual({ error: 'Play Place Finder is currently available in the United States only.' });
+    expect(res.body).toEqual({ error: 'Play Spotter is currently available in the United States only.' });
   });
 
   test('unseeded coordinate search returns nearby places without triggering duplicate hybrid seeding', async () => {

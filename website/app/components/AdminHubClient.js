@@ -10,6 +10,7 @@ import {
   hubFetch,
   loadHubSettings,
   readJwtClaims,
+  saveHubSettings,
   saveSharedAuthSession,
   statusTone,
 } from './hubClientUtils';
@@ -52,12 +53,6 @@ export default function AdminHubClient() {
 
   const claims = useMemo(() => readJwtClaims(token), [token]);
   const isAdmin = claims?.admin === true;
-  const overviewCards = [
-    { label: 'Ad reviews waiting', value: submissions.length },
-    { label: 'Campaigns loaded', value: campaigns.length },
-    { label: 'Playground items waiting', value: moderationItems.length },
-    { label: 'Support tickets waiting', value: supportTickets.length },
-  ];
 
   async function runTask(task, successMessage) {
     setBusy(true);
@@ -73,6 +68,12 @@ export default function AdminHubClient() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function persistSettings() {
+    saveHubSettings('admin', { apiBase, token });
+    setMessage('Saved admin hub connection settings on this browser.');
+    setError('');
   }
 
   function handleAuthenticated(nextToken) {
@@ -287,23 +288,63 @@ export default function AdminHubClient() {
   }
 
   return (
-    <div className="container hub-page hub-page--admin">
+    <div className="container hub-page">
       <section className="hub-hero">
         <div>
-          <p className="hub-eyebrow">Admin workspace</p>
-          <h1>Admin Control Center</h1>
+          <p className="hub-eyebrow">Admin tools</p>
+          <h1>Advertising Admin Hub</h1>
           <p className="hub-lead">
-            Review advertiser requests, manage live campaigns, handle support needs, and look into playground moderation from one cleaner workspace.
+            Review ad submissions, request revisions, and manage campaign lifecycle actions from the web.
           </p>
         </div>
         <div className="hub-tip-card">
-          <h2>What lives here</h2>
+          <h2>Expected access</h2>
           <ul>
-            <li>Ad reviews and campaign controls</li>
-            <li>Playground moderation and support follow-up</li>
-            <li>Signed-in admin access only</li>
+            <li>Admin Firebase ID token with the admin claim</li>
+            <li>API base URL for the Play Spotter server</li>
+            <li>Optional local mock token only when the server explicitly allows it</li>
           </ul>
         </div>
+      </section>
+
+      <section className="hub-card">
+        <div className="hub-card-head">
+          <div>
+            <h2>Connection</h2>
+            <p>Use the same API base as the mobile app backend.</p>
+          </div>
+          <div className="hub-actions-inline">
+            <button type="button" className="btn btn-outline hub-btn-dark" onClick={persistSettings}>Save settings</button>
+            <button type="button" className="btn btn-teal" disabled={busy} onClick={refreshAdmin}>Refresh admin hub</button>
+          </div>
+        </div>
+        <div className="hub-form-grid">
+          <label className="hub-field">
+            <span>API base URL</span>
+            <input value={apiBase} onChange={(event) => setApiBase(event.target.value)} placeholder="http://localhost:3001" />
+          </label>
+          <label className="hub-field">
+            <span>Admin bearer token</span>
+            <textarea value={token} rows={4} onChange={(event) => setToken(event.target.value)} placeholder="Paste an admin Firebase ID token" />
+          </label>
+          <label className="hub-field">
+            <span>Submission status filter</span>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="manual_review">manual_review</option>
+              <option value="approved">approved</option>
+              <option value="approved_pending_charge">approved_pending_charge</option>
+              <option value="revision_requested">revision_requested</option>
+              <option value="rejected">rejected</option>
+              <option value="cancelled">cancelled</option>
+            </select>
+          </label>
+          <label className="hub-field hub-field--full">
+            <span>Shared reason / note</span>
+            <textarea value={reviewReason} rows={3} onChange={(event) => setReviewReason(event.target.value)} placeholder="Used for reviews, revision requests, and admin status notes." />
+          </label>
+        </div>
+        {message ? <p className="hub-feedback hub-feedback--good">{message}</p> : null}
+        {error ? <p className="hub-feedback hub-feedback--bad">{error}</p> : null}
       </section>
 
       <HubAuthPanel
@@ -318,73 +359,29 @@ export default function AdminHubClient() {
         <section className="hub-card">
           <h2>Admin access required</h2>
           <p className="hub-muted-copy">
-            Sign in with your admin account to open the review queues and control tools.
+            Sign in with an admin account to open the review queue and campaign controls.
           </p>
         </section>
       ) : null}
 
       {token && !isAdmin ? (
         <section className="hub-card">
-          <h2>This account does not have admin access</h2>
+          <h2>Admin claim required</h2>
           <p className="hub-muted-copy">
-            You are signed in, but this account is not marked as a PlayPlace Finder admin. Use an approved admin account to continue.
+            This page is only for Play Spotter admins. Your current account is signed in, but it does not carry the Firebase <code>admin</code> claim required for the admin APIs.
           </p>
         </section>
       ) : null}
 
       {!isAdmin ? null : (
-        <div className="hub-admin-shell">
-      <section className="hub-card hub-card--admin-overview">
-        <div className="hub-card-head">
-          <div>
-            <h2>Today&apos;s overview</h2>
-            <p>Refresh this page whenever you want the latest queue counts and campaign activity.</p>
-          </div>
-          <div className="hub-actions-inline">
-            <button type="button" className="btn btn-teal" disabled={busy} onClick={refreshAdmin}>Refresh workspace</button>
-          </div>
-        </div>
-        <div className="hub-stats-grid hub-stats-grid--four">
-          {overviewCards.map((card) => (
-            <div key={card.label}>
-              <strong>{card.value}</strong>
-              <span>{card.label}</span>
-            </div>
-          ))}
-        </div>
-        <div className="hub-form-grid hub-form-grid--tight">
-          <label className="hub-field">
-            <span>Ad review status</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              <option value="manual_review">Needs manual review</option>
-              <option value="approved">Approved</option>
-              <option value="approved_pending_charge">Approved and waiting for payment</option>
-              <option value="revision_requested">Revision requested</option>
-              <option value="rejected">Rejected</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </label>
-          <label className="hub-field hub-field--full">
-            <span>Shared note for your next action</span>
-            <textarea value={reviewReason} rows={3} onChange={(event) => setReviewReason(event.target.value)} placeholder="Use this for review notes, revision requests, rejection reasons, or support follow-up." />
-          </label>
-        </div>
-        {message ? <p className="hub-feedback hub-feedback--good">{message}</p> : null}
-        {error ? <p className="hub-feedback hub-feedback--bad">{error}</p> : null}
-      </section>
+        <>
 
-
-      <section className="hub-section-block">
-        <div className="hub-section-heading">
-          <p className="hub-section-kicker">Advertising</p>
-          <h2>Review incoming advertiser work</h2>
-        </div>
-      <div className="hub-grid hub-grid--balanced">
+      <div className="hub-grid">
         <section className="hub-card">
           <div className="hub-card-head">
             <div>
-              <h2>Advertising review queue</h2>
-              <p>Review new advertiser submissions and decide what needs approval, revision, or rejection.</p>
+              <h2>Submission queue</h2>
+              <p>Review items that need manual approval or correction.</p>
             </div>
           </div>
           <div className="hub-list">
@@ -398,10 +395,10 @@ export default function AdminHubClient() {
                   <span className={`hub-pill hub-pill--${statusTone(submission.status)}`}>{submission.status || 'unknown'}</span>
                 </div>
                 <p className="hub-muted-copy">
-                  Review flags: {(submission.reviewFlags || []).length}
+                  Flags: {(submission.reviewFlags || []).length}
                 </p>
                 <div className="hub-actions-inline">
-                  <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => loadSubmission(submission._id)}>Open details</button>
+                  <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => loadSubmission(submission._id)}>Load detail</button>
                   <button type="button" className="btn btn-teal" onClick={() => reviewSubmission(submission._id, 'approve')}>Approve</button>
                   <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => reviewSubmission(submission._id, 'reject')}>Reject</button>
                   <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => requestRevision(submission._id)}>Request revision</button>
@@ -414,8 +411,8 @@ export default function AdminHubClient() {
         <section className="hub-card">
           <div className="hub-card-head">
             <div>
-              <h2>Selected advertising request</h2>
-              <p>See the business, message, and review notes before you take action.</p>
+              <h2>Submission detail</h2>
+              <p>View advertiser, creative, and flag details before acting.</p>
             </div>
           </div>
           {!submissionDetail ? (
@@ -426,8 +423,8 @@ export default function AdminHubClient() {
               <p><strong>Status:</strong> <span className={`hub-pill hub-pill--${statusTone(submissionDetail.status)}`}>{submissionDetail.status || 'unknown'}</span></p>
               <p><strong>Advertiser:</strong> {submissionDetail.advertiser?.businessName || 'Unknown advertiser'}</p>
               <p><strong>Email:</strong> {submissionDetail.advertiser?.contactEmail || 'No email'}</p>
-              <p><strong>Ad title:</strong> {submissionDetail.creative?.headline || 'No creative yet'}</p>
-              <p><strong>Ad copy:</strong> {submissionDetail.creative?.body || 'No creative body yet'}</p>
+              <p><strong>Headline:</strong> {submissionDetail.creative?.headline || 'No creative yet'}</p>
+              <p><strong>Body:</strong> {submissionDetail.creative?.body || 'No creative body yet'}</p>
               <p><strong>Package:</strong> {submissionDetail.package?.type || 'Not selected'}</p>
               <p><strong>Total price:</strong> {formatMoney(submissionDetail.totalPriceInCents || 0)}</p>
               <div className="hub-table-wrap">
@@ -451,26 +448,20 @@ export default function AdminHubClient() {
                 </table>
               </div>
               <div className="hub-actions-inline">
-                <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => adminSetStatus(selectedSubmission, 'manual_review')}>Move back to review</button>
-                <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => adminSetStatus(selectedSubmission, 'approved')}>Mark approved</button>
-                <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => adminSetStatus(selectedSubmission, 'cancelled')}>Mark cancelled</button>
+                <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => adminSetStatus(selectedSubmission, 'manual_review')}>Set manual review</button>
+                <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => adminSetStatus(selectedSubmission, 'approved')}>Force approved</button>
+                <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => adminSetStatus(selectedSubmission, 'cancelled')}>Force cancelled</button>
               </div>
             </div>
           )}
         </section>
       </div>
-      </section>
 
-      <section className="hub-section-block">
-        <div className="hub-section-heading">
-          <p className="hub-section-kicker">Campaigns</p>
-          <h2>Manage live and scheduled campaigns</h2>
-        </div>
-      <section className="hub-card hub-card--feature">
+      <section className="hub-card">
         <div className="hub-card-head">
           <div>
-            <h2>Campaign management</h2>
-            <p>Review what is currently running and take action on live or scheduled campaigns.</p>
+            <h2>Campaign operations</h2>
+            <p>Use admin lifecycle controls for scheduled and active campaigns.</p>
           </div>
         </div>
         <div className="hub-list">
@@ -484,12 +475,12 @@ export default function AdminHubClient() {
                 <span className={`hub-pill hub-pill--${statusTone(campaign.status)}`}>{campaign.status || 'unknown'}</span>
               </div>
               <div className="hub-stats-grid">
-                <div><strong>{campaign.impressions || 0}</strong><span>Times shown</span></div>
-                <div><strong>{campaign.clicks || 0}</strong><span>Taps</span></div>
+                <div><strong>{campaign.impressions || 0}</strong><span>Impressions</span></div>
+                <div><strong>{campaign.clicks || 0}</strong><span>Clicks</span></div>
                 <div><strong>{formatMoney(campaign.totalPriceInCents || 0)}</strong><span>Stored total</span></div>
               </div>
               <div className="hub-actions-inline">
-                <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => loadPayment(campaign._id)}>Payment details</button>
+                <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => loadPayment(campaign._id)}>Payment</button>
                 <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => runCampaignAction(campaign._id, 'pause')}>Pause</button>
                 <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => runCampaignAction(campaign._id, 'unpause')}>Unpause</button>
                 <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => runCampaignAction(campaign._id, 'cancel')}>Cancel</button>
@@ -499,11 +490,11 @@ export default function AdminHubClient() {
         </div>
         <div className="hub-form-grid hub-form-grid--tight">
           <label className="hub-field">
-            <span>Reason for your next campaign action</span>
+            <span>Campaign reason</span>
             <input value={campaignAction.reason} onChange={(event) => setCampaignAction((current) => ({ ...current, reason: event.target.value }))} />
           </label>
           <label className="hub-field">
-            <span>Extend by this many days</span>
+            <span>Extend by days</span>
             <input type="number" min="1" max="90" value={campaignAction.days} onChange={(event) => setCampaignAction((current) => ({ ...current, days: event.target.value }))} />
           </label>
           <label className="hub-field">
@@ -511,17 +502,17 @@ export default function AdminHubClient() {
             <input type="number" min="0" value={campaignAction.amountInCents} onChange={(event) => setCampaignAction((current) => ({ ...current, amountInCents: event.target.value }))} />
           </label>
           <label className="hub-field">
-            <span>Selected campaign</span>
-            <input value={selectedCampaign || ''} onChange={(event) => setSelectedCampaign(event.target.value || null)} placeholder="Use Payment details or paste a campaign id" />
+            <span>Selected campaign id</span>
+            <input value={selectedCampaign || ''} onChange={(event) => setSelectedCampaign(event.target.value || null)} placeholder="Set from Payment button or paste an id" />
           </label>
           <div className="hub-actions-inline hub-field--full">
-            <button type="button" className="btn btn-outline hub-btn-dark" disabled={!selectedCampaign} onClick={() => runCampaignAction(selectedCampaign, 'extend')}>Extend selected campaign</button>
-            <button type="button" className="btn btn-outline hub-btn-dark" disabled={!selectedCampaign} onClick={() => runCampaignAction(selectedCampaign, 'refund')}>Refund selected campaign</button>
+            <button type="button" className="btn btn-outline hub-btn-dark" disabled={!selectedCampaign} onClick={() => runCampaignAction(selectedCampaign, 'extend')}>Extend selected</button>
+            <button type="button" className="btn btn-outline hub-btn-dark" disabled={!selectedCampaign} onClick={() => runCampaignAction(selectedCampaign, 'refund')}>Refund selected</button>
           </div>
         </div>
         {paymentDetail ? (
           <div className="hub-detail-card">
-            <h3>Selected payment details</h3>
+            <h3>Selected payment detail</h3>
             <p><strong>Status:</strong> {paymentDetail.status || 'Unknown'}</p>
             <p><strong>Amount:</strong> {formatMoney(paymentDetail.amountInCents || 0)}</p>
             <p><strong>Processor:</strong> {paymentDetail.processor || 'Stripe'}</p>
@@ -529,19 +520,13 @@ export default function AdminHubClient() {
           </div>
         ) : null}
       </section>
-      </section>
 
-      <section className="hub-section-block">
-        <div className="hub-section-heading">
-          <p className="hub-section-kicker">Operations</p>
-          <h2>Moderation and support queues</h2>
-        </div>
-      <div className="hub-grid hub-grid--balanced">
+      <div className="hub-grid">
         <section className="hub-card">
           <div className="hub-card-head">
             <div>
-              <h2>Playground moderation</h2>
-              <p>Review pending playground additions, edits, and photos that need a decision.</p>
+              <h2>Playground moderation queue</h2>
+              <p>Review pending playground, edit, and photo moderation items.</p>
             </div>
           </div>
           <div className="hub-form-grid hub-form-grid--tight">
@@ -566,7 +551,7 @@ export default function AdminHubClient() {
                   <span className={`hub-pill hub-pill--${statusTone(item.status)}`}>{item.status || 'unknown'}</span>
                 </div>
                 <div className="hub-actions-inline">
-                  <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => loadModeration(item.id || item._id)}>Open details</button>
+                  <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => loadModeration(item.id || item._id)}>View detail</button>
                   <button type="button" className="btn btn-teal" onClick={() => moderatePlayground(item.id || item._id, 'approve')}>Approve</button>
                   <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => moderatePlayground(item.id || item._id, 'reject')}>Reject</button>
                   <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => moderatePlayground(item.id || item._id, 'retry')}>Retry</button>
@@ -576,7 +561,7 @@ export default function AdminHubClient() {
           </div>
           {moderationDetail ? (
             <div className="hub-detail-card">
-              <h3>Selected moderation item</h3>
+              <h3>Selected moderation detail</h3>
               <p><strong>Item:</strong> {selectedModeration}</p>
               <p><strong>Submission type:</strong> {moderationDetail.submissionType || 'Unknown'}</p>
               <p><strong>Status:</strong> {moderationDetail.status || 'Unknown'}</p>
@@ -600,8 +585,8 @@ export default function AdminHubClient() {
         <section className="hub-card">
           <div className="hub-card-head">
             <div>
-              <h2>Support queue and playground snapshot</h2>
-              <p>Work through incoming support requests and keep an eye on the current playground data sample.</p>
+              <h2>Support and playground sample</h2>
+              <p>See incoming tickets and a real sample of playground records from the server.</p>
             </div>
           </div>
           <div className="hub-form-grid hub-form-grid--tight">
@@ -637,7 +622,7 @@ export default function AdminHubClient() {
           </div>
           {playgroundDebug ? (
             <div className="hub-detail-card">
-              <h3>Playground snapshot</h3>
+              <h3>Playground sample from server</h3>
               <div className="hub-stats-grid">
                 <div><strong>{playgroundDebug.total || 0}</strong><span>Total playgrounds</span></div>
                 <div><strong>{playgroundDebug.withCost || 0}</strong><span>With cost</span></div>
@@ -669,19 +654,13 @@ export default function AdminHubClient() {
           ) : null}
         </section>
       </div>
-      </section>
 
-      <section className="hub-section-block">
-        <div className="hub-section-heading">
-          <p className="hub-section-kicker">Playgrounds</p>
-          <h2>Inspect live records and merge history</h2>
-        </div>
-      <div className="hub-grid hub-grid--balanced">
+      <div className="hub-grid">
         <section className="hub-card">
           <div className="hub-card-head">
             <div>
-              <h2>Browse playground records</h2>
-              <p>Load active playgrounds, filter by name or city, then open the record and its merge history.</p>
+              <h2>Browse playgrounds</h2>
+              <p>Load active playgrounds, filter by name or city, then open full detail and merge audit.</p>
             </div>
             <div className="hub-actions-inline">
               <button type="button" className="btn btn-teal" onClick={() => loadPlaygroundsBatch(false)}>Load playgrounds</button>
@@ -705,7 +684,7 @@ export default function AdminHubClient() {
                   <span className={`hub-pill hub-pill--${playground.archivedAt ? 'bad' : 'good'}`}>{playground.archivedAt ? 'archived' : 'active'}</span>
                 </div>
                 <div className="hub-actions-inline">
-                  <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => loadPlaygroundDetail(String(playground.id || playground._id))}>Open record</button>
+                  <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => loadPlaygroundDetail(String(playground.id || playground._id))}>Open detail</button>
                   <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => archivePlayground(String(playground.id || playground._id))}>Archive</button>
                 </div>
               </article>
@@ -716,8 +695,8 @@ export default function AdminHubClient() {
         <section className="hub-card">
           <div className="hub-card-head">
             <div>
-              <h2>Selected playground record</h2>
-              <p>Inspect a real playground record and the merge history attached to it.</p>
+              <h2>Selected playground</h2>
+              <p>Inspect a real playground record and the merge audit attached to it.</p>
             </div>
           </div>
           {!playgroundDetail ? (
@@ -746,8 +725,7 @@ export default function AdminHubClient() {
           )}
         </section>
       </div>
-      </section>
-        </div>
+        </>
       )}
     </div>
   );

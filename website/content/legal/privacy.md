@@ -1,13 +1,13 @@
 ---
 title: Privacy Policy
-description: PlayPlace Finder privacy policy. How we collect, use, and protect your data.
+description: Play Spotter privacy policy. How we collect, use, and protect your data.
 version: "1.1"
 lastUpdated: "April 16, 2026"
 ---
 
 ## 1. Overview
 
-Play Place Finder ("we", "our", or "the app") is a community-driven mobile application designed for adult parents and caregivers to discover family-friendly places and activities.
+Play Spotter ("we", "our", or "the app") is a community-driven mobile application designed for adult parents and caregivers to discover family-friendly places and activities.
 
 This app is not directed to children under 13, and we do not knowingly collect personal data from children. If we learn we have collected such data, we will delete it promptly.(repeat on purpose)   
 
@@ -52,7 +52,7 @@ We do not accept any responsibility or liability for the privacy policy of such 
 
 ## 5. Crowdsourced Content
 
-Play Place Finder is a community-driven platform. Content may be submitted by users or third parties. We do not guarantee accuracy, completeness, or reliability. Users are responsible for verifying information.
+Play Spotter is a community-driven platform. Content may be submitted by users or third parties. We do not guarantee accuracy, completeness, or reliability. Users are responsible for verifying information.
 
 ## 6. Advertising
 
@@ -88,9 +88,9 @@ We do not track users across third-party apps or websites. Advertising is based 
 
  ## 13. Limitation of Liability & Indemnification
 
-Play Place Finder is not liable for any privacy violations, data corruption, unauthorized access (hacking), service interruptions due to hardware/software failures beyond our control, and any other legal causes of action reasonably anticipated by Play Place Finder or the User of these services.   
+Play Spotter is not liable for any privacy violations, data corruption, unauthorized access (hacking), service interruptions due to hardware/software failures beyond our control, and any other legal causes of action reasonably anticipated by Play Spotter or the User of these services.   
 
-Further, the User agrees to indemnify and hold Play Place Finder and its officers, directors, employees and agents harmless from any and all claims, damages, liabilities, and costs (including reasonable legal and accounting fees) related to (a) your access or use of our services or third-party services, (b) your violation of these terms, or (c) your negligence or willful misconduct.  OUR TOTAL LIABILITY TO YOU FOR ANY CLAIM ARISING FROM USE OF PLAY Place Finder SHALL NOT EXCEED THE AMOUNT YOU PAID FOR YOUR CURRENT SUBSCRIPTION PERIOD AT THE TIME OF DISPUTE OR CLAIM or $100 USD. 
+Further, the User agrees to indemnify and hold Play Spotter and its officers, directors, employees and agents harmless from any and all claims, damages, liabilities, and costs (including reasonable legal and accounting fees) related to (a) your access or use of our services or third-party services, (b) your violation of these terms, or (c) your negligence or willful misconduct.  OUR TOTAL LIABILITY TO YOU FOR ANY CLAIM ARISING FROM USE OF Play Spotter SHALL NOT EXCEED THE AMOUNT YOU PAID FOR YOUR CURRENT SUBSCRIPTION PERIOD AT THE TIME OF DISPUTE OR CLAIM or $100 USD. 
  
 Any action, regardless of form, arising out of or relating to a dispute may be brought by either party not more than one (1) year after the cause of action has accrued. 
 

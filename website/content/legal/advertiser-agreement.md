@@ -1,12 +1,12 @@
 
 ---
 title: Advertiser Agreement
-description: PlayPlace Finder advertiser agreement governing ad submissions, approval, and display.
+description: Play Spotter advertiser agreement governing ad submissions, approval, and display.
 version: "1.1"
 lastUpdated: "April 15, 2026"
 ---
 
-This Advertiser Agreement governs the submission, approval, and display of advertising content within Play Place Finder. By submitting an advertisement and completing payment, you agree to the following terms.
+This Advertiser Agreement governs the submission, approval, and display of advertising content within Play Spotter. By submitting an advertisement and completing payment, you agree to the following terms.
 
 ## 1. Authorization
 
@@ -44,9 +44,9 @@ Advertisers are solely responsible for the accuracy of business information, cus
 
 ## 8. Limitation of Liability & Indemnification
 
-To the fullest extent permitted by law, Play Place Finder shall not be liable for indirect or consequential damages, loss of revenue or business opportunities, or issues arising from ad performance.
+To the fullest extent permitted by law, Play Spotter shall not be liable for indirect or consequential damages, loss of revenue or business opportunities, or issues arising from ad performance.
 
-Further, the Advertiser agrees to indemnify and hold PlayPlace Finder and its officers, directors, employees and agents harmless from any and all claims, damages, liabilities, and costs (including reasonable legal and accounting fees) related to (a) your access or use of our services or third-party services, (b) your violation of these terms, or (c) your negligence or willful misconduct. OUR TOTAL LIABILITY TO YOU FOR ANY CLAIM ARISING FROM YOUR USE OF OUR ADVERTISING SERVICES SHALL NOT EXCEED THE AMOUNT YOU PAID TO US FOR THE ADVERTISING CAMPAIGN AT ISSUE.
+Further, the Advertiser agrees to indemnify and hold Play Spotter and its officers, directors, employees and agents harmless from any and all claims, damages, liabilities, and costs (including reasonable legal and accounting fees) related to (a) your access or use of our services or third-party services, (b) your violation of these terms, or (c) your negligence or willful misconduct. OUR TOTAL LIABILITY TO YOU FOR ANY CLAIM ARISING FROM YOUR USE OF OUR ADVERTISING SERVICES SHALL NOT EXCEED THE AMOUNT YOU PAID TO US FOR THE ADVERTISING CAMPAIGN AT ISSUE.
 
 Any action, regardless of form, arising out of or relating to a dispute may be brought by either party not more than one (1) year after the cause of action has accrued. 
 

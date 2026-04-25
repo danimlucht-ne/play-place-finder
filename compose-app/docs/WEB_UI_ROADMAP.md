@@ -1,9 +1,9 @@
-# Web UI roadmap (Play Place Finder)
+# Web UI roadmap (Play Spotter)
 
 The **Compose** module (`composeApp`) currently targets **Android only** (`androidTarget` in `build.gradle.kts`). There is **no** `wasmJs` / `js` target yet, so the “live on the web” product today is best thought of as **two pieces**:
 
-1. **Marketing / legal site** (e.g. Vercel at `www.play-place-finder.com`) — static or lightweight Next.js pages.
-2. **API** (`api.play-place-finder.com`) — Node server the Android app already uses.
+1. **Marketing / legal site** (e.g. Vercel at `www.play-spotter.com`) — static or lightweight Next.js pages.
+2. **API** (`api.play-spotter.com`) — Node server the Android app already uses.
 
 In-app browser links use **`MARKETING_SITE_BASE_URL`** (BuildConfig) and paths below.
 
@@ -73,7 +73,7 @@ Phases 1–3 are each **multi-week** depending on map and payment choices.
 | Key | Where | Purpose |
 |-----|--------|---------|
 | `SERVER_BASE_URL` | `local.properties` → `BuildConfig` | API host (`https://api.…`). |
-| `MARKETING_SITE_BASE_URL` | `local.properties` → `BuildConfig` | **Www** host for `/advertise`, `/privacy`, `/terms`. Default `https://www.play-place-finder.com`. |
+| `MARKETING_SITE_BASE_URL` | `local.properties` → `BuildConfig` | **Www** host for `/advertise`, `/privacy`, `/terms`. Default `https://www.play-spotter.com`. |
 
 Code: `org.community.playgroundfinder.util.MarketingLinks` builds full URLs from `AppConfig.marketingSiteBaseUrl`.
 

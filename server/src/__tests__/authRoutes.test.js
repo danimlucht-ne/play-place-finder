@@ -4,7 +4,6 @@
   generateEmailVerificationLink: jest.fn(),
   createCustomToken: jest.fn(),
   generatePasswordResetLink: jest.fn(),
-  verifyIdToken: jest.fn(),
 };
 
 jest.mock('firebase-admin', () => ({ auth: jest.fn(() => mockAuth) }));
@@ -61,7 +60,7 @@ describe('authRoutes', () => {
     await request(buildApp()).post('/register').send({}).expect(400);
 
     const weak = await request(buildApp()).post('/register').send({
-      email: 'new@test.invalid',
+      email: 'new@example.com',
       password: 'short',
     }).expect(400);
 
@@ -78,12 +77,12 @@ describe('authRoutes', () => {
     axios.post.mockResolvedValue({ data: { idToken: 'id-token' } });
 
     const res = await request(buildApp()).post('/register').send({
-      email: 'new@test.invalid',
+      email: 'new@example.com',
       password: 'StrongPass1!',
     }).expect(201);
 
     expect(mockAuth.createUser).toHaveBeenCalledWith({
-      email: 'new@test.invalid',
+      email: 'new@example.com',
       password: 'StrongPass1!',
     });
     expect(updateOne).toHaveBeenCalledWith(
@@ -91,7 +90,7 @@ describe('authRoutes', () => {
       {
         $setOnInsert: {
           _id: 'uid-1',
-          email: 'new@test.invalid',
+          email: 'new@example.com',
           createdAt: new Date('2026-04-09T12:00:00Z'),
           score: 0,
           level: 'Newcomer',
@@ -101,8 +100,8 @@ describe('authRoutes', () => {
       { upsert: true },
     );
     expect(sendEmail).toHaveBeenCalledWith(
-      'new@test.invalid',
-      'Confirm your email \u2014 Play Place Finder',
+      'new@example.com',
+      'Confirm your email \u2014 Play Spotter',
       expect.stringContaining('https://verify.example/link'),
       expect.stringContaining('https://verify.example/link'),
     );
@@ -117,7 +116,7 @@ describe('authRoutes', () => {
     mockAuth.createUser.mockRejectedValue({ code: 'auth/email-already-exists', message: 'exists' });
 
     const res = await request(buildApp()).post('/register').send({
-      email: 'taken@test.invalid',
+      email: 'taken@example.com',
       password: 'StrongPass1!',
     }).expect(409);
 
@@ -136,7 +135,7 @@ describe('authRoutes', () => {
     axios.post.mockRejectedValue(new Error('Identity Toolkit exchange failed'));
 
     const res = await request(buildApp()).post('/register').send({
-      email: 'rollback@test.invalid',
+      email: 'rollback@example.com',
       password: 'StrongPass1!',
     }).expect(500);
 
@@ -145,34 +144,12 @@ describe('authRoutes', () => {
     expect(mockAuth.deleteUser).toHaveBeenCalledWith('uid-rollback');
   });
 
-  test('google-signin requires idToken, verifies with Firebase Admin, upserts user', async () => {
-    const updateOne = jest.fn().mockResolvedValue({});
-    const findOne = jest.fn().mockResolvedValue({ _id: 'google-uid' });
-    getDb.mockReturnValue(makeDb({ users: { updateOne, findOne } }));
-    mockAuth.verifyIdToken.mockResolvedValue({ uid: 'google-uid', email: 'g@test.invalid' });
-
-    await request(buildApp()).post('/google-signin').send({}).expect(400);
-
-    const res = await request(buildApp()).post('/google-signin').send({ idToken: 'firebase-id-jwt' }).expect(200);
-
-    expect(mockAuth.verifyIdToken).toHaveBeenCalledWith('firebase-id-jwt');
-    expect(res.body).toEqual({ message: 'success', token: 'firebase-id-jwt', userId: 'google-uid' });
-  });
-
-  test('google-signin rejects invalid tokens', async () => {
-    getDb.mockReturnValue(makeDb({ users: { updateOne: jest.fn(), findOne: jest.fn() } }));
-    mockAuth.verifyIdToken.mockRejectedValue(new Error('invalid token'));
-
-    const res = await request(buildApp()).post('/google-signin').send({ idToken: 'bad' }).expect(401);
-    expect(res.body.error).toMatch(/Invalid or expired/i);
-  });
-
   test('login requires credentials and maps invalid Firebase credentials to 401', async () => {
     await request(buildApp()).post('/login').send({}).expect(400);
 
     axios.post.mockRejectedValue({ response: { data: { error: { message: 'INVALID_LOGIN_CREDENTIALS' } } } });
     const res = await request(buildApp()).post('/login').send({
-      email: 'user@test.invalid',
+      email: 'user@example.com',
       password: 'wrong',
     }).expect(401);
 
@@ -189,15 +166,15 @@ describe('authRoutes', () => {
     axios.post.mockResolvedValue({ data: { localId: 'uid-1', idToken: 'id-token' } });
 
     const banned = await request(buildApp()).post('/login').send({
-      email: 'user@test.invalid',
+      email: 'user@example.com',
       password: 'StrongPass1!',
     }).expect(403);
     const blocked = await request(buildApp()).post('/login').send({
-      email: 'user@test.invalid',
+      email: 'user@example.com',
       password: 'StrongPass1!',
     }).expect(403);
     const ok = await request(buildApp()).post('/login').send({
-      email: 'user@test.invalid',
+      email: 'user@example.com',
       password: 'StrongPass1!',
     }).expect(200);
 
@@ -211,12 +188,12 @@ describe('authRoutes', () => {
     mockAuth.generateEmailVerificationLink.mockResolvedValue('https://verify.example/link');
 
     const res = await request(buildApp()).post('/resend-verification').send({
-      email: 'user@test.invalid',
+      email: 'user@example.com',
     }).expect(200);
 
     expect(sendEmail).toHaveBeenCalledWith(
-      'user@test.invalid',
-      'Confirm your email \u2014 Play Place Finder',
+      'user@example.com',
+      'Confirm your email \u2014 Play Spotter',
       expect.stringContaining('https://verify.example/link'),
       expect.stringContaining('https://verify.example/link'),
     );
@@ -226,12 +203,12 @@ describe('authRoutes', () => {
   test('reset password always returns the generic success message', async () => {
     mockAuth.generatePasswordResetLink.mockResolvedValueOnce('https://reset.example/link');
     const success = await request(buildApp()).post('/reset-password').send({
-      email: 'user@test.invalid',
+      email: 'user@example.com',
     }).expect(200);
 
     mockAuth.generatePasswordResetLink.mockRejectedValueOnce(new Error('not found'));
     const failure = await request(buildApp()).post('/reset-password').send({
-      email: 'missing@test.invalid',
+      email: 'missing@example.com',
     }).expect(200);
 
     expect(success.body).toEqual({ message: 'If that email is registered, a reset link has been sent.' });

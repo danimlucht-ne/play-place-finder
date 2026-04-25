@@ -83,7 +83,7 @@ private fun regionalMarketCopy(phase: String, advertisingOpen: Boolean): Pair<St
     return when (phase.lowercase()) {
         "mature" ->
             "Established market rate" to
-                "Prices here reflect a larger local audience on PlayPlace. The dollar amounts below are what you pay today."
+                "Prices here reflect a larger local audience on Play Spotter. The dollar amounts below are what you pay today."
         "growing", "growth" ->
             "Growing market rate" to
                 "You’re on the regional on-ramp rate. As more families join in your area, standard rates can increase — the prices shown are locked for this checkout."

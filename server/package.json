@@ -1,7 +1,7 @@
 {
   "name": "playground-app-server",
   "version": "1.0.0",
-  "description": "Backend server for Play Place Finder app",
+  "description": "Backend server for Play Spotter app",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
