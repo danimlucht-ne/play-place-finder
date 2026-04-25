@@ -32,6 +32,29 @@ const SubmissionType = {
 
 const ACTIVE_FILTER = ACTIVE_PLAYGROUND_FILTER;
 
+/**
+ * Backwards-compatible wrapper: older deployments may not export
+ * collectAllSubsumedPlaygroundIdsForRegions yet.
+ */
+async function collectAllSubsumedIdsSafe(db, regionKeys) {
+    if (typeof collectAllSubsumedPlaygroundIdsForRegions === 'function') {
+        return collectAllSubsumedPlaygroundIdsForRegions(db, regionKeys);
+    }
+    const keys = [...new Set((regionKeys || []).map((k) => String(k).trim()).filter(Boolean))];
+    const seenKeys = new Set();
+    const out = [];
+    for (const regionKey of keys) {
+        const chunk = await collectSubsumedPlaygroundIdsForRegion(db, regionKey);
+        for (const id of chunk) {
+            const key = stablePlaygroundIdKey(id);
+            if (!key || seenKeys.has(key)) continue;
+            seenKeys.add(key);
+            out.push(id);
+        }
+    }
+    return out;
+}
+
 /** Aggregation expression: lowercase trimmed tokens from `groundType` CSV on the document. */
 function groundTypeNormalizedTokensExpr() {
     return {
@@ -297,7 +320,7 @@ router.get("/search", async (req, res) => {
                 if (ck) regionKeysForSubsumed.add(String(ck).trim());
             }
         }
-        const subsumedRaw = await collectAllSubsumedPlaygroundIdsForRegions(db, [...regionKeysForSubsumed]);
+        const subsumedRaw = await collectAllSubsumedIdsSafe(db, [...regionKeysForSubsumed]);
         const subsumedKeys = new Set(subsumedRaw.map(stablePlaygroundIdKey));
         const pruned = results.filter((p) => p && p._id != null && !subsumedKeys.has(stablePlaygroundIdKey(p._id)));
 
