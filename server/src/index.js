@@ -12,6 +12,7 @@ const multer = require('multer');
 const { GoogleGenAI, Type } = require('@google/genai');
 const axios = require('axios');
 const vision = require('@google-cloud/vision');
+const { isOriginAllowed } = require('./utils/corsConfig');
 
 // --- SERVICES ---
 const { verifyToken, verifyAdminToken, optionalVerifyToken } = require('./services/authService');
@@ -176,6 +177,23 @@ app.use('/api/ads/payments/webhook', express.raw({ type: 'application/json' }), 
 
 // JSON body parser for all other routes
 app.use(express.json());
+
+// CORS for browser clients (web hub + marketing site calling API directly).
+app.use((req, res, next) => {
+    const origin = req.get('Origin');
+    if (!origin) return next();
+    if (!isOriginAllowed(origin, process.env)) {
+        if (req.method === 'OPTIONS') return res.status(403).json({ error: 'CORS origin denied.' });
+        return res.status(403).json({ error: 'Origin not allowed.' });
+    }
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization,Content-Type,X-Requested-With');
+    if (req.method === 'OPTIONS') return res.status(204).end();
+    next();
+});
 
 // Request correlation for access logs, errors, and admin log tail API
 app.use((req, res, next) => {
