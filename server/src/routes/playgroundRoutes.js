@@ -36,6 +36,21 @@ const ACTIVE_FILTER = ACTIVE_PLAYGROUND_FILTER;
  * Backwards-compatible wrapper: older deployments may not export
  * collectAllSubsumedPlaygroundIdsForRegions yet.
  */
+function stablePlaygroundIdKeySafe(id) {
+    if (typeof stablePlaygroundIdKey === 'function') {
+        return stablePlaygroundIdKey(id);
+    }
+    if (id == null || id === '') return '';
+    if (typeof id === 'object' && id !== null && typeof id.toHexString === 'function') {
+        return id.toHexString();
+    }
+    return String(id);
+}
+
+/**
+ * Backwards-compatible wrapper: older deployments may not export
+ * stablePlaygroundIdKey yet.
+ */
 async function collectAllSubsumedIdsSafe(db, regionKeys) {
     if (typeof collectAllSubsumedPlaygroundIdsForRegions === 'function') {
         return collectAllSubsumedPlaygroundIdsForRegions(db, regionKeys);
@@ -46,7 +61,7 @@ async function collectAllSubsumedIdsSafe(db, regionKeys) {
     for (const regionKey of keys) {
         const chunk = await collectSubsumedPlaygroundIdsForRegion(db, regionKey);
         for (const id of chunk) {
-            const key = stablePlaygroundIdKey(id);
+            const key = stablePlaygroundIdKeySafe(id);
             if (!key || seenKeys.has(key)) continue;
             seenKeys.add(key);
             out.push(id);
@@ -321,8 +336,8 @@ router.get("/search", async (req, res) => {
             }
         }
         const subsumedRaw = await collectAllSubsumedIdsSafe(db, [...regionKeysForSubsumed]);
-        const subsumedKeys = new Set(subsumedRaw.map(stablePlaygroundIdKey));
-        const pruned = results.filter((p) => p && p._id != null && !subsumedKeys.has(stablePlaygroundIdKey(p._id)));
+        const subsumedKeys = new Set(subsumedRaw.map(stablePlaygroundIdKeySafe));
+        const pruned = results.filter((p) => p && p._id != null && !subsumedKeys.has(stablePlaygroundIdKeySafe(p._id)));
 
         const favIds = new Set();
         if (req.user?.uid) {
