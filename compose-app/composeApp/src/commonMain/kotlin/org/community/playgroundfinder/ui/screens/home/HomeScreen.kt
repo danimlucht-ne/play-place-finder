@@ -69,11 +69,18 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.*
+import kotlin.random.Random
 import org.community.playgroundfinder.models.AdCampaignStats
 import org.community.playgroundfinder.models.AllAdsResponse
 import org.community.playgroundfinder.models.HybridSearchResponse
 
 private const val DEFAULT_FILTER_RADIUS_MILES = 50
+private val HOME_AD_PROMO_VARIANTS = listOf(
+    "Advertise your business here" to "Reach local families searching nearby",
+    "Your ad can appear right here" to "Get discovered while parents browse parks",
+    "Promote your business to local families" to "Show up where busy parents are already looking",
+    "Put your business in front of active families" to "Turn local attention into real visits",
+)
 
 /** Set after first read so we only run the legacy-default migration once per install. */
 private const val FILTER_RADIUS_LEGACY_MIGRATION_FLAG = "filter_radius_default_50_applied"
@@ -216,6 +223,9 @@ fun HomeScreen(
 
     // --- FILTER STATE (restored from last search) ---
     var showFilterSheet by remember { mutableStateOf(false) }
+    val adPromoVariant by remember {
+        mutableStateOf(HOME_AD_PROMO_VARIANTS[Random.nextInt(HOME_AD_PROMO_VARIANTS.size)])
+    }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     /** Set when opening filters from the map; cleared after Apply navigates back or sheet is dismissed. */
     var pendingNavigateToMapAfterFilter by remember { mutableStateOf(false) }
@@ -2267,18 +2277,42 @@ fun HomeScreen(
                     userLng = userLng,
                 )
                 Spacer(Modifier.height(10.dp))
-                Text(
-                    "This could be your business's ad",
-                    color = Color(0xFF424242),
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp,
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                    textDecoration = TextDecoration.Underline,
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { onNavigateToAdvertise() },
-                )
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFE8F8FA),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                adPromoVariant.first,
+                                color = Color(0xFF006064),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                adPromoVariant.second,
+                                color = Color(0xFF455A64),
+                                fontSize = 12.sp,
+                            )
+                        }
+                        Text(
+                            "Learn more",
+                            color = FormColors.PrimaryButton,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 10.dp),
+                        )
+                    }
+                }
             }
 
             // 4. QUICK ACTIONS — use same region key as inline ads ([discoverCityId]); the first carousel row

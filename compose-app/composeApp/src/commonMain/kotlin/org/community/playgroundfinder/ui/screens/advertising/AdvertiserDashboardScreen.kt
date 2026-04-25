@@ -23,19 +23,12 @@ import org.community.playgroundfinder.data.CampaignAnalyticsData
 import org.community.playgroundfinder.data.PlaygroundService
 import org.community.playgroundfinder.models.AdCampaignStats
 import org.community.playgroundfinder.ui.composables.FormColors
-import org.community.playgroundfinder.ui.composables.SponsoredListingCard
 import org.community.playgroundfinder.util.MarketingLinks
 import org.community.playgroundfinder.util.rememberOpenExternalUrl
 
 @Composable
 fun AdvertiserDashboardScreen(
     playgroundService: PlaygroundService,
-    /**
-     * When set (e.g. Home overflow â†’ one campaign), only that row is shown, expanded, so the user
-     * is not scrolling the full list. Use [onViewAllCampaigns] to switch to the full dashboard.
-     */
-    soloCampaignId: String? = null,
-    onViewAllCampaigns: () -> Unit = {},
     onNavigateToAdvertise: () -> Unit = {},
     onRenew: (submissionId: String, regionKey: String) -> Unit = { _, _ -> },
     onBack: () -> Unit,
@@ -43,16 +36,9 @@ fun AdvertiserDashboardScreen(
     onPickCreativeImage: ((campaignId: String, submissionId: String) -> Unit)? = null,
     /** Incremented after a successful image replace so the dashboard can refresh previews. */
     externalReloadNonce: Int = 0,
-    /**
-     * Android: while a cropped dashboard image is uploading (or before the API returns a staged preview URL),
-     * `first` is the campaign id and `second` is an on-device JPEG path so Coil can show â€œpendingâ€ next to the
-     * live image in the edit dialog.
-     */
-    pendingLocalCreativePreview: Pair<String, String>? = null,
 ) {
     val scope = rememberCoroutineScope()
     val openExternalUrl = rememberOpenExternalUrl()
-    val soloId = soloCampaignId?.trim()?.takeIf { it.isNotEmpty() }
     var campaigns by remember { mutableStateOf<List<AdCampaignStats>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -69,18 +55,21 @@ fun AdvertiserDashboardScreen(
     var editBody by remember { mutableStateOf("") }
     var editCtaText by remember { mutableStateOf("") }
     var editCtaUrl by remember { mutableStateOf("") }
-    var editImagePreviewUrl by remember { mutableStateOf<String?>(null) }
-    /** Staged creative image URL from analytics when the server exposes a pending creative preview. */
-    var editPendingRemoteImageUrl by remember { mutableStateOf<String?>(null) }
+    /** Image currently shown to users (live creative). */
+    var editLiveImagePreviewUrl by remember { mutableStateOf<String?>(null) }
+    /** Staged image waiting for review, if any. */
+    var editPendingImagePreviewUrl by remember { mutableStateOf<String?>(null) }
+    /** True when the submission has a staged creative (may be text-only; image URLs can match live). */
+    var editHasStagedCreative by remember { mutableStateOf(false) }
     var editSaving by remember { mutableStateOf(false) }
     var editError by remember { mutableStateOf<String?>(null) }
 
-    // Cancel live campaign (no refund) â€” only for active ads
+    // Cancel live campaign (no refund) — only for active ads
     var cancellingCampaignId by remember { mutableStateOf<String?>(null) }
     var cancelInProgress by remember { mutableStateOf(false) }
     var cancelError by remember { mutableStateOf<String?>(null) }
 
-    // Withdraw before launch (prelaunch-cancel API â€” refund / release per server rules)
+    // Withdraw before launch (prelaunch-cancel API — refund / release per server rules)
     var prelaunchSubmissionId by remember { mutableStateOf<String?>(null) }
     var prelaunchInProgress by remember { mutableStateOf(false) }
     var prelaunchError by remember { mutableStateOf<String?>(null) }
@@ -114,7 +103,7 @@ fun AdvertiserDashboardScreen(
                 val data = playgroundService.getCampaignAnalytics(campaignId)
                 analyticsData = analyticsData + (campaignId to data)
             } catch (_: Exception) {
-                // Silently fail â€” the expanded section just won't show daily data
+                // Silently fail — the expanded section just won't show daily data
             }
             analyticsLoading = analyticsLoading - campaignId
         }
@@ -125,8 +114,9 @@ fun AdvertiserDashboardScreen(
         editBody = ""
         editCtaText = ""
         editCtaUrl = ""
-        editImagePreviewUrl = null
-        editPendingRemoteImageUrl = null
+        editLiveImagePreviewUrl = null
+        editPendingImagePreviewUrl = null
+        editHasStagedCreative = false
         editError = null
         editSaving = false
         editingCampaignId = campaignId
@@ -134,15 +124,17 @@ fun AdvertiserDashboardScreen(
         scope.launch {
             try {
                 val data = playgroundService.getCampaignAnalytics(campaignId)
-                val p = data.campaign.creativePreview
+                val live = data.campaign.creativePreview
+                val pending = data.campaign.pendingCreativePreview
+                val p = pending ?: live
+                editHasStagedCreative = pending != null
+                editLiveImagePreviewUrl = live?.imageUrl?.trim()?.takeIf { it.isNotBlank() }
+                editPendingImagePreviewUrl = pending?.imageUrl?.trim()?.takeIf { it.isNotBlank() }
                 if (p != null) {
                     editHeadline = p.headline
                     editBody = p.body
                     editCtaText = p.ctaText
                     editCtaUrl = p.ctaUrl
-                    editImagePreviewUrl = p.imageUrl?.trim()?.takeIf { it.isNotBlank() }
-                    editPendingRemoteImageUrl = data.campaign.pendingCreativePreview
-                        ?.imageUrl?.trim()?.takeIf { it.isNotBlank() }
                 }
             } catch (_: Exception) { /* keep empty */ }
         }
@@ -219,32 +211,21 @@ fun AdvertiserDashboardScreen(
 
     LaunchedEffect(Unit) { loadCampaigns() }
 
-    val displayedCampaigns = remember(campaigns, soloId) {
-        if (soloId != null) campaigns.filter { it._id == soloId } else campaigns
-    }
-
-    LaunchedEffect(soloId, campaigns, isLoading) {
-        if (isLoading) return@LaunchedEffect
-        val id = soloId ?: return@LaunchedEffect
-        if (campaigns.any { it._id == id }) {
-            expandedCampaignId = id
-            loadAnalytics(id)
-        }
-    }
-
     LaunchedEffect(externalReloadNonce) {
         if (externalReloadNonce <= 0) return@LaunchedEffect
         loadCampaigns()
         val cid = editingCampaignId ?: return@LaunchedEffect
         try {
             val data = playgroundService.getCampaignAnalytics(cid)
-            editImagePreviewUrl = data.campaign.creativePreview?.imageUrl?.trim()?.takeIf { it.isNotBlank() }
-            editPendingRemoteImageUrl = data.campaign.pendingCreativePreview
-                ?.imageUrl?.trim()?.takeIf { it.isNotBlank() }
+            val live = data.campaign.creativePreview
+            val pending = data.campaign.pendingCreativePreview
+            editHasStagedCreative = pending != null
+            editLiveImagePreviewUrl = live?.imageUrl?.trim()?.takeIf { it.isNotBlank() }
+            editPendingImagePreviewUrl = pending?.imageUrl?.trim()?.takeIf { it.isNotBlank() }
         } catch (_: Exception) { }
     }
 
-    // â”€â”€â”€ Edit Creative Dialog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Edit Creative Dialog ────────────────────────────────────────────────
     if (editingCampaignId != null) {
         AlertDialog(
             onDismissRequest = {
@@ -271,81 +252,58 @@ fun AdvertiserDashboardScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text("Creative image", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                    val pendingLocalPath =
-                        pendingLocalCreativePreview?.takeIf { it.first == editingCampaignId }?.second
-                    val pendingRemote = editPendingRemoteImageUrl?.takeIf { it.isNotBlank() }
-                    val pendingModel = pendingLocalPath ?: pendingRemote
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Text("Live now", fontSize = 11.sp, color = Color.DarkGray, fontWeight = FontWeight.Medium)
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(120.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(FormColors.CardBackground),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                if (!editImagePreviewUrl.isNullOrBlank()) {
-                                    AsyncImage(
-                                        model = editImagePreviewUrl,
-                                        contentDescription = "Current ad image",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop,
-                                    )
-                                } else {
-                                    Text("No image", color = Color.Gray, fontSize = 11.sp)
-                                }
-                            }
-                        }
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Text(
-                                "Pending / your pick",
-                                fontSize = 11.sp,
-                                color = Color.DarkGray,
-                                fontWeight = FontWeight.Medium,
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(120.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(Color(0xFFF5F5F5)),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                if (pendingModel != null) {
-                                    AsyncImage(
-                                        model = pendingModel,
-                                        contentDescription = "Pending ad image",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop,
-                                    )
-                                } else {
-                                    Text(
-                                        "Same as live until you upload a new picture",
-                                        color = Color.Gray,
-                                        fontSize = 11.sp,
-                                        modifier = Modifier.padding(horizontal = 6.dp),
-                                    )
-                                }
-                            }
-                        }
-                    }
                     Text(
-                        "Cropping uses the same wide banner shape as inline listing ads so the preview matches how your photo is clipped in the app.",
+                        "Each campaign uses one picture at a time. Renewing or rebooking copies your last image until you upload a new one.",
                         fontSize = 11.sp,
                         color = Color.DarkGray,
-                        lineHeight = 15.sp,
                     )
+                    Text("Live (what people see now)", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color.DarkGray)
+                    if (!editLiveImagePreviewUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = editLiveImagePreviewUrl,
+                            contentDescription = "Live ad image",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(140.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(FormColors.CardBackground),
+                            contentScale = ContentScale.Crop,
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(100.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFFEEEEEE)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("No live image on file", color = Color.Gray, fontSize = 12.sp)
+                        }
+                    }
+                    if (
+                        !editPendingImagePreviewUrl.isNullOrBlank()
+                        && editPendingImagePreviewUrl != editLiveImagePreviewUrl
+                    ) {
+                        Spacer(Modifier.height(6.dp))
+                        Text("Pending review (replaces live when approved)", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color.DarkGray)
+                        AsyncImage(
+                            model = editPendingImagePreviewUrl,
+                            contentDescription = "Pending ad image",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(140.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(FormColors.CardBackground),
+                            contentScale = ContentScale.Crop,
+                        )
+                    } else if (editHasStagedCreative) {
+                        Text(
+                            "Headline or other copy changes are pending review; the live picture above stays until those are approved.",
+                            fontSize = 11.sp,
+                            color = Color.DarkGray,
+                        )
+                    }
                     if (onPickCreativeImage != null) {
                         if (editingSubmissionId.isNotBlank()) {
                             OutlinedButton(
@@ -355,16 +313,16 @@ fun AdvertiserDashboardScreen(
                                 enabled = !editSaving,
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Text("Change pictureâ€¦")
+                                Text("Change picture…")
                             }
                             Text(
-                                "Pick a new photo, crop it, then we upload it. Live ads keep the old image until review approves the new one.",
+                                "Pick a new photo, crop it, then we upload it. On live ads, the new picture appears above as “pending” until review approves it.",
                                 fontSize = 11.sp,
                                 color = Color.DarkGray,
                             )
                         } else {
                             Text(
-                                "Picture changes arenâ€™t available for this campaign (missing submission link). Contact support if you need help.",
+                                "Picture changes aren’t available for this campaign (missing submission link). Contact support if you need help.",
                                 fontSize = 11.sp,
                                 color = FormColors.ErrorText,
                             )
@@ -417,7 +375,7 @@ fun AdvertiserDashboardScreen(
         )
     }
 
-    // â”€â”€â”€ Withdraw before launch (prelaunch-cancel) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Withdraw before launch (prelaunch-cancel) ─────────────────────────
     if (prelaunchSubmissionId != null) {
         AlertDialog(
             onDismissRequest = { if (!prelaunchInProgress) prelaunchSubmissionId = null },
@@ -425,11 +383,11 @@ fun AdvertiserDashboardScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        "Your campaign hasnâ€™t started yet. Weâ€™ll cancel the submission and scheduled campaign. If your card was charged, youâ€™ll typically receive a full refund; if only a hold was placed, it will be released.",
+                        "Your campaign hasn’t started yet. We’ll cancel the submission and scheduled campaign. If your card was charged, you’ll typically receive a full refund; if only a hold was placed, it will be released.",
                         fontSize = 14.sp,
                     )
                     Text(
-                        "This matches â€œWithdraw submissionâ€ on your submission status screen.",
+                        "This matches “Withdraw submission” on your submission status screen.",
                         fontSize = 12.sp,
                         color = Color.DarkGray,
                     )
@@ -463,7 +421,7 @@ fun AdvertiserDashboardScreen(
         )
     }
 
-    // â”€â”€â”€ Cancel live campaign (no refund for amounts already paid) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Cancel live campaign (no refund for amounts already paid) ───────────
     if (cancellingCampaignId != null) {
         AlertDialog(
             onDismissRequest = { if (!cancelInProgress) cancellingCampaignId = null },
@@ -514,6 +472,14 @@ fun AdvertiserDashboardScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
+        // Header
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Header provided by TopAppBar
+        }
+
         Box(modifier = Modifier.fillMaxSize()) {
             when {
                 isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -522,35 +488,16 @@ fun AdvertiserDashboardScreen(
                     modifier = Modifier.align(Alignment.Center).padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text("âš ï¸ $errorMessage", fontSize = 14.sp, color = FormColors.ErrorText)
+                    Text("⚠️ $errorMessage", fontSize = 14.sp, color = FormColors.ErrorText)
                     Spacer(Modifier.height(12.dp))
                     TextButton(onClick = { loadCampaigns() }) { Text("Retry", color = FormColors.PrimaryButton) }
-                }
-
-                soloId != null && !isLoading && campaigns.isNotEmpty() && displayedCampaigns.isEmpty() -> Column(
-                    modifier = Modifier.align(Alignment.Center).padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text("That campaign isnâ€™t on your account anymore.", fontSize = 15.sp, color = Color(0xFF424242))
-                    Spacer(Modifier.height(16.dp))
-                    Button(
-                        onClick = onViewAllCampaigns,
-                        modifier = Modifier.fillMaxWidth(0.85f).height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = FormColors.PrimaryButton,
-                            contentColor = FormColors.PrimaryButtonText,
-                        ),
-                    ) {
-                        Text("All campaigns", fontWeight = FontWeight.SemiBold)
-                    }
                 }
 
                 campaigns.isEmpty() -> Column(
                     modifier = Modifier.align(Alignment.Center),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text("ðŸ“Š", fontSize = 48.sp)
+                    Text("Ads", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = FormColors.PrimaryButton)
                     Spacer(Modifier.height(8.dp))
                     Text("No campaigns yet", fontSize = 16.sp, color = Color.Gray)
                     Spacer(Modifier.height(4.dp))
@@ -576,91 +523,31 @@ fun AdvertiserDashboardScreen(
                 }
 
                 else -> LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    if (soloId == null) {
-                        item {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = onNavigateToAdvertise,
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
                                 shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F7F8)),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = FormColors.PrimaryButton,
+                                    contentColor = FormColors.PrimaryButtonText,
+                                ),
                             ) {
-                                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Text(
-                                        "Advertising hub",
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 15.sp,
-                                        color = Color(0xFF263238),
-                                    )
-                                    Text(
-                                        "Start a new campaign or manage the ones below. Tap a row for details and last weekâ€™s numbers.",
-                                        fontSize = 13.sp,
-                                        color = Color(0xFF546E7A),
-                                        lineHeight = 18.sp,
-                                    )
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Button(
-                                            onClick = onNavigateToAdvertise,
-                                            modifier = Modifier.weight(1f).height(44.dp),
-                                            shape = RoundedCornerShape(10.dp),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = FormColors.PrimaryButton,
-                                                contentColor = FormColors.PrimaryButtonText,
-                                            ),
-                                        ) {
-                                            Text("New ad", fontWeight = FontWeight.SemiBold)
-                                        }
-                                        TextButton(
-                                            onClick = { openExternalUrl(MarketingLinks.advertiserLanding()) },
-                                            modifier = Modifier.weight(1f),
-                                        ) {
-                                            Text("Pricing", color = FormColors.PrimaryButton, fontSize = 13.sp)
-                                        }
-                                    }
-                                }
+                                Text("+ Create New Ad", fontWeight = FontWeight.SemiBold)
                             }
-                        }
-                    } else {
-                        item {
-                            Card(
+                            TextButton(
+                                onClick = { openExternalUrl(MarketingLinks.advertiserLanding()) },
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F7F8)),
                             ) {
-                                Row(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                ) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text(
-                                            "This campaign",
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontSize = 14.sp,
-                                            color = Color(0xFF263238),
-                                        )
-                                        Text(
-                                            "Showing one ad. Open the full list anytime.",
-                                            fontSize = 12.sp,
-                                            color = Color(0xFF546E7A),
-                                            lineHeight = 16.sp,
-                                        )
-                                    }
-                                    TextButton(onClick = onViewAllCampaigns) {
-                                        Text("All campaigns", color = FormColors.PrimaryButton, fontWeight = FontWeight.SemiBold)
-                                    }
-                                }
+                                Text("Placements & pricing (website)", color = FormColors.PrimaryButton)
                             }
                         }
                     }
-                    items(displayedCampaigns, key = { it._id }) { campaign ->
+                    items(campaigns) { campaign ->
                         LaunchedEffect(campaign._id, campaign.status, campaign.submissionId) {
                             if (campaign.status.isBlank() && campaign.submissionId.isNotBlank()) {
                                 loadAnalytics(campaign._id)
@@ -680,12 +567,10 @@ fun AdvertiserDashboardScreen(
                                 submissionIdForWithdraw.isNotBlank()
                         val canCancelLive = campaignStatus == "active"
                         val canRenew = campaignStatus == "completed" || campaignStatus == "cancelled"
-                        val isSolo = soloId != null
-                        val expanded = isSolo || expandedCampaignId == campaign._id
 
                         CampaignCard(
                             campaign = campaign,
-                            isExpanded = expanded,
+                            isExpanded = expandedCampaignId == campaign._id,
                             analytics = campaignAnalytics,
                             isAnalyticsLoading = campaign._id in analyticsLoading,
                             campaignStatusForBadge = campaignStatus,
@@ -696,9 +581,7 @@ fun AdvertiserDashboardScreen(
                             isRenewing = renewingCampaignId == campaign._id,
                             renewError = if (renewingCampaignId == campaign._id) renewError else null,
                             onToggle = {
-                                if (isSolo) {
-                                    /* Single-campaign mode: always expanded; no accordion toggle. */
-                                } else if (expandedCampaignId == campaign._id) {
+                                if (expandedCampaignId == campaign._id) {
                                     expandedCampaignId = null
                                 } else {
                                     expandedCampaignId = campaign._id
@@ -797,12 +680,18 @@ private fun CampaignCard(
                         contentDescription = "Ad preview",
                         modifier = Modifier
                             .size(width = 96.dp, height = 72.dp)
-                            .padding(end = 10.dp)
-                            .clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop,
+                            .padding(end = 10.dp),
                     )
                 } else {
-                    Text("ðŸ“ˆ", fontSize = 24.sp, modifier = Modifier.width(36.dp).padding(end = 8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFE0F7FA),
+                        modifier = Modifier.width(36.dp).padding(end = 8.dp),
+                    ) {
+                        Box(Modifier.fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
+                            Text("Ad", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = FormColors.PrimaryButton)
+                        }
+                    }
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -823,7 +712,7 @@ private fun CampaignCard(
                         val dateLine = buildString {
                             if (startCal.isNotEmpty()) append("Runs ").append(startCal)
                             if (endCal.isNotEmpty()) {
-                                if (startCal.isNotEmpty()) append(" â†’ ") else append("Through ")
+                                if (startCal.isNotEmpty()) append(" to ") else append("Through ")
                                 append(endCal)
                             }
                         }
@@ -853,94 +742,96 @@ private fun CampaignCard(
                         }
                     }
                 }
-                Text(if (isExpanded) "â–²" else "â–¼", fontSize = 12.sp, color = Color.Gray)
+                Text(if (isExpanded) "Hide" else "Show", fontSize = 11.sp, color = Color.Gray)
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Metrics row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                MetricColumn("Views", campaign.impressions.toString())
+                MetricColumn("Clicks", campaign.clicks.toString())
+                MetricColumn("Tapped", clickRateFormatted)
+            }
+
+            // Action buttons — withdraw-before-launch vs cancel-live are different APIs
+            if (canEdit || canPrelaunchWithdraw || canCancelLiveCampaign || canRenew) {
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (canRenew) {
+                        Button(
+                            onClick = onRenew,
+                            enabled = !isRenewing,
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = FormColors.PrimaryButton,
+                                contentColor = FormColors.PrimaryButtonText,
+                            ),
+                        ) {
+                            if (isRenewing) {
+                                CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = FormColors.PrimaryButtonText)
+                            } else {
+                                Text("Renew", fontSize = 13.sp)
+                            }
+                        }
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    if (canEdit) {
+                        OutlinedButton(
+                            onClick = onEdit,
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = FormColors.PrimaryButton),
+                        ) {
+                            Text("Edit", fontSize = 13.sp)
+                        }
+                    }
+                    if (canEdit && (canPrelaunchWithdraw || canCancelLiveCampaign)) Spacer(Modifier.width(8.dp))
+                    if (canPrelaunchWithdraw) {
+                        OutlinedButton(
+                            onClick = onPrelaunchWithdraw,
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFC62828)),
+                        ) {
+                            Text("Withdraw before launch", fontSize = 12.sp, maxLines = 2)
+                        }
+                    }
+                    if (canPrelaunchWithdraw && canCancelLiveCampaign) Spacer(Modifier.width(8.dp))
+                    if (canCancelLiveCampaign) {
+                        OutlinedButton(
+                            onClick = onCancelLiveCampaign,
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFC62828)),
+                        ) {
+                            Text("Cancel campaign", fontSize = 12.sp, maxLines = 2)
+                        }
+                    }
+                }
+                if (renewError != null) {
+                    Text(renewError, color = FormColors.ErrorText, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                }
             }
 
             // Expanded detail section
             AnimatedVisibility(visible = isExpanded) {
                 Column(modifier = Modifier.padding(top = 8.dp)) {
-                    HorizontalDivider(modifier = Modifier.padding(bottom = 6.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                    ) {
-                        MetricColumn("Views", campaign.impressions.toString())
-                        MetricColumn("Clicks", campaign.clicks.toString())
-                        MetricColumn("Tapped", clickRateFormatted)
-                    }
-
-                    if (canEdit || canPrelaunchWithdraw || canCancelLiveCampaign || canRenew) {
-                        Spacer(Modifier.height(10.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            if (canRenew) {
-                                Button(
-                                    onClick = onRenew,
-                                    enabled = !isRenewing,
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = FormColors.PrimaryButton,
-                                        contentColor = FormColors.PrimaryButtonText,
-                                    ),
-                                ) {
-                                    if (isRenewing) {
-                                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = FormColors.PrimaryButtonText)
-                                    } else {
-                                        Text("Renew", fontSize = 13.sp)
-                                    }
-                                }
-                                Spacer(Modifier.width(8.dp))
-                            }
-                            if (canEdit) {
-                                OutlinedButton(
-                                    onClick = onEdit,
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = FormColors.PrimaryButton),
-                                ) {
-                                    Text("Edit", fontSize = 13.sp)
-                                }
-                            }
-                            if (canEdit && (canPrelaunchWithdraw || canCancelLiveCampaign)) Spacer(Modifier.width(8.dp))
-                            if (canPrelaunchWithdraw) {
-                                OutlinedButton(
-                                    onClick = onPrelaunchWithdraw,
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFC62828)),
-                                ) {
-                                    Text("Withdraw before launch", fontSize = 12.sp, maxLines = 2)
-                                }
-                            }
-                            if (canPrelaunchWithdraw && canCancelLiveCampaign) Spacer(Modifier.width(8.dp))
-                            if (canCancelLiveCampaign) {
-                                OutlinedButton(
-                                    onClick = onCancelLiveCampaign,
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFC62828)),
-                                ) {
-                                    Text("Cancel campaign", fontSize = 12.sp, maxLines = 2)
-                                }
-                            }
-                        }
-                        if (renewError != null) {
-                            Text(renewError, color = FormColors.ErrorText, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
-                        }
-                    }
+                    HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp))
 
                     if (isAnalyticsLoading) {
-                        Spacer(Modifier.height(8.dp))
                         Box(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                         }
                     } else if (analytics != null) {
-                        Spacer(Modifier.height(8.dp))
                         CampaignDetailSection(analytics)
                     }
                 }
@@ -952,7 +843,6 @@ private fun CampaignCard(
 @Composable
 private fun CampaignDetailSection(analytics: CampaignAnalyticsData) {
     var showAllDaily by remember { mutableStateOf(false) }
-    var showDailyBreakdown by remember { mutableStateOf(false) }
     var showCancellationNote by remember { mutableStateOf(false) }
     val campaign = analytics.campaign
     val daily = analytics.analytics.daily
@@ -963,75 +853,165 @@ private fun CampaignDetailSection(analytics: CampaignAnalyticsData) {
     val ctr7 = if (sumImp7 > 0) sumClk7.toDouble() / sumImp7 else 0.0
     val visibleDaily = if (showAllDaily) sortedDaily else sortedDaily.take(7)
     val preview = campaign.creativePreview
-    Spacer(Modifier.height(2.dp))
+    val pendingPreview = campaign.pendingCreativePreview
+    val pendingImageNorm = pendingPreview?.imageUrl?.trim()?.takeIf { it.isNotBlank() }
+    val liveImageNorm = preview?.imageUrl?.trim()?.takeIf { it.isNotBlank() }
+    val showPendingImagePreview = pendingImageNorm != null && pendingImageNorm != liveImageNorm
+    val startYmd = campaign.startDateCalendar.ifBlank { campaign.startDate.take(10) }
+    val endYmd = campaign.endDateCalendar.ifBlank { campaign.endDate.take(10) }
+    val areaLabels = campaign.targetedCityLabels.filter { it.isNotBlank() }
+    val areaText = when {
+        areaLabels.isNotEmpty() -> areaLabels.joinToString(", ")
+        campaign.targetedRegionKeys.isNotEmpty() -> campaign.targetedRegionKeys.joinToString(", ")
+        else -> ""
+    }
 
-    // Live ad preview - same side-by-side card as in-app; prime = home row height, inline = min-height row.
-    if (preview != null && (preview.headline.isNotBlank() || !preview.imageUrl.isNullOrBlank())) {
-        Text("How it looks in the app", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(4.dp))
-        val title = preview.headline.ifBlank { preview.businessName.ifBlank { "Sponsored" } }
-        val isPrime = campaign.placement == "featured_home"
-        if (isPrime) {
-            SponsoredListingCard(
-                businessName = title,
-                category = null,
-                description = preview.body.takeIf { it.isNotBlank() },
-                websiteUrl = preview.ctaUrl.takeIf { it.isNotBlank() },
-                onLearnMore = { },
-                isEvent = campaign.isEvent,
-                matchCarouselMinHeight = true,
-                imageUrl = preview.imageUrl?.takeIf { it.isNotBlank() },
-                showCategory = false,
-                imageContentScale = ContentScale.Fit,
-            )
-        } else {
-            SponsoredListingCard(
-                businessName = title,
-                category = null,
-                description = preview.body.takeIf { it.isNotBlank() },
-                websiteUrl = preview.ctaUrl.takeIf { it.isNotBlank() },
-                onLearnMore = { },
-                isEvent = campaign.isEvent,
-                matchCarouselMinHeight = false,
-                imageUrl = preview.imageUrl?.takeIf { it.isNotBlank() },
-                showCategory = false,
-                imageContentScale = ContentScale.Fit,
+    if (campaign.isDemoCampaign) {
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                "Demo campaign — stats may reflect testing and placeholders, not a live paid run.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                lineHeight = 16.sp,
+                modifier = Modifier.padding(12.dp),
             )
         }
-        val pending = campaign.pendingCreativePreview
-        if (pending != null && (!pending.imageUrl.isNullOrBlank() || pending.headline.isNotBlank())) {
-            Spacer(Modifier.height(10.dp))
-            Text("Replacement pending review", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(4.dp))
-            val pTitle = pending.headline.ifBlank { pending.businessName.ifBlank { title } }
-            if (isPrime) {
-                SponsoredListingCard(
-                    businessName = pTitle,
-                    category = null,
-                    description = pending.body.takeIf { it.isNotBlank() },
-                    websiteUrl = pending.ctaUrl.takeIf { it.isNotBlank() },
-                    onLearnMore = { },
-                    isEvent = campaign.isEvent,
-                    matchCarouselMinHeight = true,
-                    imageUrl = pending.imageUrl?.takeIf { it.isNotBlank() },
-                    showCategory = false,
-                    imageContentScale = ContentScale.Fit,
-                )
-            } else {
-                SponsoredListingCard(
-                    businessName = pTitle,
-                    category = null,
-                    description = pending.body.takeIf { it.isNotBlank() },
-                    websiteUrl = pending.ctaUrl.takeIf { it.isNotBlank() },
-                    onLearnMore = { },
-                    isEvent = campaign.isEvent,
-                    matchCarouselMinHeight = false,
-                    imageUrl = pending.imageUrl?.takeIf { it.isNotBlank() },
-                    showCategory = false,
-                    imageContentScale = ContentScale.Fit,
-                )
+        Spacer(Modifier.height(8.dp))
+    }
+
+    // Live ad preview (same creative users see)
+    if (preview != null && (preview.headline.isNotBlank() || !preview.imageUrl.isNullOrBlank())) {
+        Text("How your ad looks", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(4.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(10.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (!preview.imageUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = preview.imageUrl,
+                        contentDescription = null,
+                        modifier = Modifier.size(width = 88.dp, height = 66.dp),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        preview.headline.ifBlank { preview.businessName.ifBlank { "Ad" } },
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                    )
+                    if (preview.body.isNotBlank()) {
+                        Text(
+                            preview.body,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 3,
+                        )
+                    }
+                    if (preview.ctaText.isNotBlank()) {
+                        Text(
+                            "Call to action: ${preview.ctaText}",
+                            fontSize = 11.sp,
+                            color = FormColors.PrimaryButton,
+                        )
+                    }
+                }
             }
         }
+        if (showPendingImagePreview && pendingPreview != null) {
+            Spacer(Modifier.height(8.dp))
+            Text("New image (pending review)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(4.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.35f)),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    AsyncImage(
+                        model = pendingImageNorm,
+                        contentDescription = "Pending ad image",
+                        modifier = Modifier.size(width = 88.dp, height = 66.dp),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "This replaces the live image after approval.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        )
+                    }
+                }
+            }
+        } else if (pendingPreview != null) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Other creative changes are pending review; the image above is what people still see until those are approved.",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 15.sp,
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+
+    // Campaign info
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Column {
+            Text("Status", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            StatusBadge(campaign.status)
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text("Where it shows", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                placementDisplayLabel(campaign.placement),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+    }
+
+    Spacer(Modifier.height(6.dp))
+
+    // Targeted regions
+    if (areaText.isNotBlank()) {
+        Text("Audience areas", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            areaText,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+        )
+        if (campaign.targetingRadiusMiles > 0) {
+            Text(
+                "Within about ${campaign.targetingRadiusMiles} miles of your business",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+    }
+
+    // Date range
+    if (startYmd.isNotBlank() || endYmd.isNotBlank()) {
+        Text("Schedule", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            "${startYmd.ifBlank { "-" }} to ${endYmd.ifBlank { "-" }}",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+        )
         Spacer(Modifier.height(8.dp))
     }
 
@@ -1058,48 +1038,39 @@ private fun CampaignDetailSection(analytics: CampaignAnalyticsData) {
                 }
             }
         }
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(8.dp))
 
-        TextButton(onClick = { showDailyBreakdown = !showDailyBreakdown }) {
-            Text(
-                if (showDailyBreakdown) "Hide day-by-day table" else "Show day-by-day table",
-                fontSize = 13.sp,
-            )
+        Text(
+            if (showAllDaily) "Day by day" else "Day by day (latest 7)",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(4.dp))
+
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+            Text("Day", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1.2f))
+            Text("Views", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(0.8f))
+            Text("Clicks", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(0.8f))
+            Text("% tapped", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(0.8f))
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
+
+        visibleDaily.forEach { day ->
+            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+                Text(day.date.take(10), fontSize = 12.sp, modifier = Modifier.weight(1.2f))
+                Text(day.impressions.toString(), fontSize = 12.sp, modifier = Modifier.weight(0.8f))
+                Text(day.clicks.toString(), fontSize = 12.sp, modifier = Modifier.weight(0.8f))
+                Text("%.1f%%".format(day.ctr * 100), fontSize = 12.sp, modifier = Modifier.weight(0.8f))
+            }
         }
 
-        if (showDailyBreakdown) {
-            Text(
-                if (showAllDaily) "All days" else "Latest 7 days",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(4.dp))
-
-            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-                Text("Day", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1.2f))
-                Text("Views", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(0.8f))
-                Text("Clicks", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(0.8f))
-                Text("% tapped", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(0.8f))
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
-
-            visibleDaily.forEach { day ->
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
-                    Text(day.date.take(10), fontSize = 12.sp, modifier = Modifier.weight(1.2f))
-                    Text(day.impressions.toString(), fontSize = 12.sp, modifier = Modifier.weight(0.8f))
-                    Text(day.clicks.toString(), fontSize = 12.sp, modifier = Modifier.weight(0.8f))
-                    Text("%.1f%%".format(day.ctr * 100), fontSize = 12.sp, modifier = Modifier.weight(0.8f))
-                }
-            }
-
-            if (sortedDaily.size > 7) {
-                TextButton(onClick = { showAllDaily = !showAllDaily }, modifier = Modifier.padding(top = 2.dp)) {
-                    Text(
-                        if (showAllDaily) "Show only latest 7 days" else "Show all ${sortedDaily.size} days",
-                        fontSize = 13.sp,
-                    )
-                }
+        if (sortedDaily.size > 7) {
+            TextButton(onClick = { showAllDaily = !showAllDaily }, modifier = Modifier.padding(top = 2.dp)) {
+                Text(
+                    if (showAllDaily) "Show only latest 7 days" else "Show all ${sortedDaily.size} days",
+                    fontSize = 13.sp,
+                )
             }
         }
     } else {
@@ -1112,7 +1083,7 @@ private fun CampaignDetailSection(analytics: CampaignAnalyticsData) {
 
     Spacer(Modifier.height(8.dp))
     Text(
-        "Reference: â€¦${campaign._id.takeLast(6)}",
+        "Reference: ...${campaign._id.takeLast(6)}",
         fontSize = 10.sp,
         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
     )
@@ -1123,7 +1094,7 @@ private fun CampaignDetailSection(analytics: CampaignAnalyticsData) {
     }
     if (showCancellationNote) {
         Text(
-            "Before your start date, use â€œWithdraw before launchâ€ for pre-launch cancellation (refund or hold release per our terms). After the ad is live, use â€œCancel campaignâ€ â€” amounts already paid are not refunded.",
+            "Before your start date, use \"Withdraw before launch\" for pre-launch cancellation (refund or hold release per our terms). After the ad is live, use \"Cancel campaign\" - amounts already paid are not refunded.",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             lineHeight = 16.sp,

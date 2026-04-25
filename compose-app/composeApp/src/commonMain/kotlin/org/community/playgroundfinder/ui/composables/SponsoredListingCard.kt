@@ -56,6 +56,8 @@ fun SponsoredListingCard(
     onSampleTap: (() -> Unit)? = null,
     isEvent: Boolean = false,
     eventDate: String? = null,
+    eventTime: String? = null,
+    eventLocation: String? = null,
     isRecurring: Boolean = false,
     userLat: Double? = null,
     userLng: Double? = null,
@@ -87,6 +89,8 @@ fun SponsoredListingCard(
             onSampleTap = onSampleTap,
             isEvent = isEvent,
             eventDate = eventDate,
+            eventTime = eventTime,
+            eventLocation = eventLocation,
             isRecurring = isRecurring,
             userLat = userLat,
             userLng = userLng,
@@ -402,6 +406,8 @@ private fun SponsoredListingCardSplit(
     onSampleTap: (() -> Unit)?,
     isEvent: Boolean,
     eventDate: String?,
+    eventTime: String?,
+    eventLocation: String?,
     isRecurring: Boolean,
     userLat: Double?,
     userLng: Double?,
@@ -425,15 +431,24 @@ private fun SponsoredListingCardSplit(
     }
 
     val dateReadable = if (isEvent) formatEventDateReadableLine(eventDate, isRecurring) else null
+    val whenLine = if (isEvent) {
+        listOfNotNull(
+            dateReadable?.trim()?.takeIf { it.isNotEmpty() },
+            eventTime?.trim()?.takeIf { it.isNotEmpty() },
+        ).joinToString(" at ").ifBlank { null }
+    } else {
+        null
+    }
+    val whereLine = if (isEvent) eventLocation?.trim()?.takeIf { it.isNotEmpty() } else null
     // List/search split mode must use a *bounded* height so [Column] children with [Modifier.weight]
     // do not get infinite max constraints (which collapses the text block to zero height in practice).
     val sizeModifier = if (matchCarouselMinHeight) {
         Modifier.height(HomeDiscoverPlaygroundCardMinTotalHeight)
     } else {
-        Modifier.height(PlaygroundListCardImageHeight)
+        Modifier.height(200.dp)
     }
     val titleToShow = businessName.ifBlank { if (isSample) "Sample" else "Sponsored" }
-    val bodyMaxLines = if (matchCarouselMinHeight) 24 else 6
+    val bodyMaxLines = if (matchCarouselMinHeight) 24 else 3
 
     Card(
         modifier = Modifier
@@ -497,7 +512,7 @@ private fun SponsoredListingCardSplit(
                     modifier = Modifier
                         .weight(1f, fill = true)
                         .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(if (matchCarouselMinHeight) 6.dp else 4.dp),
                 ) {
                     Text(
                         titleToShow,
@@ -508,14 +523,24 @@ private fun SponsoredListingCardSplit(
                         overflow = TextOverflow.Ellipsis,
                         lineHeight = 18.sp,
                     )
-                    if (!dateReadable.isNullOrBlank()) {
+                    if (!whenLine.isNullOrBlank()) {
                         Text(
-                            "\uD83D\uDCC5 $dateReadable",
-                            fontSize = 12.sp,
-                            color = Color(0xFF212121),
+                            "When: $whenLine",
+                            fontSize = 11.sp,
+                            color = Color(0xFF37474F),
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
-                            lineHeight = 17.sp,
+                            lineHeight = 15.sp,
+                        )
+                    }
+                    if (!whereLine.isNullOrBlank()) {
+                        Text(
+                            "Where: $whereLine",
+                            fontSize = 11.sp,
+                            color = Color(0xFF546E7A),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 15.sp,
                         )
                     }
                     if (isEvent) {
@@ -545,7 +570,7 @@ private fun SponsoredListingCardSplit(
                             color = Color(0xFF424242),
                             maxLines = bodyMaxLines,
                             overflow = if (matchCarouselMinHeight) TextOverflow.Clip else TextOverflow.Ellipsis,
-                            lineHeight = 17.sp,
+                            lineHeight = 15.sp,
                         )
                     }
                 }
