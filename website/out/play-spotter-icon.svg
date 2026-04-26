@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Play Spotter">
+  <!-- Vector recreation of the brand mark: slide, swing set, brand cyan. No watermarks. -->
+  <rect width="1024" height="1024" rx="220" fill="#1097CF"/>
+  <g fill="#0a0a0a">
+    <path d="M 300 256 h 420 v 32 h -420 z"/>
+    <path d="M 292 700 L 328 272 L 372 272 L 344 700 Z M 700 700 L 664 272 L 620 272 L 648 700 Z"/>
+    <rect x="400" y="280" width="20" height="200" rx="6"/>
+    <rect x="436" y="280" width="20" height="200" rx="6"/>
+    <rect x="380" y="500" width="100" height="40" rx="10"/>
+    <rect x="568" y="280" width="20" height="200" rx="6"/>
+    <rect x="604" y="280" width="20" height="200" rx="6"/>
+    <rect x="548" y="500" width="100" height="40" rx="10"/>
+    <path d="M 96 700 L 96 340 L 208 300 L 248 320 L 248 420 L 168 450 L 168 700 Z"/>
+    <rect x="100" y="300" width="20" height="300" rx="6"/>
+    <rect x="144" y="300" width="20" height="300" rx="6"/>
+    <rect x="112" y="380" width="40" height="20" rx="4"/>
+    <rect x="112" y="460" width="40" height="20" rx="4"/>
+    <rect x="112" y="540" width="40" height="20" rx="4"/>
+    <rect x="112" y="620" width="40" height="20" rx="4"/>
+    <path d="M 260 300 H 400 V 360 H 300 L 260 320 V 300 Z"/>
+    <path d="M 300 360 L 400 400 Q 480 500 600 600 Q 700 650 800 700 H 880 L 900 700 Q 800 600 700 500 Q 520 380 320 360 Z"/>
+  </g>
+</svg>
