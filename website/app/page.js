@@ -11,14 +11,16 @@ export default function Home() {
       <section className="hero">
         <div className="container">
           <div className="hero-brand">
-            <img
-              src="/playplace-app-icon.png"
-              alt=""
-              className="hero-brand-logo"
-              width={520}
-              height={156}
-              decoding="async"
-            />
+            <div className="hero-brand-panel">
+              <img
+                src="/playplace-app-icon.png"
+                alt=""
+                className="hero-brand-logo"
+                width={520}
+                height={156}
+                decoding="async"
+              />
+            </div>
           </div>
           <h1 className="hero-tagline">Find Kid-Friendly Play Places Near You</h1>
           <p className="hero-lead">
