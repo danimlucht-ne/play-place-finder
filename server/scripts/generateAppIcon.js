@@ -1,15 +1,13 @@
 /**
- * Generates Android mipmap icon PNGs from a source image.
- * 
+ * Generates Android mipmap icon PNGs from the **launcher / icon-only** asset (not the wide wordmark).
+ *
  * Usage: node scripts/generateAppIcon.js
- * 
- * Reads `playPlaceIcon.svg` (or .jpg) from the repo root and generates:
- * (Also runs `syncWebsiteAppIcon.js` when the source exists — `playplace-app-icon.png` for the website.)
- *   - mipmap-mdpi (48x48)
- *   - mipmap-hdpi (72x72)
- *   - mipmap-xhdpi (96x96)
- *   - mipmap-xxhdpi (144x144)
- *   - mipmap-xxxhdpi (192x192)
+ *
+ * Source (first file that exists under `playground-app/playground-app/`):
+ *   1. `playSpotterLauncher.png` — square or safe-crop raster for adaptive icon.
+ *   2. `playPlaceIcon.svg` / `.jpg` — fallback.
+ * Full lockup `playSpotterLogo` is intentionally excluded (use on web + Play feature graphic only).
+ * Also runs `syncWebsiteAppIcon.js` → web PNGs + copies `ic_launcher_foreground.png` into `drawable/`.
  */
 
 const sharp = require('sharp');
@@ -17,6 +15,7 @@ const path = require('path');
 const fs = require('fs');
 
 const SOURCE_CANDIDATES = [
+    path.join(__dirname, '..', '..', 'playSpotterLauncher.png'),
     path.join(__dirname, '..', '..', 'playPlaceIcon.svg'),
     path.join(__dirname, '..', '..', 'playPlaceIcon.jpg'),
 ];
@@ -71,6 +70,14 @@ async function main() {
             .resize(size, size, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
             .png()
             .toFile(path.join(dir, 'ic_launcher_foreground.png'));
+    }
+
+    const drawableDir = path.join(RES_DIR, 'drawable');
+    const fgSrc = path.join(RES_DIR, 'mipmap-xxxhdpi', 'ic_launcher_foreground.png');
+    const fgDest = path.join(drawableDir, 'ic_launcher_foreground.png');
+    if (fs.existsSync(fgSrc)) {
+        fs.copyFileSync(fgSrc, fgDest);
+        console.log('  drawable/ic_launcher_foreground.png ← mipmap-xxxhdpi ✓');
     }
 
     console.log('\nDone. Rebuild the app to see the new icon.');

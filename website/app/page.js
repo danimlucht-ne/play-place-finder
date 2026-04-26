@@ -10,8 +10,20 @@ export default function Home() {
       {/* Hero */}
       <section className="hero">
         <div className="container">
-          <h1>Find Kid-Friendly Play Places Near You</h1>
-          <p>Discover playgrounds, indoor play areas, parks, and family-friendly activities — all community-verified and free to use.</p>
+          <div className="hero-brand">
+            <img
+              src="/playplace-app-icon.png"
+              alt=""
+              className="hero-brand-logo"
+              width={520}
+              height={156}
+              decoding="async"
+            />
+          </div>
+          <h1 className="hero-tagline">Find Kid-Friendly Play Places Near You</h1>
+          <p className="hero-lead">
+            Discover playgrounds, indoor play areas, parks, and family-friendly activities — all community-verified and free to use.
+          </p>
           <div className="hero-badges">
             <a href="https://play.google.com/store" className="btn btn-primary">Get it on Google Play</a>
             <Link href="/discover" className="btn btn-outline">Open web app</Link>

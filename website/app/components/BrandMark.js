@@ -1,12 +1,10 @@
-/** Same asset as Android adaptive launcher (`playplace-app-icon.png` from `syncWebsiteAppIcon` / `generateAppIcon.js`). */
-export default function BrandMark({ className = 'nav-logo-mark', width = 46, height = 46 }) {
+/** Full lockup for nav/hero (`playplace-app-icon.png` from `syncWebsiteAppIcon` — prefers `playSpotterLogo`). */
+export default function BrandMark({ className = 'nav-logo-mark' }) {
   return (
     <img
       className={className}
       src="/playplace-app-icon.png"
-      alt=""
-      width={width}
-      height={height}
+      alt="Play Spotter"
       decoding="async"
     />
   );
