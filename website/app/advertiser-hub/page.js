@@ -1,5 +1,6 @@
 import SiteNav from '../components/SiteNav';
 import AdvertiserHubClient from '../components/AdvertiserHubClient';
+import AuthGate from '../components/AuthGate';
 
 export const metadata = {
   title: 'Advertiser Hub - Play Spotter',
@@ -10,7 +11,9 @@ export default function AdvertiserHubPage() {
   return (
     <>
       <SiteNav />
-      <AdvertiserHubClient />
+      <AuthGate>
+        <AdvertiserHubClient />
+      </AuthGate>
     </>
   );
 }

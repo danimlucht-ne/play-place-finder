@@ -221,6 +221,14 @@ fun AdminRegionMaintenanceScreen(
     var unlinkLoading by remember { mutableStateOf(false) }
     var unlinkError by remember { mutableStateOf<String?>(null) }
     var showAdvancedMaintenance by remember { mutableStateOf(false) }
+    var rollbackUserId by remember { mutableStateOf("") }
+    var rollbackStartAt by remember { mutableStateOf("") }
+    var rollbackEndAt by remember { mutableStateOf("") }
+    var rollbackLimitText by remember { mutableStateOf("200") }
+    var rollbackLoading by remember { mutableStateOf(false) }
+    var rollbackResult by remember { mutableStateOf<String?>(null) }
+    var rollbackError by remember { mutableStateOf<String?>(null) }
+    var showRollbackApplyConfirm by remember { mutableStateOf(false) }
 
     fun parseDistance(): Int? {
         val t = distanceMetersText.trim()
@@ -639,6 +647,110 @@ fun AdminRegionMaintenanceScreen(
         }
 
         if (showAdvancedMaintenance) {
+        HorizontalDivider(color = FormColors.Divider.copy(alpha = 0.35f))
+
+        Text("Rollback by user (abuse response)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        Text(
+            "Preview and rollback audited playground changes by one actor user ID. " +
+                "Leave time fields empty to target all-time changes. Times use ISO format (UTC), e.g. 2026-04-25T00:00:00Z.",
+            fontSize = 12.sp,
+            color = Color(0xFF757575),
+        )
+        OutlinedTextField(
+            value = rollbackUserId,
+            onValueChange = { rollbackUserId = it },
+            label = { Text("Actor user ID") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            enabled = !rollbackLoading,
+        )
+        OutlinedTextField(
+            value = rollbackStartAt,
+            onValueChange = { rollbackStartAt = it },
+            label = { Text("Start time (optional, ISO UTC)") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            enabled = !rollbackLoading,
+        )
+        OutlinedTextField(
+            value = rollbackEndAt,
+            onValueChange = { rollbackEndAt = it },
+            label = { Text("End time (optional, ISO UTC)") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            enabled = !rollbackLoading,
+        )
+        OutlinedTextField(
+            value = rollbackLimitText,
+            onValueChange = { rollbackLimitText = it },
+            label = { Text("Max rows (1-1000)") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            enabled = !rollbackLoading,
+        )
+        rollbackError?.let { Text(it, color = FormColors.ErrorText, fontSize = 13.sp) }
+        rollbackResult?.let { Text(it, fontSize = 12.sp, color = Color(0xFF2E7D32)) }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedButton(
+                onClick = {
+                    val uid = rollbackUserId.trim()
+                    if (uid.isEmpty()) {
+                        rollbackError = "Actor user ID is required."
+                        return@OutlinedButton
+                    }
+                    val limit = rollbackLimitText.trim().toIntOrNull()?.coerceIn(1, 1000) ?: 200
+                    scope.launch {
+                        rollbackLoading = true
+                        rollbackError = null
+                        rollbackResult = null
+                        try {
+                            val out = service.adminRollbackByUser(
+                                actorUserId = uid,
+                                startAtIso = rollbackStartAt.trim().ifBlank { null },
+                                endAtIso = rollbackEndAt.trim().ifBlank { null },
+                                limit = limit,
+                                dryRun = true,
+                            )
+                            val matched = out["matchedCount"]?.toString() ?: "0"
+                            @Suppress("UNCHECKED_CAST")
+                            val sample = out["sample"] as? List<Map<String, Any?>>
+                            val sampleText = sample?.take(5)?.joinToString("\n") { row ->
+                                val id = row["auditId"]?.toString() ?: "?"
+                                val pg = row["playgroundId"]?.toString() ?: "?"
+                                val op = row["operationType"]?.toString() ?: "?"
+                                "$id · $op · $pg"
+                            }.orEmpty()
+                            rollbackResult = buildString {
+                                append("Dry run matched $matched row(s).")
+                                if (sampleText.isNotEmpty()) append("\n").append(sampleText)
+                            }
+                        } catch (e: Exception) {
+                            rollbackError = e.message ?: "Dry run failed"
+                        } finally {
+                            rollbackLoading = false
+                        }
+                    }
+                },
+                enabled = !rollbackLoading,
+                modifier = Modifier.weight(1f),
+            ) { Text("Preview (dry run)") }
+            Button(
+                onClick = {
+                    if (rollbackUserId.trim().isEmpty()) {
+                        rollbackError = "Actor user ID is required."
+                        return@Button
+                    }
+                    showRollbackApplyConfirm = true
+                },
+                enabled = !rollbackLoading,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = FormColors.PrimaryButton),
+            ) { Text("Apply rollback") }
+        }
+        if (rollbackLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
 
         HorizontalDivider(color = FormColors.Divider.copy(alpha = 0.35f))
 
@@ -1149,6 +1261,57 @@ fun AdminRegionMaintenanceScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showCrossRegionApplyConfirm = false }) { Text("Cancel") }
+            },
+        )
+    }
+
+    if (showRollbackApplyConfirm) {
+        AlertDialog(
+            onDismissRequest = { showRollbackApplyConfirm = false },
+            title = { Text("Apply rollback by user?") },
+            text = {
+                Text(
+                    "This will rollback matching audited changes for user ${rollbackUserId.trim()} " +
+                        "within the optional time window. Run preview first if unsure.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showRollbackApplyConfirm = false
+                        val uid = rollbackUserId.trim()
+                        if (uid.isEmpty()) {
+                            rollbackError = "Actor user ID is required."
+                            return@TextButton
+                        }
+                        val limit = rollbackLimitText.trim().toIntOrNull()?.coerceIn(1, 1000) ?: 200
+                        scope.launch {
+                            rollbackLoading = true
+                            rollbackError = null
+                            rollbackResult = null
+                            try {
+                                val out = service.adminRollbackByUser(
+                                    actorUserId = uid,
+                                    startAtIso = rollbackStartAt.trim().ifBlank { null },
+                                    endAtIso = rollbackEndAt.trim().ifBlank { null },
+                                    limit = limit,
+                                    dryRun = false,
+                                )
+                                val matched = out["matchedCount"]?.toString() ?: "0"
+                                val rolled = out["rolledBackCount"]?.toString() ?: "0"
+                                val errs = out["errorCount"]?.toString() ?: "0"
+                                rollbackResult = "Rollback complete. matched=$matched, rolledBack=$rolled, errors=$errs"
+                            } catch (e: Exception) {
+                                rollbackError = e.message ?: "Rollback failed"
+                            } finally {
+                                rollbackLoading = false
+                            }
+                        }
+                    },
+                ) { Text("Apply", color = FormColors.ErrorText) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRollbackApplyConfirm = false }) { Text("Cancel") }
             },
         )
     }

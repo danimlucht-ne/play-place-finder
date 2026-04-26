@@ -58,6 +58,28 @@ export default function HubAuthPanel({
     }
   }
 
+  async function resendVerification() {
+    const email = claims?.email;
+    if (!email) {
+      setError('Could not determine the account email for verification.');
+      return;
+    }
+    setBusy(true);
+    setMessage('');
+    setError('');
+    try {
+      const response = await hubFetch(apiBase, '', '/api/users/resend-verification', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
+      setMessage(response.message || 'Verification email sent.');
+    } catch (err) {
+      setError(err.message || 'Could not resend verification email.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="hub-card">
       <div className="hub-card-head">
@@ -79,6 +101,16 @@ export default function HubAuthPanel({
       {token && !hideSignedInSummary ? (
         <div className="hub-summary">
           <div><strong>Signed in as:</strong> {claims?.email || claims?.user_id || 'Authenticated user'}</div>
+          <div>
+            <strong>Email verified:</strong> {claims?.email_verified ? 'Yes' : 'No'}
+          </div>
+          {!claims?.email_verified ? (
+            <div className="hub-actions-inline" style={{ marginTop: '10px' }}>
+              <button type="button" className="btn btn-outline hub-btn-dark" disabled={busy} onClick={resendVerification}>
+                Resend verification email
+              </button>
+            </div>
+          ) : null}
           {audience === 'admin' ? (
             <>
               <div><strong>User ID:</strong> {claims?.user_id || claims?.sub || 'Unknown'}</div>

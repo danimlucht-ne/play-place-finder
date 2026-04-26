@@ -90,6 +90,14 @@ async function processPhoto(photoRecordId, playgroundId, uploadedByUserId) {
         throw new Error("Failed to download original image for processing.");
     }
 
+    const userDoc = uploadedByUserId
+        ? await db.collection('users').findOne(
+            { _id: uploadedByUserId },
+            { projection: { forceManualReview: 1 } },
+        )
+        : null;
+    const forceManualReview = userDoc?.forceManualReview === true;
+
     // Perform moderation — look up playground for location context
     const playgroundRecord = await db.collection('playgrounds').findOne({ _id: playgroundId });
     const moderationResult = await moderatePhoto(
@@ -114,6 +122,13 @@ async function processPhoto(photoRecordId, playgroundId, uploadedByUserId) {
             moderationResult.status = ModerationStatus.FAILED; // Mark as failed if public save fails
             moderationResult.reason = 'Failed to save processed image to public storage.';
         }
+    }
+
+    if (forceManualReview && moderationResult.status === ModerationStatus.AUTO_APPROVED) {
+        moderationResult.status = ModerationStatus.NEEDS_ADMIN_REVIEW;
+        moderationResult.reason = [moderationResult.reason, 'Submitter is marked for mandatory admin review.']
+            .filter(Boolean)
+            .join(' ');
     }
 
     // Update the final photo record with moderation results

@@ -23,6 +23,13 @@ const moderationStatsService = require('../services/moderationStatsService');
 const { recordVerificationFromPlaygroundEdit } = require('../services/recordVerificationFromEdit');
 const seedTileService = require('../services/seedTileService');
 const { appendRunLog } = require('../services/seedRunLogService');
+const {
+    listPlaygroundAudits,
+    recordPlaygroundAudit,
+    rollbackAuditChange,
+    rollbackChangesByUser,
+} = require('../services/changeAuditService');
+const { resolvePlaygroundIdFilter } = require('../utils/playgroundIdFilter');
 
 // ─── Helper: send user notification ──────────────────────────────────────────
 async function notifyUser(db, userId, message) {
@@ -247,11 +254,30 @@ router.post('/support-tickets/:id/approve-suggestion', async (req, res) => {
         if (!cat || !String(raw).trim()) {
             return res.status(400).json({ error: 'Missing suggestion category or label on this ticket.' });
         }
-        if (!ticket.targetId) {
+        const targetPlaygroundId = ticket.targetId
+            || (ticket.targetPlaygroundSummary && ticket.targetPlaygroundSummary.id)
+            || null;
+        if (!targetPlaygroundId) {
             return res.status(400).json({ error: 'Suggestion has no target playground.' });
         }
 
-        const { appliedLabel, cityForPoints } = await applyApprovedSuggestion(db, ticket.targetId, cat, raw);
+        const targetFilter = resolvePlaygroundIdFilter(targetPlaygroundId);
+        const beforePg = await db.collection('playgrounds').findOne(targetFilter);
+        const { appliedLabel, cityForPoints } = await applyApprovedSuggestion(db, targetPlaygroundId, cat, raw);
+        const afterPg = await db.collection('playgrounds').findOne(targetFilter);
+        if (beforePg && afterPg) {
+            await recordPlaygroundAudit(db, {
+                playgroundId: String(afterPg._id),
+                operationType: 'update',
+                actorUserId: req.user.uid,
+                sourceType: 'support_suggestion_approval',
+                sourceId: ticket._id.toHexString(),
+                reason: `Approved suggestion: ${appliedLabel}`,
+                beforeSnapshot: beforePg,
+                afterSnapshot: afterPg,
+                metadata: { suggestionCategory: cat },
+            });
+        }
 
         await db.collection('support_tickets').updateOne(
             { _id: ticket._id },
@@ -689,6 +715,19 @@ router.post("/moderation/:id/approve-new-playground", verifyAdminToken, async (r
             },
         };
         const result = await db.collection("playgrounds").insertOne(insertDoc);
+        const inserted = await db.collection('playgrounds').findOne({ _id: result.insertedId });
+        if (inserted) {
+            await recordPlaygroundAudit(db, {
+                playgroundId: result.insertedId.toHexString(),
+                operationType: 'create',
+                actorUserId: req.user.uid,
+                sourceType: 'moderation_new_playground_approval',
+                sourceId: item._id.toHexString(),
+                reason: 'Admin approved pending new playground',
+                beforeSnapshot: null,
+                afterSnapshot: inserted,
+            });
+        }
 
         await db.collection("moderation_queue").updateOne(
             { _id: new ObjectId(req.params.id) },
@@ -756,11 +795,25 @@ router.post("/moderation/:id/approve-edit", verifyAdminToken, async (req, res) =
         const item = await db.collection("moderation_queue").findOne({ _id: new ObjectId(req.params.id) });
         if (!item) return res.status(404).json({ error: "Item not found" });
 
+        const beforePlayground = await db.collection('playgrounds').findOne({ _id: new ObjectId(item.playgroundId) });
         // Apply proposed changes to playground
         await db.collection("playgrounds").updateOne(
             { _id: new ObjectId(item.playgroundId) },
             { $set: item.proposedChanges }
         );
+        const afterPlayground = await db.collection('playgrounds').findOne({ _id: new ObjectId(item.playgroundId) });
+        if (beforePlayground && afterPlayground) {
+            await recordPlaygroundAudit(db, {
+                playgroundId: String(afterPlayground._id),
+                operationType: 'update',
+                actorUserId: req.user.uid,
+                sourceType: 'moderation_edit_approval',
+                sourceId: item._id.toHexString(),
+                reason: 'Admin approved pending playground edit',
+                beforeSnapshot: beforePlayground,
+                afterSnapshot: afterPlayground,
+            });
+        }
         await db.collection("moderation_queue").updateOne(
             { _id: new ObjectId(req.params.id) },
             { $set: { status: 'APPROVED', reviewedAt: new Date(), reviewedBy: req.user.uid } }
@@ -1745,6 +1798,7 @@ router.get('/users', async (req, res) => {
             .project({
                 email: 1, displayName: 1, role: 1, score: 1, level: 1,
                 blockedAt: 1, blockedReason: 1, bannedAt: 1, bannedReason: 1, regionKey: 1,
+                forceManualReview: 1, forceManualReviewReason: 1, forceManualReviewAt: 1,
                 moderationStats: 1,
             })
             .toArray();
@@ -1858,6 +1912,48 @@ router.post('/users/:userId/unban', async (req, res) => {
         res.json({ message: 'success' });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /admin/users/:userId/review-required — force or clear mandatory review on submissions
+router.post('/users/:userId/review-required', async (req, res) => {
+    const db = getDb();
+    const { userId } = req.params;
+    const enabled = req.body?.enabled === true;
+    const reason = req.body?.reason != null ? String(req.body.reason).trim() : '';
+    try {
+        const user = await db.collection('users').findOne({ _id: userId }, { projection: { _id: 1 } });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        if (enabled) {
+            await db.collection('users').updateOne(
+                { _id: userId },
+                {
+                    $set: {
+                        forceManualReview: true,
+                        forceManualReviewReason: reason || null,
+                        forceManualReviewAt: new Date(),
+                        forceManualReviewBy: req.user.uid,
+                    },
+                },
+            );
+            return res.json({ message: 'success', data: { userId, forceManualReview: true } });
+        }
+
+        await db.collection('users').updateOne(
+            { _id: userId },
+            {
+                $unset: {
+                    forceManualReview: '',
+                    forceManualReviewReason: '',
+                    forceManualReviewAt: '',
+                    forceManualReviewBy: '',
+                },
+            },
+        );
+        return res.json({ message: 'success', data: { userId, forceManualReview: false } });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
     }
 });
 
@@ -2045,6 +2141,70 @@ router.post('/playgrounds/bulk-set-playground-type-by-name', async (req, res) =>
         });
     } catch (err) {
         return res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /admin/playgrounds/:id/change-audit — latest change records for a playground
+router.get('/playgrounds/:id/change-audit', async (req, res) => {
+    const db = getDb();
+    const { id } = req.params;
+    const limit = req.query.limit || '30';
+    try {
+        const rows = await listPlaygroundAudits(db, id, limit);
+        res.json({
+            message: 'success',
+            data: rows.map((r) => ({
+                ...r,
+                id: r._id.toHexString(),
+            })),
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /admin/change-audit/:id/rollback — rollback one audit change
+router.post('/change-audit/:id/rollback', async (req, res) => {
+    const db = getDb();
+    const { id } = req.params;
+    try {
+        const out = await rollbackAuditChange(db, id, req.user.uid);
+        res.json({ message: 'success', data: out });
+    } catch (err) {
+        const code = err.statusCode || 500;
+        res.status(code).json({ error: err.message });
+    }
+});
+
+// POST /admin/change-audit/rollback-by-user
+// Body:
+// {
+//   "actorUserId": "uid",
+//   "startAt": "2026-04-25T00:00:00Z", // optional
+//   "endAt": "2026-04-26T00:00:00Z",   // optional
+//   "limit": 200,                      // optional
+//   "dryRun": true                     // optional
+// }
+router.post('/change-audit/rollback-by-user', async (req, res) => {
+    const db = getDb();
+    const actorUserId = req.body?.actorUserId;
+    const startAt = req.body?.startAt;
+    const endAt = req.body?.endAt;
+    const limit = req.body?.limit;
+    const dryRun = req.body?.dryRun === true;
+    try {
+        const out = await rollbackChangesByUser(db, {
+            actorUserId,
+            adminUserId: req.user.uid,
+            startAt,
+            endAt,
+            limit,
+            dryRun,
+        });
+        res.json({ message: 'success', data: out });
+    } catch (err) {
+        const code = err.statusCode || 500;
+        res.status(code).json({ error: err.message });
     }
 });
 

@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { loadStripe } from '@stripe/stripe-js';
 import {
   clearSharedAuthSession,
   formatDateOnly,
   formatDateTime,
+  formatMoney,
   getDefaultApiBase,
   hubFetch,
   loadHubSettings,
@@ -89,8 +91,8 @@ function AdPreviewCard({
   const displayBody = body?.trim() || 'Your description will appear here once you add it.';
   const displayCta = ctaText?.trim() || 'Learn more';
   const previewLabel = description || (isPrime
-    ? 'Prime placement preview: image on the left, message and button on the right.'
-    : 'Inline listing preview: wide image on top, then the message and button underneath.');
+    ? 'Prime placement preview: portrait image with message and button.'
+    : 'Inline listing preview: portrait image on top, then the message and button underneath.');
 
   return (
     <div className="hub-draft-preview">
@@ -107,7 +109,7 @@ function AdPreviewCard({
       {isPrime ? (
         <article className="hub-ad-preview hub-ad-preview--prime" aria-label="Prime placement preview">
           <div className="hub-ad-preview__image hub-ad-preview__image--prime">
-            {imageUrl ? <img src={imageUrl} alt="" /> : <span>Ad image</span>}
+            {imageUrl ? <img src={imageUrl} alt="" /> : <span>Portrait ad image</span>}
           </div>
           <div className="hub-ad-preview__content hub-ad-preview__content--prime">
             <div className="hub-ad-preview__copy">
@@ -125,7 +127,7 @@ function AdPreviewCard({
       ) : (
         <article className="hub-ad-preview hub-ad-preview--inline" aria-label="Inline listing preview">
           <div className="hub-ad-preview__image hub-ad-preview__image--inline">
-            {imageUrl ? <img src={imageUrl} alt="" /> : <span>Wide ad image</span>}
+            {imageUrl ? <img src={imageUrl} alt="" /> : <span>Portrait ad image</span>}
           </div>
           <div className="hub-ad-preview__content hub-ad-preview__content--inline">
             <div className="hub-ad-preview__title-row">
@@ -172,7 +174,17 @@ export default function AdvertiserHubClient({ embedded = false }) {
   const [onboardingForm, setOnboardingForm] = useState(emptyOnboarding);
   const [draftForm, setDraftForm] = useState(emptyDraft);
   const [imageFile, setImageFile] = useState(null);
+  const [activeSubmission, setActiveSubmission] = useState(null);
+  const [paymentDiscountCode, setPaymentDiscountCode] = useState('');
+  const [paymentBusy, setPaymentBusy] = useState(false);
+  const paymentMountRef = useRef(null);
+  const stripeRef = useRef(null);
+  const elementsRef = useRef(null);
   const claims = readJwtClaims(token);
+  const publishableKey = useMemo(
+    () => (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '').trim(),
+    [],
+  );
   const imagePreviewUrl = useMemo(() => {
     if (!imageFile) return '';
     return URL.createObjectURL(imageFile);
@@ -188,6 +200,46 @@ export default function AdvertiserHubClient({ embedded = false }) {
     const settings = loadHubSettings('advertiser');
     setApiBase(settings.apiBase);
     setToken(settings.token);
+  }, []);
+
+  function destroyPaymentUi() {
+    try {
+      if (paymentMountRef.current) {
+        paymentMountRef.current.innerHTML = '';
+      }
+    } catch (_) {
+      /* no-op */
+    }
+    elementsRef.current = null;
+  }
+
+  useEffect(() => {
+    destroyPaymentUi();
+    if (!token || !selectedSubmission) {
+      setActiveSubmission(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await hubFetch(apiBase, token, `/api/ads/submissions/${encodeURIComponent(selectedSubmission)}`);
+        if (!cancelled) {
+          setActiveSubmission(response.data || null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setActiveSubmission(null);
+          setError(err.message || 'Could not load submission status.');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSubmission, token, apiBase]);
+
+  useEffect(() => () => {
+    destroyPaymentUi();
   }, []);
 
   async function runTask(task, successMessage) {
@@ -212,32 +264,36 @@ export default function AdvertiserHubClient({ embedded = false }) {
     setMessage('Signed in successfully.');
     setError('');
     setTimeout(() => {
-      refreshDashboard();
+      refreshDashboard(nextToken);
     }, 0);
   }
 
   function handleSignedOut() {
     setToken('');
     clearSharedAuthSession();
+    destroyPaymentUi();
     setAdvertiser(null);
     setSubmissions([]);
     setCampaigns([]);
     setSelectedSubmission(null);
     setSelectedCampaign(null);
     setCampaignDetail(null);
+    setActiveSubmission(null);
+    setPaymentDiscountCode('');
     setMessage('Signed out.');
     setError('');
   }
 
-  async function refreshDashboard() {
+  async function refreshDashboard(tokenOverride) {
+    const effectiveToken = typeof tokenOverride === 'string' ? tokenOverride : token;
     await runTask(async () => {
       const [profileRes, submissionsRes, campaignsRes] = await Promise.all([
-        hubFetch(apiBase, token, '/api/advertisers/me').catch((err) => {
+        hubFetch(apiBase, effectiveToken, '/api/advertisers/me').catch((err) => {
           if (String(err.message).toLowerCase().includes('not found')) return { data: null };
           throw err;
         }),
-        hubFetch(apiBase, token, '/api/ads/submissions/mine'),
-        hubFetch(apiBase, token, '/api/ads/analytics/campaigns'),
+        hubFetch(apiBase, effectiveToken, '/api/ads/submissions/mine'),
+        hubFetch(apiBase, effectiveToken, '/api/ads/analytics/campaigns'),
       ]);
       setAdvertiser(profileRes.data || null);
       setSubmissions(submissionsRes.data || []);
@@ -365,6 +421,99 @@ export default function AdvertiserHubClient({ embedded = false }) {
       }
       return true;
     }, 'Campaign cancelled.');
+  }
+
+  async function reconcileSubmissionAfterPayment(submissionId) {
+    await hubFetch(apiBase, token, `/api/ads/payments/reconcile/${encodeURIComponent(submissionId)}`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  }
+
+  async function startAdPayment() {
+    if (!selectedSubmission) {
+      setError('Choose a saved draft first.');
+      return;
+    }
+    if (!publishableKey) {
+      setError('Missing NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY for this site build.');
+      return;
+    }
+    setPaymentBusy(true);
+    setError('');
+    setMessage('');
+    destroyPaymentUi();
+    try {
+      const intentResponse = await hubFetch(apiBase, token, '/api/ads/payments/create-intent', {
+        method: 'POST',
+        body: JSON.stringify({
+          submissionId: selectedSubmission,
+          discountCode: paymentDiscountCode.trim() || undefined,
+        }),
+      });
+      const payload = intentResponse.data || {};
+
+      if (payload.freeCheckout) {
+        await hubFetch(apiBase, token, '/api/ads/payments/free-submission', {
+          method: 'POST',
+          body: JSON.stringify({
+            submissionId: selectedSubmission,
+            discountCode: paymentDiscountCode.trim(),
+          }),
+        });
+        await reconcileSubmissionAfterPayment(selectedSubmission);
+        setMessage('Free checkout completed.');
+        await refreshDashboard();
+        const detail = await hubFetch(apiBase, token, `/api/ads/submissions/${encodeURIComponent(selectedSubmission)}`);
+        setActiveSubmission(detail.data || null);
+        return;
+      }
+
+      const clientSecret = payload.clientSecret;
+      if (!clientSecret) {
+        throw new Error('Payment could not be started (no client secret returned).');
+      }
+
+      if (!stripeRef.current) {
+        stripeRef.current = await loadStripe(publishableKey);
+      }
+      const stripe = stripeRef.current;
+      if (!stripe) {
+        throw new Error('Stripe.js failed to initialize.');
+      }
+
+      const detail = await hubFetch(apiBase, token, `/api/ads/submissions/${encodeURIComponent(selectedSubmission)}`);
+      const submission = detail.data || null;
+      setActiveSubmission(submission);
+      const mode = submission?.paymentMode === 'setup_intent' ? 'setup' : 'payment';
+      const elements = stripe.elements({ clientSecret });
+      elementsRef.current = elements;
+      const paymentElement = elements.create('payment');
+      if (!paymentMountRef.current) {
+        throw new Error('Payment container is not available.');
+      }
+      paymentElement.mount(paymentMountRef.current);
+
+      const returnUrl = typeof window !== 'undefined' ? window.location.href : undefined;
+      const confirmResult = mode === 'setup'
+        ? await stripe.confirmSetup({ elements, confirmParams: { returnUrl } })
+        : await stripe.confirmPayment({ elements, confirmParams: { returnUrl } });
+
+      if (confirmResult.error) {
+        throw new Error(confirmResult.error.message || 'Stripe confirmation failed.');
+      }
+
+      await reconcileSubmissionAfterPayment(selectedSubmission);
+      destroyPaymentUi();
+      setMessage('Payment submitted. Your order will finish processing in a few moments.');
+      await refreshDashboard();
+      const updated = await hubFetch(apiBase, token, `/api/ads/submissions/${encodeURIComponent(selectedSubmission)}`);
+      setActiveSubmission(updated.data || null);
+    } catch (err) {
+      setError(err.message || 'Payment failed.');
+    } finally {
+      setPaymentBusy(false);
+    }
   }
 
   return (
@@ -575,6 +724,7 @@ export default function AdvertiserHubClient({ embedded = false }) {
             <label className="hub-field">
               <span>Ad image</span>
               <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => setImageFile(event.target.files?.[0] || null)} />
+              <small className="hub-field-hint">Portrait images are recommended (4:5 works best).</small>
             </label>
             <label className="hub-checkbox hub-field--full">
               <input type="checkbox" checked={draftForm.showDistance} onChange={(event) => setDraftForm((current) => ({ ...current, showDistance: event.target.checked }))} />
@@ -591,6 +741,57 @@ export default function AdvertiserHubClient({ embedded = false }) {
               <button type="submit" className="btn btn-teal" disabled={busy}>Save ad details</button>
             </div>
           </form>
+          {selectedSubmission ? (
+            <div className="hub-detail-card" style={{ marginTop: '16px' }}>
+              <h3>Payment and launch</h3>
+              <p className="hub-muted-copy">
+                After your creative and terms are saved, you can authorize payment here. This uses the same Stripe flow as the mobile app.
+              </p>
+              {!publishableKey ? (
+                <p className="hub-feedback hub-feedback--bad">
+                  This website build is missing NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, so card entry cannot start in the browser.
+                </p>
+              ) : null}
+              {activeSubmission ? (
+                <div className="hub-summary">
+                  <div><strong>Submission status:</strong> {activeSubmission.status || 'unknown'}</div>
+                  <div><strong>Payment status:</strong> {activeSubmission.paymentStatus || 'not started'}</div>
+                  <div><strong>Payment mode:</strong> {activeSubmission.paymentMode || 'unknown'}</div>
+                  <div>
+                    <strong>Quoted total:</strong>{' '}
+                    {formatMoney(activeSubmission.totalPriceInCents || activeSubmission.package?.totalPriceInCents || activeSubmission.package?.priceInCents || 0)}
+                  </div>
+                </div>
+              ) : (
+                <p className="hub-muted-copy">Loading submission payment state…</p>
+              )}
+              <label className="hub-field hub-field--full">
+                <span>Discount code (optional)</span>
+                <input value={paymentDiscountCode} onChange={(event) => setPaymentDiscountCode(event.target.value)} />
+              </label>
+              <div ref={paymentMountRef} className="hub-field hub-field--full" style={{ minHeight: '10px' }} />
+              <div className="hub-actions-inline">
+                <button
+                  type="button"
+                  className="btn btn-teal"
+                  disabled={
+                    paymentBusy
+                    || busy
+                    || !publishableKey
+                    || !activeSubmission
+                    || String(activeSubmission.status || '').toLowerCase() === 'paid'
+                    || String(activeSubmission.status || '').toLowerCase() === 'cancelled'
+                  }
+                  onClick={startAdPayment}
+                >
+                  {paymentBusy ? 'Processing payment…' : 'Authorize payment'}
+                </button>
+                <button type="button" className="btn btn-outline hub-btn-dark" disabled={paymentBusy} onClick={destroyPaymentUi}>
+                  Clear card form
+                </button>
+              </div>
+            </div>
+          ) : null}
         </section>
       </div>
 

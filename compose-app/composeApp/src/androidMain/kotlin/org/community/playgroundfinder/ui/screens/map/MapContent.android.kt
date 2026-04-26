@@ -13,7 +13,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -110,8 +113,18 @@ actual fun MapContent(
         userLat != null && userLng != null -> 13f
         else -> 4f
     }
+    val savedCameraLat = rememberSaveable { mutableStateOf<Double?>(null) }
+    val savedCameraLng = rememberSaveable { mutableStateOf<Double?>(null) }
+    val savedCameraZoom = rememberSaveable { mutableStateOf<Float?>(null) }
     val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(initialPosition, initialZoom)
+        val restoredLat = savedCameraLat.value
+        val restoredLng = savedCameraLng.value
+        val restoredZoom = savedCameraZoom.value
+        position = if (restoredLat != null && restoredLng != null) {
+            CameraPosition.fromLatLngZoom(LatLng(restoredLat, restoredLng), restoredZoom ?: initialZoom)
+        } else {
+            CameraPosition.fromLatLngZoom(initialPosition, initialZoom)
+        }
     }
 
     val context = LocalContext.current
@@ -144,6 +157,7 @@ actual fun MapContent(
     // When both [mapFocusLat] and [mapFocusLng] are set (Home address / city filter), use that center only —
     // never pair one filter coordinate with the opposite axis from GPS.
     LaunchedEffect(mapFocusLat, mapFocusLng, userLat, userLng) {
+        if (savedCameraLat.value != null && savedCameraLng.value != null) return@LaunchedEffect
         val (lat, lng, zoom) = if (mapFocusLat != null && mapFocusLng != null) {
             Triple(mapFocusLat!!, mapFocusLng!!, 14f)
         } else {
@@ -160,6 +174,14 @@ actual fun MapContent(
                 cameraPositionState.move(CameraUpdateFactory.newLatLngZoom(LatLng(lat, lng), zoom))
             }
         }
+    }
+    LaunchedEffect(cameraPositionState) {
+        snapshotFlow { cameraPositionState.position }
+            .collect { pos ->
+                savedCameraLat.value = pos.target.latitude
+                savedCameraLng.value = pos.target.longitude
+                savedCameraZoom.value = pos.zoom
+            }
     }
 
     DisposableEffect(onVisibleRegionReaderChange, cameraPositionState) {

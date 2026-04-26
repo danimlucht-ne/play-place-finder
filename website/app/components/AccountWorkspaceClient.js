@@ -18,6 +18,7 @@ export default function AccountWorkspaceClient() {
   const [banner, setBanner] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [verifyBusy, setVerifyBusy] = useState(false);
 
   useEffect(() => {
     const settings = loadHubSettings('advertiser');
@@ -62,6 +63,27 @@ export default function AccountWorkspaceClient() {
     }
   }
 
+  async function resendVerification() {
+    const email = claims?.email;
+    if (!email) {
+      setDeleteError('Could not determine email for verification.');
+      return;
+    }
+    setVerifyBusy(true);
+    setDeleteError('');
+    try {
+      const response = await hubFetch(apiBase, '', '/api/users/resend-verification', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
+      setBanner(response.message || 'Verification email sent.');
+    } catch (e) {
+      setDeleteError(e.message || 'Could not resend verification email.');
+    } finally {
+      setVerifyBusy(false);
+    }
+  }
+
   return (
     <div className="container hub-page">
       <section className="hub-hero">
@@ -78,6 +100,7 @@ export default function AccountWorkspaceClient() {
           <ul>
             <li>Manage sign-in, registration, and password reset</li>
             <li>See your account details and delete your account</li>
+            <li>Open favorites, lists, and contribution tools on web</li>
             <li>Jump to the advertiser dashboard or admin workspace</li>
           </ul>
         </div>
@@ -105,6 +128,9 @@ export default function AccountWorkspaceClient() {
               <strong>Email:</strong> {claims?.email || claims?.user_id || '—'}
             </div>
             <div>
+              <strong>Email verified:</strong> {claims?.email_verified ? 'Yes' : 'No'}
+            </div>
+            <div>
               <strong>User ID:</strong> {claims?.user_id || claims?.sub || '—'}
             </div>
             {claims?.admin ? (
@@ -115,6 +141,23 @@ export default function AccountWorkspaceClient() {
           </div>
 
           <div className="hub-actions-inline hub-field--full" style={{ marginTop: '1rem', flexWrap: 'wrap', gap: '12px' }}>
+            {!claims?.email_verified ? (
+              <button type="button" className="btn btn-outline hub-btn-dark" disabled={verifyBusy} onClick={resendVerification}>
+                {verifyBusy ? 'Sending verification…' : 'Resend verification email'}
+              </button>
+            ) : null}
+            <Link href="/favorites/" className="btn btn-outline hub-btn-dark">
+              Open favorites
+            </Link>
+            <Link href="/lists/" className="btn btn-outline hub-btn-dark">
+              Open saved lists
+            </Link>
+            <Link href="/add-playground/" className="btn btn-outline hub-btn-dark">
+              Suggest a place
+            </Link>
+            <Link href="/activity/" className="btn btn-outline hub-btn-dark">
+              My activity
+            </Link>
             {claims?.admin ? (
               <Link href="/admin-hub/" className="btn btn-teal">
                 Open admin workspace

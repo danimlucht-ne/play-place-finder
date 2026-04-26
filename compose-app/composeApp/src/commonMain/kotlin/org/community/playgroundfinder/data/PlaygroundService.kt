@@ -2302,6 +2302,81 @@ class PlaygroundService(
         client.post("$serverBaseUrl/admin/users/$userId/unblock") { withAuth() }
     }
 
+    /** Admin: force all submissions from this user into manual review. */
+    suspend fun adminSetUserManualReview(userId: String, enabled: Boolean, reason: String? = null) {
+        val response = client.post("$serverBaseUrl/admin/users/$userId/review-required") {
+            withAuth()
+            contentType(ContentType.Application.Json)
+            setBody(
+                buildMap<String, Any?> {
+                    put("enabled", enabled)
+                    if (!reason.isNullOrBlank()) put("reason", reason.trim())
+                },
+            )
+        }
+        if (!response.status.isSuccess()) {
+            val text = runCatching { response.bodyAsText() }.getOrNull().orEmpty()
+            error("Could not update manual-review flag (${response.status}): $text")
+        }
+    }
+
+    suspend fun adminGetPlaygroundChangeAudit(playgroundId: String, limit: Int = 20): List<Map<String, Any?>> {
+        val response = client.get("$serverBaseUrl/admin/playgrounds/$playgroundId/change-audit") {
+            withAuth()
+            parameter("limit", limit.coerceIn(1, 100))
+        }
+        val text = response.bodyAsText()
+        val root = runCatching { Json.parseToJsonElement(text).jsonObject }.getOrNull() ?: return emptyList()
+        val dataArray = root["data"]?.jsonArray ?: return emptyList()
+        return dataArray.mapNotNull { el ->
+            runCatching { jsonObjectToDeepMap(el.jsonObject) }.getOrNull()
+        }
+    }
+
+    suspend fun adminRollbackPlaygroundAudit(auditId: String): Map<String, Any?> {
+        val response = client.post("$serverBaseUrl/admin/change-audit/$auditId/rollback") {
+            withAuth()
+            contentType(ContentType.Application.Json)
+            setBody(emptyMap<String, String>())
+        }
+        val text = response.bodyAsText()
+        if (!response.status.isSuccess()) {
+            error("Rollback failed (${response.status}): $text")
+        }
+        val root = runCatching { Json.parseToJsonElement(text).jsonObject }.getOrNull() ?: return emptyMap()
+        val data = root["data"]?.jsonObject ?: return emptyMap()
+        return jsonObjectToDeepMap(data)
+    }
+
+    suspend fun adminRollbackByUser(
+        actorUserId: String,
+        startAtIso: String? = null,
+        endAtIso: String? = null,
+        limit: Int = 200,
+        dryRun: Boolean = true,
+    ): Map<String, Any?> {
+        val response = client.post("$serverBaseUrl/admin/change-audit/rollback-by-user") {
+            withAuth()
+            contentType(ContentType.Application.Json)
+            setBody(
+                buildMap<String, Any> {
+                    put("actorUserId", actorUserId.trim())
+                    if (!startAtIso.isNullOrBlank()) put("startAt", startAtIso.trim())
+                    if (!endAtIso.isNullOrBlank()) put("endAt", endAtIso.trim())
+                    put("limit", limit.coerceIn(1, 1000))
+                    put("dryRun", dryRun)
+                },
+            )
+        }
+        val text = response.bodyAsText()
+        if (!response.status.isSuccess()) {
+            error("Rollback by user failed (${response.status}): $text")
+        }
+        val root = runCatching { Json.parseToJsonElement(text).jsonObject }.getOrNull() ?: return emptyMap()
+        val data = root["data"]?.jsonObject ?: return emptyMap()
+        return jsonObjectToDeepMap(data)
+    }
+
     private fun contentTypeForAdImageFilename(filename: String): ContentType {
         return when (filename.substringAfterLast('.').lowercase()) {
             "png" -> ContentType.Image.PNG

@@ -3,6 +3,7 @@
 const DEFAULT_LOCAL_API_BASE = 'http://localhost:3001';
 const DEFAULT_PRODUCTION_API_BASE = 'https://api.play-spotter.com';
 export const HUB_AUTH_EVENT = 'playplace-auth-change';
+const WEB_AUTH_TOKEN_KEY = 'playplace-web-auth-token';
 
 function storageKey(kind, field) {
   return `playplace-${kind}-${field}`;
@@ -72,11 +73,17 @@ export function clearHubSettings(kind) {
 export function saveSharedAuthSession(apiBase, token) {
   saveHubSettings('advertiser', { apiBase, token });
   saveHubSettings('admin', { apiBase, token });
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(WEB_AUTH_TOKEN_KEY, String(token || '').trim());
+  }
 }
 
 export function clearSharedAuthSession() {
   clearHubSettings('advertiser');
   clearHubSettings('admin');
+  if (typeof window !== 'undefined') {
+    window.localStorage.removeItem(WEB_AUTH_TOKEN_KEY);
+  }
 }
 
 export async function hubFetch(apiBase, token, path, options = {}) {

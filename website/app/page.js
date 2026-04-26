@@ -14,6 +14,7 @@ export default function Home() {
           <p>Discover playgrounds, indoor play areas, parks, and family-friendly activities — all community-verified and free to use.</p>
           <div className="hero-badges">
             <a href="https://play.google.com/store" className="btn btn-primary">Get it on Google Play</a>
+            <Link href="/discover" className="btn btn-outline">Open web app</Link>
             <span className="btn btn-outline" style={{ cursor: 'default', opacity: 0.7 }}>Coming Soon to iOS</span>
           </div>
         </div>
@@ -102,6 +103,11 @@ function Footer() {
       <div className="container">
         <FooterCreditBanner />
         <div className="footer-links">
+          <Link href="/discover">Discover</Link>
+          <Link href="/map">Map</Link>
+          <Link href="/events">Events</Link>
+          <Link href="/lists">Lists</Link>
+          <Link href="/support">Support</Link>
           <Link href="/privacy">Privacy Policy</Link>
           <Link href="/terms">Terms of Service</Link>
           <Link href="/delete-account">Delete account</Link>

@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalUriHandler
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.community.playgroundfinder.data.Playground
@@ -94,7 +95,12 @@ fun AdminDetailScreen(
     var successMsg by remember { mutableStateOf<String?>(null) }
     var showBlockDialog by remember { mutableStateOf(false) }
     var blockReasonInput by remember { mutableStateOf("") }
+    var showForceReviewDialog by remember { mutableStateOf(false) }
+    var forceReviewReasonInput by remember { mutableStateOf("") }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showRollbackDialog by remember { mutableStateOf(false) }
+    var latestAudit by remember { mutableStateOf<Map<String, Any?>?>(null) }
+    var auditLoading by remember { mutableStateOf(false) }
     var playgroundPreview by remember { mutableStateOf<Playground?>(null) }
     var playgroundPreviewLoading by remember { mutableStateOf(false) }
 
@@ -103,6 +109,7 @@ fun AdminDetailScreen(
             ?: item["targetId"]?.toString()?.takeIf { it.isNotBlank() }
     }
     val submitterId = remember(item) { item["submittedByUserId"]?.mongoIdString() }
+    val uriHandler = LocalUriHandler.current
 
     fun openPlaygroundById(id: String) {
         val cb = onNavigateToPlayground ?: return
@@ -137,6 +144,18 @@ fun AdminDetailScreen(
             playgroundPreview = null
         } finally {
             playgroundPreviewLoading = false
+        }
+    }
+    LaunchedEffect(playgroundIdStr) {
+        latestAudit = null
+        val pid = playgroundIdStr ?: return@LaunchedEffect
+        auditLoading = true
+        try {
+            latestAudit = service.adminGetPlaygroundChangeAudit(pid, 1).firstOrNull()
+        } catch (_: Exception) {
+            latestAudit = null
+        } finally {
+            auditLoading = false
         }
     }
 
@@ -372,6 +391,42 @@ fun AdminDetailScreen(
                     }
                 }
 
+                val reviewReasons = remember(item) {
+                    val out = mutableListOf<String>()
+                    item["reason"]?.toString()?.trim()?.takeIf { it.isNotEmpty() && !it.equals("null", true) }?.let { out += it }
+                    item["decisionReason"]?.toString()?.trim()?.takeIf { it.isNotEmpty() && !it.equals("null", true) }?.let { out += it }
+                    @Suppress("UNCHECKED_CAST")
+                    val review = item["geminiSubmissionReview"] as? Map<String, Any?>
+                    @Suppress("UNCHECKED_CAST")
+                    val text = review?.get("text") as? Map<String, Any?>
+                    @Suppress("UNCHECKED_CAST")
+                    val textConcerns = text?.get("concerns") as? List<Any?>
+                    textConcerns.orEmpty().mapNotNull { it?.toString()?.trim()?.takeIf(String::isNotEmpty) }.forEach { out += it }
+                    @Suppress("UNCHECKED_CAST")
+                    val images = review?.get("images") as? List<Map<String, Any?>>
+                    images.orEmpty().forEach { img ->
+                        @Suppress("UNCHECKED_CAST")
+                        val concerns = img["concerns"] as? List<Any?>
+                        concerns.orEmpty().mapNotNull { it?.toString()?.trim()?.takeIf(String::isNotEmpty) }.forEach { out += it }
+                    }
+                    out.distinct()
+                }
+                if (reviewReasons.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1)),
+                        border = BorderStroke(1.dp, Color(0xFFFFE082)),
+                    ) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Why this needs review", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = Color(0xFF6D4C41))
+                            reviewReasons.take(6).forEach { line ->
+                                Text("• $line", fontSize = 12.sp, color = Color(0xFF6D4C41), lineHeight = 17.sp)
+                            }
+                        }
+                    }
+                }
+
                 HorizontalDivider(color = FormColors.SubtleDivider)
 
                 // Photo preview
@@ -382,6 +437,10 @@ fun AdminDetailScreen(
                             contentDescription = null,
                             modifier = Modifier.fillMaxWidth().height(240.dp)
                         )
+                        TextButton(
+                            onClick = { runCatching { uriHandler.openUri(url) } },
+                            contentPadding = PaddingValues(0.dp),
+                        ) { Text("Open full image", fontSize = 12.sp) }
                     }
                     item["faceCount"]?.let { fc ->
                         val count = fc.toString().toIntOrNull() ?: 0
@@ -491,6 +550,11 @@ fun AdminDetailScreen(
                             enabled = !actionInProgress,
                             modifier = Modifier.fillMaxWidth()
                         ) { Text("Block submitter", color = FormColors.ErrorText) }
+                        OutlinedButton(
+                            onClick = { successMsg = null; showForceReviewDialog = true },
+                            enabled = !actionInProgress,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text("Require manual review for submitter") }
                     }
                     if (!isNewPlayground && !isDeleteRequest) {
                         playgroundIdStr?.let {
@@ -499,6 +563,13 @@ fun AdminDetailScreen(
                                 enabled = !actionInProgress,
                                 modifier = Modifier.fillMaxWidth()
                             ) { Text("Archive playground") }
+                            OutlinedButton(
+                                onClick = { successMsg = null; showRollbackDialog = true },
+                                enabled = !actionInProgress && latestAudit != null && !auditLoading,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(if (auditLoading) "Loading latest change…" else "Rollback latest change")
+                            }
                         }
                     }
                 }
@@ -655,6 +726,99 @@ fun AdminDetailScreen(
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
             }
+        )
+    }
+
+    if (showForceReviewDialog) {
+        AlertDialog(
+            onDismissRequest = { showForceReviewDialog = false },
+            title = { Text("Require manual review") },
+            text = {
+                OutlinedTextField(
+                    value = forceReviewReasonInput,
+                    onValueChange = { forceReviewReasonInput = it },
+                    label = { Text("Reason (optional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val uid = submitterId ?: return@TextButton
+                    scope.launch {
+                        actionInProgress = true
+                        errorMsg = null
+                        try {
+                            service.adminSetUserManualReview(
+                                userId = uid,
+                                enabled = true,
+                                reason = forceReviewReasonInput.trim().ifBlank { null },
+                            )
+                            showForceReviewDialog = false
+                            forceReviewReasonInput = ""
+                            successMsg = "Manual-review flag enabled for this user."
+                        } catch (e: Exception) {
+                            errorMsg = "Could not set manual-review flag: ${e.message}"
+                        } finally {
+                            actionInProgress = false
+                        }
+                    }
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showForceReviewDialog = false }) { Text("Cancel") }
+            },
+        )
+    }
+
+    if (showRollbackDialog) {
+        val audit = latestAudit
+        val auditId = audit?.get("id")?.toString().orEmpty()
+        val sourceType = audit?.get("sourceType")?.toString().orEmpty()
+        val reason = audit?.get("reason")?.toString()?.takeIf { it.isNotBlank() }
+        AlertDialog(
+            onDismissRequest = { showRollbackDialog = false },
+            title = { Text("Rollback latest change") },
+            text = {
+                if (audit == null || auditId.isBlank()) {
+                    Text("No rollback-ready audit entry found.")
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("This restores the playground to its previous snapshot for the latest audit record.")
+                        if (sourceType.isNotBlank()) {
+                            Text("Source: $sourceType", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (!reason.isNullOrBlank()) {
+                            Text("Reason: $reason", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = audit != null && auditId.isNotBlank() && !actionInProgress,
+                    onClick = {
+                        if (auditId.isBlank()) return@TextButton
+                        scope.launch {
+                            actionInProgress = true
+                            errorMsg = null
+                            try {
+                                service.adminRollbackPlaygroundAudit(auditId)
+                                showRollbackDialog = false
+                                successMsg = "Latest change rolled back."
+                                onComplete()
+                            } catch (e: Exception) {
+                                errorMsg = "Rollback failed: ${e.message}"
+                            } finally {
+                                actionInProgress = false
+                            }
+                        }
+                    },
+                ) { Text("Rollback", color = FormColors.ErrorText) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRollbackDialog = false }) { Text("Cancel") }
+            },
         )
     }
 }

@@ -20,6 +20,7 @@ const {
     collectAllSubsumedPlaygroundIdsForRegions,
 } = require('../utils/playgroundIdFilter');
 const { ACTIVE_PLAYGROUND_FILTER } = require('../services/activePlaygroundFilter');
+const { recordPlaygroundAudit } = require('../services/changeAuditService');
 
 const SubmissionType = {
     PHOTO: 'PHOTO',
@@ -182,6 +183,26 @@ function sanitizePlaygroundUpdateBody(raw) {
         delete cleaned.imageUrls;
     }
     return cleaned;
+}
+
+function moderationReasonFromSubmissionReview(submissionReview, forcedByUserPolicy = false) {
+    const parts = [];
+    if (forcedByUserPolicy) {
+        parts.push('Submitter is marked for mandatory admin review.');
+    }
+    const textConcerns = Array.isArray(submissionReview?.text?.concerns)
+        ? submissionReview.text.concerns.map((v) => String(v).trim()).filter(Boolean)
+        : [];
+    const imageConcerns = Array.isArray(submissionReview?.images)
+        ? submissionReview.images.flatMap((img) =>
+            Array.isArray(img?.concerns) ? img.concerns.map((v) => String(v).trim()).filter(Boolean) : []
+        )
+        : [];
+    const combined = [...new Set([...textConcerns, ...imageConcerns])];
+    if (combined.length > 0) {
+        parts.push(combined.slice(0, 5).join('; '));
+    }
+    return parts.join(' ').trim() || null;
 }
 
 /**
@@ -491,6 +512,11 @@ router.post("/", verifyToken, ensureCanSubmit, async (req, res) => {
     };
 
     try {
+        const userDoc = await db.collection('users').findOne(
+            { _id: req.user.uid },
+            { projection: { forceManualReview: 1 } },
+        );
+        const forceManualReview = userDoc?.forceManualReview === true;
         const submissionReview = await reviewPlaygroundSubmission({
             name,
             description,
@@ -500,8 +526,9 @@ router.post("/", verifyToken, ensureCanSubmit, async (req, res) => {
             playgroundType,
             imageUrls: imageUrls || [],
         });
+        const effectiveAutoApprove = submissionReview.autoApprove && !forceManualReview;
 
-        if (submissionReview.autoApprove) {
+        if (effectiveAutoApprove) {
             const doc = {
                 ...newPlayground,
                 geminiSubmissionReview: {
@@ -512,6 +539,20 @@ router.post("/", verifyToken, ensureCanSubmit, async (req, res) => {
                 },
             };
             const result = await db.collection("playgrounds").insertOne(doc);
+            const inserted = await db.collection('playgrounds').findOne({ _id: result.insertedId });
+            if (inserted) {
+                await recordPlaygroundAudit(db, {
+                    playgroundId: result.insertedId.toHexString(),
+                    operationType: 'create',
+                    actorUserId: req.user.uid,
+                    sourceType: 'auto_approved_new_playground',
+                    sourceId: result.insertedId.toHexString(),
+                    reason: 'Auto-approved new playground submission',
+                    beforeSnapshot: null,
+                    afterSnapshot: inserted,
+                    metadata: { queueStatus: 'AUTO_APPROVED' },
+                });
+            }
             await db.collection("moderation_queue").insertOne({
                 submissionType: SubmissionType.NEW_PLAYGROUND,
                 submissionId: result.insertedId.toHexString(),
@@ -548,6 +589,7 @@ router.post("/", verifyToken, ensureCanSubmit, async (req, res) => {
             proposedNewPlayground: newPlayground,
             submittedByUserId: req.user.uid,
             geminiSubmissionReview: submissionReview,
+            reason: moderationReasonFromSubmissionReview(submissionReview, forceManualReview),
             status: 'NEEDS_ADMIN_REVIEW',
             createdAt: new Date(),
             updatedAt: new Date(),
@@ -588,6 +630,11 @@ router.put("/:id", verifyToken, ensureCanSubmit, async (req, res) => {
         const filter = resolvePlaygroundIdFilter(routeId);
         const playground = await db.collection("playgrounds").findOne(filter);
         if (!playground) return res.status(404).json({ message: "Playground not found" });
+        const userDoc = await db.collection('users').findOne(
+            { _id: req.user.uid },
+            { projection: { forceManualReview: 1 } },
+        );
+        const forceManualReview = userDoc?.forceManualReview === true;
 
         // Always update by the document's actual _id (type-safe vs string/ObjectId mismatch).
         const idFilter = { _id: playground._id };
@@ -602,8 +649,10 @@ router.put("/:id", verifyToken, ensureCanSubmit, async (req, res) => {
             playgroundType: merged.playgroundType,
             imageUrls: merged.imageUrls || [],
         });
+        const effectiveAutoApprove = submissionReview.autoApprove && !forceManualReview;
 
-        if (submissionReview.autoApprove) {
+        if (effectiveAutoApprove) {
+            const beforePlayground = await db.collection("playgrounds").findOne(idFilter);
             const patch = {
                 ...updates,
                 geminiSubmissionReview: {
@@ -616,6 +665,19 @@ router.put("/:id", verifyToken, ensureCanSubmit, async (req, res) => {
             // Always match the loaded document's _id (avoids string vs ObjectId mismatch on update).
             await db.collection("playgrounds").updateOne(idFilter, { $set: patch });
             let updatedPlayground = await db.collection("playgrounds").findOne(idFilter);
+            if (beforePlayground && updatedPlayground) {
+                await recordPlaygroundAudit(db, {
+                    playgroundId: String(updatedPlayground._id),
+                    operationType: 'update',
+                    actorUserId: req.user.uid,
+                    sourceType: 'auto_approved_playground_edit',
+                    sourceId: String(playground._id),
+                    reason: 'Auto-approved playground edit',
+                    beforeSnapshot: beforePlayground,
+                    afterSnapshot: updatedPlayground,
+                    metadata: { changedKeys: Object.keys(updates || {}) },
+                });
+            }
             if (updatedPlayground) {
                 const newBadges = computeBadges(updatedPlayground);
                 await db.collection("playgrounds").updateOne(idFilter, { $set: { badges: newBadges } });
@@ -667,6 +729,7 @@ router.put("/:id", verifyToken, ensureCanSubmit, async (req, res) => {
             submittedByUserId: req.user.uid,
             status: 'NEEDS_ADMIN_REVIEW',
             geminiSubmissionReview: submissionReview,
+            reason: moderationReasonFromSubmissionReview(submissionReview, forceManualReview),
             createdAt: new Date(),
             updatedAt: new Date(),
         });

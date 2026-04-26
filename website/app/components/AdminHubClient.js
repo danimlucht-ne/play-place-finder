@@ -54,6 +54,13 @@ export default function AdminHubClient() {
   const claims = useMemo(() => readJwtClaims(token), [token]);
   const isAdmin = claims?.admin === true;
 
+  function confirmAction(message) {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    return window.confirm(message);
+  }
+
   async function runTask(task, successMessage) {
     setBusy(true);
     setMessage('');
@@ -107,31 +114,55 @@ export default function AdminHubClient() {
     setError('');
   }
 
-  async function refreshAdmin() {
-    await runTask(async () => {
-      const [submissionRes, campaignRes, moderationRes, supportRes, debugRes] = await Promise.all([
-        hubFetch(apiBase, token, `/admin/ads/submissions?status=${encodeURIComponent(statusFilter)}`),
-        hubFetch(apiBase, token, '/admin/ads/campaigns'),
-        hubFetch(apiBase, token, `/admin/moderation?status=${encodeURIComponent(moderationStatus)}`),
-        hubFetch(apiBase, token, `/admin/support-tickets?status=${encodeURIComponent(supportStatus)}`),
-        hubFetch(apiBase, token, '/admin/debug-playgrounds'),
-      ]);
-      setSubmissions(submissionRes.data || []);
-      setCampaigns(campaignRes.data || []);
-      setModerationItems(moderationRes.data || []);
-      setSupportTickets(supportRes.data || []);
-      setPlaygroundDebug(debugRes || null);
-      return true;
-    }, 'Admin hub refreshed.');
+  async function fetchAndSetAdminData() {
+    const [submissionRes, campaignRes, moderationRes, supportRes, debugRes] = await Promise.all([
+      hubFetch(apiBase, token, `/admin/ads/submissions?status=${encodeURIComponent(statusFilter)}`),
+      hubFetch(apiBase, token, '/admin/ads/campaigns'),
+      hubFetch(apiBase, token, `/admin/moderation?status=${encodeURIComponent(moderationStatus)}`),
+      hubFetch(apiBase, token, `/admin/support-tickets?status=${encodeURIComponent(supportStatus)}`),
+      hubFetch(apiBase, token, '/admin/debug-playgrounds'),
+    ]);
+    setSubmissions(submissionRes.data || []);
+    setCampaigns(campaignRes.data || []);
+    setModerationItems(moderationRes.data || []);
+    setSupportTickets(supportRes.data || []);
+    setPlaygroundDebug(debugRes || null);
+  }
+
+  /** Toolbar refresh. Post-action code should call `fetchAndSetAdminData` inside the same `runTask` to avoid clobbering success toasts. */
+  async function refreshAdmin({ notify = true } = {}) {
+    setBusy(true);
+    if (notify) {
+      setMessage('');
+    }
+    setError('');
+    try {
+      await fetchAndSetAdminData();
+      if (notify) {
+        setMessage('Admin hub refreshed.');
+      }
+    } catch (err) {
+      setError(err.message || 'Refresh failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function loadPlaygroundsPageData(useNextCursor) {
+    const cursorPart = useNextCursor && playgroundCursor ? `&cursor=${encodeURIComponent(playgroundCursor)}` : '';
+    const response = await hubFetch(apiBase, token, `/api/playgrounds?limit=100${cursorPart}`);
+    const data = response.data || [];
+    if (useNextCursor) {
+      setPlaygroundList((current) => [...current, ...data]);
+    } else {
+      setPlaygroundList(data);
+    }
+    setPlaygroundCursor(response.nextCursor || null);
   }
 
   async function loadPlaygroundsBatch(useNextCursor = false) {
     await runTask(async () => {
-      const cursorPart = useNextCursor && playgroundCursor ? `&cursor=${encodeURIComponent(playgroundCursor)}` : '';
-      const response = await hubFetch(apiBase, token, `/api/playgrounds?limit=100${cursorPart}`);
-      const data = response.data || [];
-      setPlaygroundList((current) => (useNextCursor ? [...current, ...data] : data));
-      setPlaygroundCursor(response.nextCursor || null);
+      await loadPlaygroundsPageData(useNextCursor);
       return true;
     }, useNextCursor ? 'Loaded more playgrounds.' : 'Loaded playgrounds.');
   }
@@ -150,15 +181,22 @@ export default function AdminHubClient() {
   }
 
   async function archivePlayground(playgroundId) {
+    if (
+      !confirmAction(
+        'Archive (soft-delete) this playground? The listing will be hidden. This is difficult to reverse from this hub — continue?',
+      )
+    ) {
+      return;
+    }
     await runTask(async () => {
       await hubFetch(apiBase, token, `/admin/playgrounds/${playgroundId}`, {
         method: 'DELETE',
       });
       if (selectedPlayground === playgroundId) {
-        setPlaygroundDetail((current) => current ? { ...current, archivedAt: new Date().toISOString() } : current);
+        setPlaygroundDetail((current) => (current ? { ...current, archivedAt: new Date().toISOString() } : current));
       }
-      await loadPlaygroundsBatch(false);
-      await refreshAdmin();
+      await loadPlaygroundsPageData(false);
+      await fetchAndSetAdminData();
       return true;
     }, 'Playground archived.');
   }
@@ -181,37 +219,75 @@ export default function AdminHubClient() {
   }
 
   async function reviewSubmission(id, decision) {
+    if (decision === 'reject' && !reviewReason.trim()) {
+      setError('Add a reason in “Shared reason / note” before rejecting.');
+      return;
+    }
+    if (decision === 'reject' && !confirmAction('Reject this ad submission? The advertiser will see the reason you provided.')) {
+      return;
+    }
+    if (decision === 'approve' && !confirmAction('Approve this ad submission?')) {
+      return;
+    }
     await runTask(async () => {
       await hubFetch(apiBase, token, `/admin/ads/submissions/${id}/review`, {
         method: 'POST',
         body: JSON.stringify({ decision, reason: reviewReason }),
       });
-      await refreshAdmin();
-      await loadSubmission(id);
+      await fetchAndSetAdminData();
+      const response = await hubFetch(apiBase, token, `/admin/ads/submissions/${id}`);
+      setSelectedSubmission(id);
+      setSubmissionDetail(response.data || null);
       return true;
     }, `Submission ${decision}d.`);
   }
 
   async function requestRevision(id) {
+    if (!reviewReason.trim()) {
+      setError('Add a message in “Shared reason / note” before requesting a revision.');
+      return;
+    }
+    if (!confirmAction('Send a revision request to the advertiser?')) {
+      return;
+    }
     await runTask(async () => {
       await hubFetch(apiBase, token, `/admin/ads/submissions/${id}/request-revision`, {
         method: 'POST',
         body: JSON.stringify({ message: reviewReason }),
       });
-      await refreshAdmin();
-      await loadSubmission(id);
+      await fetchAndSetAdminData();
+      const response = await hubFetch(apiBase, token, `/admin/ads/submissions/${id}`);
+      setSelectedSubmission(id);
+      setSubmissionDetail(response.data || null);
       return true;
     }, 'Revision requested.');
   }
 
+  function confirmAdminSetStatus(status) {
+    if (status === 'approved' || status === 'cancelled') {
+      return confirmAction(
+        `Force this submission to ${status}? This bypasses normal review — only continue if you are sure.`,
+      );
+    }
+    if (status === 'manual_review') {
+      return confirmAction('Set this submission back to manual review?');
+    }
+    return true;
+  }
+
   async function adminSetStatus(id, status) {
+    if (!confirmAdminSetStatus(status)) {
+      return;
+    }
     await runTask(async () => {
       await hubFetch(apiBase, token, `/admin/ads/submissions/${id}/admin-set-status`, {
         method: 'POST',
         body: JSON.stringify({ status, note: reviewReason }),
       });
-      await refreshAdmin();
-      await loadSubmission(id);
+      await fetchAndSetAdminData();
+      const response = await hubFetch(apiBase, token, `/admin/ads/submissions/${id}`);
+      setSelectedSubmission(id);
+      setSubmissionDetail(response.data || null);
       return true;
     }, `Submission moved to ${status}.`);
   }
@@ -234,7 +310,24 @@ export default function AdminHubClient() {
     });
   }
 
+  function confirmModerationAction(action) {
+    if (action === 'approve') {
+      return confirmAction('Approve this moderation item and publish the change?');
+    }
+    if (action === 'reject') {
+      return confirmAction('Reject this moderation item? The submitter can see a decision reason if you add one above.');
+    }
+    return confirmAction('Retry this moderation item (e.g. after fixing upstream data)?');
+  }
+
   async function moderatePlayground(id, action) {
+    if (action === 'reject' && !reviewReason.trim()) {
+      setError('Add a decision in “Shared reason / note” before rejecting.');
+      return;
+    }
+    if (!confirmModerationAction(action)) {
+      return;
+    }
     const path = action === 'approve'
       ? `/admin/moderation/${id}/approve`
       : action === 'retry'
@@ -246,27 +339,60 @@ export default function AdminHubClient() {
         method: 'POST',
         body: JSON.stringify(body),
       });
-      await refreshAdmin();
+      await fetchAndSetAdminData();
       if (selectedModeration === id) {
-        await loadModeration(id);
+        const response = await hubFetch(apiBase, token, `/admin/moderation/${id}`);
+        setSelectedModeration(id);
+        setModerationDetail(response.data || null);
       }
       return true;
     }, `Moderation item ${action}d.`);
   }
 
   async function resolveSupportTicket(id, action) {
+    if (action === 'reject' && !reviewReason.trim()) {
+      setError('Add a resolution reason in “Shared reason / note” before rejecting a ticket.');
+      return;
+    }
+    const sure =
+      action === 'resolve'
+        ? confirmAction('Mark this support ticket as resolved?')
+        : confirmAction('Reject this support ticket?');
+    if (!sure) {
+      return;
+    }
     const path = action === 'resolve' ? `/admin/support-tickets/${id}/resolve` : `/admin/support-tickets/${id}/reject`;
     await runTask(async () => {
       await hubFetch(apiBase, token, path, {
         method: 'POST',
         body: JSON.stringify({ resolutionReason: reviewReason }),
       });
-      await refreshAdmin();
+      await fetchAndSetAdminData();
       return true;
     }, `Support ticket ${action}d.`);
   }
 
+  function campaignActionConfirmMessage(action) {
+    switch (action) {
+      case 'pause':
+        return 'Pause this campaign? It will stop showing until you unpause.';
+      case 'unpause':
+        return 'Unpause this campaign?';
+      case 'cancel':
+        return 'Cancel this campaign? This usually cannot be undone from this hub.';
+      case 'refund':
+        return 'Process a refund for the selected campaign? This affects payments.';
+      case 'extend':
+        return 'Extend the selected campaign end date?';
+      default:
+        return 'Run this campaign action?';
+    }
+  }
+
   async function runCampaignAction(campaignId, action) {
+    if (!confirmAction(campaignActionConfirmMessage(action))) {
+      return;
+    }
     const body =
       action === 'extend'
         ? { days: Number(campaignAction.days), reason: campaignAction.reason }
@@ -279,9 +405,11 @@ export default function AdminHubClient() {
         method: 'POST',
         body: JSON.stringify(body),
       });
-      await refreshAdmin();
+      await fetchAndSetAdminData();
       if (selectedCampaign === campaignId) {
-        await loadPayment(campaignId);
+        const response = await hubFetch(apiBase, token, `/admin/ads/campaigns/${campaignId}/payment`);
+        setSelectedCampaign(campaignId);
+        setPaymentDetail(response.data || null);
       }
       return true;
     }, `Campaign ${action} action completed.`);
@@ -315,7 +443,7 @@ export default function AdminHubClient() {
           </div>
           <div className="hub-actions-inline">
             <button type="button" className="btn btn-outline hub-btn-dark" onClick={persistSettings}>Save settings</button>
-            <button type="button" className="btn btn-teal" disabled={busy} onClick={refreshAdmin}>Refresh admin hub</button>
+            <button type="button" className="btn btn-teal" disabled={busy} onClick={() => void refreshAdmin()}>Refresh admin hub</button>
           </div>
         </div>
         <div className="hub-form-grid">

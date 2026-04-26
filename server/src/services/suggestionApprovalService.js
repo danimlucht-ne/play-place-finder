@@ -82,6 +82,17 @@ function titleCaseLabel(s) {
     return t.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function inferRegionKeyFromPlayground(pg) {
+    const explicit = pg?.regionKey != null ? String(pg.regionKey).trim() : '';
+    if (explicit) return explicit;
+    const cityRaw = (pg?.normalized && pg.normalized.cityDisplay) || pg?.city || '';
+    const stateRaw = (pg?.normalized && pg.normalized.stateCode) || pg?.state || '';
+    const city = String(cityRaw || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const state = String(stateRaw || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 2);
+    if (!city || !state) return null;
+    return `${city}-${state}`;
+}
+
 /**
  * Apply an approved feature suggestion to a playground document and global option catalog.
  * @returns {{ appliedLabel: string, cityForPoints: string|null }}
@@ -102,7 +113,10 @@ async function applyApprovedSuggestion(db, playgroundId, suggestionCategory, raw
     }
 
     const filter = resolvePlaygroundIdFilter(playgroundId);
-    const pg = await db.collection('playgrounds').findOne(filter);
+    let pg = await db.collection('playgrounds').findOne(filter);
+    if (!pg) {
+        pg = await db.collection('playgrounds').findOne({ _id: String(playgroundId) });
+    }
     if (!pg) {
         const err = new Error('Playground not found for this ticket.');
         err.statusCode = 404;
@@ -110,9 +124,10 @@ async function applyApprovedSuggestion(db, playgroundId, suggestionCategory, raw
     }
 
     const cityForPoints = pg.city || (pg.normalized && pg.normalized.cityDisplay) || null;
+    const appliedFilter = { _id: pg._id };
 
     if (cfg.mode === 'array') {
-        await db.collection('playgrounds').updateOne(filter, {
+        await db.collection('playgrounds').updateOne(appliedFilter, {
             $addToSet: { [cfg.field]: label },
             $set: { updatedAt: new Date() },
         });
@@ -132,7 +147,7 @@ async function applyApprovedSuggestion(db, playgroundId, suggestionCategory, raw
         const lower = new Set(existing.map((x) => x.toLowerCase()));
         if (!lower.has(label.toLowerCase())) existing.push(label);
         const merged = existing.join(', ');
-        await db.collection('playgrounds').updateOne(filter, {
+        await db.collection('playgrounds').updateOne(appliedFilter, {
             $set: { groundType: merged, updatedAt: new Date() },
         });
         await db.collection('category_options').updateOne(
@@ -147,20 +162,25 @@ async function applyApprovedSuggestion(db, playgroundId, suggestionCategory, raw
         const nk = normKey(label);
         const boolField = AMENITY_LABEL_TO_FIELD.get(nk);
         if (boolField) {
-            await db.collection('playgrounds').updateOne(filter, {
+            await db.collection('playgrounds').updateOne(appliedFilter, {
                 $set: { [boolField]: true, updatedAt: new Date() },
             });
         } else {
-            await db.collection('playgrounds').updateOne(filter, {
+            await db.collection('playgrounds').updateOne(appliedFilter, {
                 $addToSet: { customAmenities: label },
                 $set: { updatedAt: new Date() },
             });
             await db.collection('category_options').updateOne(
                 { category: 'amenity' },
-                { $addToSet: { values: label } },
+                { $addToSet: { values: label }, $setOnInsert: { category: 'amenity', values: [] } },
                 { upsert: true }
             );
         }
+        await db.collection('category_options').updateOne(
+            { category: 'amenity' },
+            { $addToSet: { values: label }, $setOnInsert: { category: 'amenity', values: [] } },
+            { upsert: true }
+        );
         return { appliedLabel: label, cityForPoints };
     }
 
@@ -182,7 +202,7 @@ async function buildTargetPlaygroundSummary(db, targetKind, targetId) {
         name,
         city,
         state,
-        regionKey: pg.regionKey || null,
+        regionKey: inferRegionKeyFromPlayground(pg),
         playgroundType: pg.playgroundType || null,
     };
 }

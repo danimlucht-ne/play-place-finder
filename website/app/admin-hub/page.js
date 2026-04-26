@@ -1,5 +1,6 @@
 import SiteNav from '../components/SiteNav';
 import AdminHubClient from '../components/AdminHubClient';
+import AuthGate from '../components/AuthGate';
 
 export const metadata = {
   title: 'Advertising Admin Hub - Play Spotter',
@@ -10,7 +11,9 @@ export default function AdminHubPage() {
   return (
     <>
       <SiteNav />
-      <AdminHubClient />
+      <AuthGate requireAdmin>
+        <AdminHubClient />
+      </AuthGate>
     </>
   );
 }

@@ -15,6 +15,26 @@ const SubmissionType = {
     ABUSE_TICKET: 'ABUSE_TICKET'
 };
 
+function moderationReasonForUser(doc) {
+    const explicit = doc?.reason || doc?.decisionReason || null;
+    if (explicit && String(explicit).trim()) return String(explicit).trim();
+    const textConcerns = Array.isArray(doc?.geminiSubmissionReview?.text?.concerns)
+        ? doc.geminiSubmissionReview.text.concerns.map((v) => String(v).trim()).filter(Boolean)
+        : [];
+    const imageConcerns = Array.isArray(doc?.geminiSubmissionReview?.images)
+        ? doc.geminiSubmissionReview.images.flatMap((img) =>
+            Array.isArray(img?.concerns) ? img.concerns.map((v) => String(v).trim()).filter(Boolean) : []
+        )
+        : [];
+    const moderationFlags = Array.isArray(doc?.moderationFlags)
+        ? doc.moderationFlags
+            .map((f) => (f?.description || f?.type || f?.flagType || '').toString().trim())
+            .filter(Boolean)
+        : [];
+    const merged = [...new Set([...textConcerns, ...imageConcerns, ...moderationFlags])];
+    return merged.length > 0 ? merged.slice(0, 5).join('; ') : null;
+}
+
 // POST consent acceptance
 router.post("/consents", async (req, res) => {
     const db = getDb();
@@ -597,8 +617,7 @@ router.get('/users/me/submissions', async (req, res) => {
             .toArray();
 
         const moderationRows = moderationItems.map((doc) => {
-            const note = doc.reason || doc.decisionReason || null;
-            const noteStr = note && String(note).trim() ? String(note).trim() : null;
+            const noteStr = moderationReasonForUser(doc);
             return {
                 id: doc._id.toHexString(),
                 source: 'MODERATION',

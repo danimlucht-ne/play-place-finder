@@ -9,9 +9,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.community.playgroundfinder.data.PlaygroundService
 import org.community.playgroundfinder.ui.composables.FormColors
@@ -81,6 +83,8 @@ private fun SubmissionRow(row: Map<String, Any>) {
     val reason = noteForDisplay(row["reason"])
     val created = row["createdAt"]?.toString() ?: ""
     val source = row["source"]?.toString()?.uppercase() ?: "MODERATION"
+    val previewUrl = row["previewUrl"]?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+    val uriHandler = LocalUriHandler.current
 
     val statusColor = when (status) {
         "NEEDS_ADMIN_REVIEW", "PENDING" -> Color(0xFFFF9800)
@@ -155,6 +159,23 @@ private fun SubmissionRow(row: Map<String, Any>) {
             }
             reason?.let { note ->
                 Text("Note: $note", fontSize = 12.sp, color = Color(0xFF5D4037), modifier = Modifier.padding(top = 6.dp))
+            }
+            if (previewUrl != null) {
+                AsyncImage(
+                    model = previewUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(168.dp)
+                        .padding(top = 8.dp),
+                )
+                TextButton(
+                    onClick = { runCatching { uriHandler.openUri(previewUrl) } },
+                    contentPadding = PaddingValues(0.dp),
+                    modifier = Modifier.padding(top = 2.dp),
+                ) {
+                    Text("Open full image", fontSize = 12.sp)
+                }
             }
         }
     }
