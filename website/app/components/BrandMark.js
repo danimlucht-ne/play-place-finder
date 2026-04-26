@@ -1,10 +1,10 @@
-/** Vector brand mark: shared with Android adaptive icon (`ic_launcher_foreground` + brand cyan). */
+/** Same asset as Android adaptive launcher (`playplace-app-icon.png` from `syncWebsiteAppIcon` / `generateAppIcon.js`). */
 export default function BrandMark({ className = 'nav-logo-mark', width = 46, height = 46 }) {
   return (
     <img
       className={className}
-      src="/play-spotter-icon.svg"
-      alt="Play Spotter"
+      src="/playplace-app-icon.png"
+      alt=""
       width={width}
       height={height}
       decoding="async"

@@ -18,7 +18,8 @@
     "cleanup:region": "node scripts/cleanupRegion.js",
     "reset:seed:geo": "node scripts/resetSeedGeo.js",
     "recategorize:types": "node scripts/recategorizePlaygroundTypes.js",
-    "sync:web-brand-icon": "node scripts/syncWebsiteAppIcon.js"
+    "sync:web-brand-icon": "node scripts/syncWebsiteAppIcon.js",
+    "generate:app-icon": "node scripts/generateAppIcon.js"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.7.0",

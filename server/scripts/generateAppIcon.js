@@ -3,8 +3,8 @@
  * 
  * Usage: node scripts/generateAppIcon.js
  * 
- * Reads playPlaceIcon.svg or playPlaceIcon.jpg from the project root and generates:
- * (Also runs syncWebsiteAppIcon.js when the source exists — PNG for web launcher parity.)
+ * Reads `playPlaceIcon.svg` (or .jpg) from the repo root and generates:
+ * (Also runs `syncWebsiteAppIcon.js` when the source exists — `playplace-app-icon.png` for the website.)
  *   - mipmap-mdpi (48x48)
  *   - mipmap-hdpi (72x72)
  *   - mipmap-xhdpi (96x96)

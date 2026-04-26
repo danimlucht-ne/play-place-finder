@@ -10,8 +10,8 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="/play-spotter-icon.svg" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/play-spotter-icon.svg" />
+        <link rel="icon" href="/playplace-app-icon.png" type="image/png" sizes="512x512" />
+        <link rel="apple-touch-icon" href="/playplace-app-icon.png" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body>{children}</body>

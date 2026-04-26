@@ -87,8 +87,7 @@ test('metadata is present for search and sharing surfaces', () => {
   assert.ok(layout.includes('playground finder'), 'metadata should include search keywords');
   assert.ok(layout.includes('<html lang="en">'), 'layout should set the document language');
   assert.ok(layout.includes('name="viewport"'), 'layout should include a viewport meta tag');
-  assert.ok(layout.includes('play-spotter-icon.svg'), 'layout should reference launcher-aligned SVG favicon');
-  assert.ok(!layout.includes('playplace-app-icon.png'), 'layout should not reference legacy PNG favicon');
+  assert.ok(layout.includes('playplace-app-icon.png'), 'layout should reference launcher-aligned PNG favicon');
   assert.ok(!layout.includes('playplace-mark.svg'), 'layout should not reference legacy vector mark');
 });
 
@@ -111,7 +110,7 @@ test('conversion and contact paths stay intact', () => {
   assert.ok(advertise.includes('Prime Placement'), 'advertise page should show Prime Placement package details');
   assert.ok(advertise.includes('Inline Listing'), 'advertise page should show Inline Listing package details');
   assert.ok(advertise.includes('Event Spotlight'), 'advertise page should show Event Spotlight package details');
-  assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'play-spotter-icon.svg')), 'launcher-aligned SVG should exist for nav / favicon');
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'playplace-app-icon.png')), 'launcher-aligned PNG should exist for nav / favicon');
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'media', 'playground-1.jpg')), 'hero strip image 1 should exist');
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'media', 'playground-2.jpg')), 'hero strip image 2 should exist');
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'media', 'playground-3.jpg')), 'hero strip image 3 should exist');

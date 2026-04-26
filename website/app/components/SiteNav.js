@@ -2,7 +2,7 @@ import Link from 'next/link';
 import BrandMark from './BrandMark';
 import NavSessionLinks from './NavSessionLinks';
 
-/** Site-wide header: app icon in nav (see `public/play-spotter-icon.svg`, same art as Android launcher foreground). */
+/** Site-wide header: same composite as Android adaptive launcher (`playplace-app-icon.png`). */
 export default function SiteNav() {
   return (
     <nav className="nav">

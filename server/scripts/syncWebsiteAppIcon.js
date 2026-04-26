@@ -1,16 +1,13 @@
 /**
- * Writes website/public/playplace-app-icon.png (same treatment as the Android adaptive icon).
- * Source (first match wins):
- *   1. playPlaceIcon.svg at repo root
- *   2. playPlaceIcon.jpg at repo root (same as generateAppIcon.js)
- *   3. mipmap-xxxhdpi/ic_launcher_foreground.png (after npm run generate flow from server)
- *   4. mipmap-xxxhdpi/ic_launcher.png
- * Composites on #05B4C6 (ic_launcher_background) with safe-zone sizing (~64/108) when using a raw photo or launcher foreground.
+ * Writes `website/public/playplace-app-icon.png` (512px, same visual as Android / root `playPlaceIcon.svg`).
+ * Source (first match):
+ *   1. `playPlaceIcon.svg` at repo root
+ *   2. `playPlaceIcon.jpg` at repo root
+ *   3. `mipmap-xxxhdpi/ic_launcher_foreground.png` (after `node scripts/generateAppIcon.js`)
+ *   4. `mipmap-xxxhdpi/ic_launcher.png`
+ * For raster sources, composites on #05B4C6 when using transparent foreground; full SVG is flattened as-is.
  *
- * Run: npm run sync:web-brand-icon  (from server/)
- *
- * If the exported PNG shows thin white “corner bracket” marks, those come from the source
- * raster (e.g. Android Studio / design-tool safe-zone overlays), not from this script — use a clean export.
+ * Run: npm run sync:web-brand-icon  (from `server/`)
  */
 
 const fs = require('fs');
@@ -42,7 +39,7 @@ async function main() {
 
   if (!sourcePath) {
     console.warn(
-      'syncWebsiteAppIcon: no icon source (playPlaceIcon.svg, playPlaceIcon.jpg, or mipmap-xxxhdpi PNGs). Writing solid launcher background only; add a source and re-run.',
+      'syncWebsiteAppIcon: no icon source. Writing solid launcher background only; add playPlaceIcon.svg and re-run.',
     );
     await sharp({
       create: { width: size, height: size, channels: 3, background: BG },
