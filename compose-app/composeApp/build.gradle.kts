@@ -118,7 +118,7 @@ android {
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         // Must increase for every upload to Play Console (internal integer; unrelated to git tags).
-        versionCode = 24
+        versionCode = 25
         versionName = "1.0.0-beta1"
         // Overridden per buildType; release must not allow cleartext HTTP.
         manifestPlaceholders["usesCleartextTraffic"] = "false"

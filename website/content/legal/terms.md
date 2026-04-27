@@ -67,7 +67,7 @@ We may suspend or terminate access for violations of these terms.
 
 ## 11. User-Generated Content & Moderation
 
-Users may submit content including listings, photos, and reviews. We reserve the right to review, moderate, remove, or restrict any content that is inaccurate, misleading, unsafe, violates our content standards, or is reported by users.
+Users may submit content including listings, photos, and reviews. We reserve the right to review, moderate, remove, or restrict any content that is inaccurate, misleading, unsafe, violates our content standards, or is reported by users. Any photos, video or any other media you upload and any edits you make of the playground data on the app becomes the property of the Lucht Applications LLC. This data or information will not be deleted unless it violates the terms and conditions or may be removed and deleted upon the sole discretion of Lucht Applications LLC.
 
 ## 12. Contact
 
