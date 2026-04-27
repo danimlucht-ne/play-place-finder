@@ -20,6 +20,8 @@ const RES = path.join(REPO_ROOT, 'compose-app', 'composeApp', 'src', 'androidMai
 const BRANDING_RES = path.join(REPO_ROOT, 'branding', 'android-launcher-res');
 const FG1024 = path.join(BRANDING_RES, 'drawable', 'ic_launcher_foreground_1024.png');
 const BG1024 = path.join(BRANDING_RES, 'drawable', 'ic_launcher_background_1024.png');
+/** Lucht company site `products.html` — must match composited `playplace-app-icon.png` (not a separate export). */
+const LUCHT_PLAY_PLACE_FINDER = path.join(REPO_ROOT, '..', '..', 'lucht-applications', 'icons', 'play-place-finder.png');
 /** Single brand plate for fallbacks; aligned with `values/colors.xml` ic_launcher_background (#00CED1). */
 const BG = { r: 0, g: 206, b: 209 }; // #00CED1
 const TRIM_THRESHOLD = 14;
@@ -122,6 +124,21 @@ async function writeLauncherStyleSquare(outPath, sourcePath, size) {
     .toFile(outPath);
 }
 
+function copyPlayIconToLuchtMarketing() {
+  try {
+    if (!fs.existsSync(OUT_FULL)) return;
+    const dir = path.dirname(LUCHT_PLAY_PLACE_FINDER);
+    if (!fs.existsSync(dir)) return;
+    fs.copyFileSync(OUT_FULL, LUCHT_PLAY_PLACE_FINDER);
+    console.log(
+      'syncWebsiteAppIcon: copied composited icon →',
+      path.relative(REPO_ROOT, LUCHT_PLAY_PLACE_FINDER),
+    );
+  } catch (err) {
+    console.warn('syncWebsiteAppIcon: Lucht copy skipped:', err.message);
+  }
+}
+
 async function main() {
   const size = 512;
 
@@ -137,6 +154,7 @@ async function main() {
       'from',
       'branding/android-launcher-res (1024×1024 layers)',
     );
+    copyPlayIconToLuchtMarketing();
     return;
   }
 
@@ -163,6 +181,8 @@ async function main() {
     await writeLauncherStyleSquare(OUT_FAVICON, favPath, size);
     console.log('syncWebsiteAppIcon: wrote', OUT_FAVICON, 'from', path.relative(REPO_ROOT, favPath));
   }
+
+  copyPlayIconToLuchtMarketing();
 }
 
 module.exports = {

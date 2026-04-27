@@ -112,6 +112,9 @@ describe('photoUploadService', () => {
         }),
         updateOne: updatePhoto,
       },
+      users: {
+        findOne: jest.fn().mockResolvedValue(null),
+      },
       playgrounds: {
         findOne: jest.fn().mockResolvedValue({
           _id: playgroundId,
@@ -181,6 +184,9 @@ describe('photoUploadService', () => {
           adultTermsAccepted: true,
         }),
         updateOne: jest.fn().mockResolvedValue({}),
+      },
+      users: {
+        findOne: jest.fn().mockResolvedValue(null),
       },
       playgrounds: {
         findOne: jest.fn().mockResolvedValue({

@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- API 35+: opt out of mandatory edge-to-edge for this legacy library activity. -->
-    <style name="Theme.PlaygroundFinder.UCrop" parent="Theme.AppCompat.Light.NoActionBar">
-        <item name="android:statusBarColor">#FF212121</item>
-        <item name="android:navigationBarColor">#FF212121</item>
-        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
-    </style>
-</resources>

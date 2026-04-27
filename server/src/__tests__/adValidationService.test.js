@@ -161,7 +161,7 @@ describe('adValidationService', () => {
       'Family care',
     )).resolves.toEqual({
       familyFriendly: true,
-      reason: 'Conventional healthcare/services â€” no LLM review',
+      reason: 'Conventional healthcare/services — no LLM review',
     });
     expect(mockGenerateContent).not.toHaveBeenCalled();
 
