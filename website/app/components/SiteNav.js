@@ -9,6 +9,7 @@ export default function SiteNav() {
       <div className="container">
         <Link href="/" className="nav-logo">
           <BrandMark />
+          <span className="nav-logo-text">Play Spotter</span>
         </Link>
         <div className="nav-links">
           <Link href="/discover">Discover</Link>

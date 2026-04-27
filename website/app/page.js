@@ -10,18 +10,7 @@ export default function Home() {
       {/* Hero */}
       <section className="hero">
         <div className="container">
-          <div className="hero-brand">
-            <div className="hero-brand-panel">
-              <img
-                src="/playplace-app-icon.png"
-                alt=""
-                className="hero-brand-logo"
-                width={520}
-                height={156}
-                decoding="async"
-              />
-            </div>
-          </div>
+          <p className="hero-eyebrow">Play Spotter</p>
           <h1 className="hero-tagline">Find Kid-Friendly Play Places Near You</h1>
           <p className="hero-lead">
             Discover playgrounds, indoor play areas, parks, and family-friendly activities — all community-verified and free to use.
