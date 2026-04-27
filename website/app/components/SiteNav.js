@@ -13,16 +13,11 @@ export default function SiteNav() {
         </Link>
         <div className="nav-links">
           <Link href="/discover">Discover</Link>
-          <Link href="/sites">Sites</Link>
           <Link href="/map">Map</Link>
           <Link href="/events">Events</Link>
           <Link href="/lists">Lists</Link>
-          <Link href="/my-submissions">My Submissions</Link>
-          <Link href="/activity">Activity</Link>
           <Link href="/advertise">Advertise</Link>
           <Link href="/support">Support</Link>
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/terms">Terms</Link>
           <NavSessionLinks />
         </div>
       </div>

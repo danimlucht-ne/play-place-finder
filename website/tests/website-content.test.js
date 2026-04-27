@@ -57,7 +57,7 @@ test('all public app routes exist and export a page component', () => {
 });
 
 test('site navigation keeps critical public links reachable', () => {
-  const expectedLinks = ['href="/"', 'href="/discover"', 'href="/sites"', 'href="/advertise"', 'href="/privacy"', 'href="/terms"'];
+  const expectedLinks = ['href="/"', 'href="/discover"', 'href="/map"', 'href="/lists"', 'href="/advertise"', 'href="/support"'];
   const navSource = readAppFile('components/SiteNav.js');
   for (const link of expectedLinks) {
     assert.ok(navSource.includes(link), `SiteNav should include navigation link ${link}`);

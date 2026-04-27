@@ -16,7 +16,7 @@ export default function Home() {
               Find Kid-Friendly Play Places Near You
             </h1>
             <p className="hero-lead hero-lead--on-dark">
-              Discover and save playgrounds you love, plan your next outing, and explore the best play spots — near or far. Community-verified listings, maps, lists, and events.
+              Plan outings faster with trusted local data: map browse, practical filters, saved lists, and real community updates.
             </p>
             <div className="hero-badges">
               <a href="https://play.google.com/store" className="btn btn-primary">Get it on Google Play</a>
@@ -34,7 +34,6 @@ export default function Home() {
               fetchPriority="high"
               className="hero-feature-img"
             />
-            <p className="hero-feature-caption">Find. Save. Explore. Every play spot.</p>
           </div>
         </div>
       </section>

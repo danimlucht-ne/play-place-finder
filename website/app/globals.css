@@ -70,23 +70,23 @@ a:hover { text-decoration: underline; }
   text-decoration: none !important;
 }
 .nav-logo:hover { text-decoration: none !important; }
-/* ~75% larger than original 46px nav mark (46 × 1.75 ≈ 80) */
+/* Increased icon visibility without crowding header */
 .nav-logo-mark {
-  height: 80px;
+  height: 64px;
   width: auto;
-  max-width: 80px;
+  max-width: 64px;
   object-fit: contain;
   flex-shrink: 0;
   filter: drop-shadow(0 2px 10px rgba(0, 80, 90, 0.12));
 }
 .nav-logo-text {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--mint-deep);
-  margin-left: 12px;
+  margin-left: 10px;
 }
-.nav-links { display: flex; gap: 24px; align-items: center; }
+.nav-links { display: flex; gap: 18px; align-items: center; }
 .nav-links a { color: var(--dark-gray); font-size: 15px; font-weight: 500; }
 .nav-links a:hover { color: var(--teal); text-decoration: none; }
 .nav-login-link,
@@ -165,8 +165,8 @@ a:hover { text-decoration: underline; }
 }
 .hero-feature-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 1.15fr);
-  gap: 32px;
+  grid-template-columns: minmax(0, 1.12fr) minmax(280px, 0.88fr);
+  gap: 40px;
   align-items: center;
 }
 .hero-feature-copy {
@@ -1406,11 +1406,11 @@ a:hover { text-decoration: underline; }
   .nav-links { gap: 16px; }
   .nav-links a { font-size: 13px; }
   .nav-logo-mark {
-    height: 80px;
-    max-width: 80px;
+    height: 68px;
+    max-width: 68px;
   }
   .nav-logo-text {
-    font-size: 20px;
+    font-size: 18px;
     margin-left: 10px;
   }
   .advertise-hero__grid,
