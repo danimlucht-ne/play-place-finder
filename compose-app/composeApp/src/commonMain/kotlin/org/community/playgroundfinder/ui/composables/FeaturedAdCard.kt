@@ -17,15 +17,19 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.community.playgroundfinder.data.PlaygroundService
+import org.community.playgroundfinder.events.eventCreativeGoogleCalendarUrl
 import org.community.playgroundfinder.models.AdCreativePayload
 import org.community.playgroundfinder.models.AllAdsResponse
 import org.community.playgroundfinder.util.MarketingLinks
@@ -124,6 +128,15 @@ fun FeaturedAdCard(
                     service = service, cityId = safeCityId,
                     userLat = userLat, userLng = userLng,
                 )
+            }
+            // Calendar CTA below the prime slot when the rotated creative is an event with a date.
+            // Sized with the same FilledTonalButton + leading icon as the inline / events surfaces
+            // so it reads as the same affordance everywhere it appears.
+            val openExternalUrl = rememberOpenExternalUrl()
+            val calendarUrl = if (ad.isEvent) eventCreativeGoogleCalendarUrl(ad) else null
+            if (calendarUrl != null) {
+                Spacer(Modifier.height(8.dp))
+                AddToCalendarButton(onClick = { openExternalUrl(calendarUrl) })
             }
         } else {
             FeaturedAdOfflineFallbackCard(onNavigateToAdvertise = onNavigateToAdvertise)
@@ -319,6 +332,17 @@ private fun AdCardContent(
             ) {
                 val dateReadable =
                     if (ad.isEvent) formatEventDateReadableLine(ad.eventDate, ad.isRecurring) else null
+                // Format the prime/featured slot's When/Where to match SponsoredListingCardSplit:
+                // bold "When:" / "Where:" labels in the same dark color, value text trailing.
+                val whenLine = if (ad.isEvent) {
+                    listOfNotNull(
+                        dateReadable?.trim()?.takeIf { it.isNotEmpty() },
+                        ad.eventTime?.trim()?.takeIf { it.isNotEmpty() },
+                    ).joinToString(" at ").ifBlank { null }
+                } else {
+                    null
+                }
+                val whereLine = if (ad.isEvent) ad.eventLocation?.trim()?.takeIf { it.isNotEmpty() } else null
 
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -334,13 +358,21 @@ private fun AdCardContent(
                         lineHeight = 17.sp,
                     )
 
-                    if (!dateReadable.isNullOrBlank()) {
+                    if (!whenLine.isNullOrBlank()) {
                         Text(
-                            "\uD83D\uDCC5 $dateReadable",
+                            text = featuredEventLine("When:", whenLine),
                             fontSize = 12.sp,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
-                            color = Color(0xFF212121),
+                            lineHeight = 16.sp,
+                        )
+                    }
+                    if (!whereLine.isNullOrBlank()) {
+                        Text(
+                            text = featuredEventLine("Where:", whereLine),
+                            fontSize = 12.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
                             lineHeight = 16.sp,
                         )
                     }
@@ -441,5 +473,18 @@ private fun AdCardContent(
                 }
             }
         }
+    }
+}
+
+private fun featuredEventLine(
+    label: String,
+    value: String,
+): androidx.compose.ui.text.AnnotatedString = buildAnnotatedString {
+    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF263238))) {
+        append(label)
+    }
+    append(" ")
+    withStyle(SpanStyle(color = Color(0xFF37474F))) {
+        append(value)
     }
 }

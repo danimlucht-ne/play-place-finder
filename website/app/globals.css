@@ -57,7 +57,7 @@ a:hover { text-decoration: underline; }
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(5, 180, 198, 0.28);
-  padding: 14px 0;
+  padding: 12px 0;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -70,20 +70,21 @@ a:hover { text-decoration: underline; }
   text-decoration: none !important;
 }
 .nav-logo:hover { text-decoration: none !important; }
+/* ~75% larger than original 46px nav mark (46 × 1.75 ≈ 80) */
 .nav-logo-mark {
-  height: 46px;
+  height: 80px;
   width: auto;
-  max-width: 46px;
+  max-width: 80px;
   object-fit: contain;
   flex-shrink: 0;
   filter: drop-shadow(0 2px 10px rgba(0, 80, 90, 0.12));
 }
 .nav-logo-text {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--mint-deep);
-  margin-left: 10px;
+  margin-left: 12px;
 }
 .nav-links { display: flex; gap: 24px; align-items: center; }
 .nav-links a { color: var(--dark-gray); font-size: 15px; font-weight: 500; }
@@ -154,6 +155,95 @@ a:hover { text-decoration: underline; }
   margin: 0 auto 20px;
 }
 .hero-badges { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+
+/* Home feature hero — dark field + horizontal feature graphic */
+.hero--feature {
+  background: #0a0a0a;
+  background-image: radial-gradient(ellipse 80% 50% at 70% 20%, rgba(0, 206, 209, 0.12), transparent 55%);
+  text-align: left;
+  padding: 40px 0 48px;
+}
+.hero-feature-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 1.15fr);
+  gap: 32px;
+  align-items: center;
+}
+.hero-feature-copy {
+  max-width: 520px;
+}
+.hero--feature .hero-eyebrow--on-dark {
+  color: rgba(255, 255, 255, 0.75);
+  margin: 0 0 12px;
+}
+.hero-tagline--on-dark {
+  color: #ffffff;
+  text-shadow: none;
+  margin: 0 0 14px;
+  text-align: left;
+  max-width: none;
+  font-size: clamp(28px, 3.6vw, 44px);
+}
+.hero-lead--on-dark {
+  color: rgba(255, 255, 255, 0.78);
+  text-align: left;
+  max-width: none;
+  margin: 0 0 22px;
+  font-size: clamp(17px, 2vw, 20px);
+  font-weight: 400;
+  line-height: 1.5;
+}
+.hero--feature .hero-badges {
+  justify-content: flex-start;
+}
+.btn-outline--on-dark {
+  border-color: rgba(0, 206, 209, 0.55) !important;
+  color: #e8fdff !important;
+  background: rgba(0, 206, 209, 0.08) !important;
+}
+.btn-outline--on-dark:hover {
+  border-color: rgba(0, 206, 209, 0.85) !important;
+  background: rgba(0, 206, 209, 0.16) !important;
+  color: #ffffff !important;
+}
+.hero--feature .btn--muted {
+  opacity: 0.65;
+}
+.hero-feature-art {
+  position: relative;
+}
+.hero-feature-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 12px;
+}
+.hero-feature-caption {
+  margin: 10px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(0, 230, 235, 0.9);
+  text-align: center;
+}
+@media (max-width: 900px) {
+  .hero-feature-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .hero-feature-copy {
+    max-width: none;
+    text-align: center;
+  }
+  .hero-tagline--on-dark,
+  .hero-lead--on-dark {
+    text-align: center;
+  }
+  .hero--feature .hero-badges {
+    justify-content: center;
+  }
+}
 .advertise-eyebrow {
   font-size: 13px;
   font-weight: 800;
@@ -1315,6 +1405,14 @@ a:hover { text-decoration: underline; }
   .hero p { font-size: 16px; }
   .nav-links { gap: 16px; }
   .nav-links a { font-size: 13px; }
+  .nav-logo-mark {
+    height: 80px;
+    max-width: 80px;
+  }
+  .nav-logo-text {
+    font-size: 20px;
+    margin-left: 10px;
+  }
   .advertise-hero__grid,
   .advertise-marquee__grid,
   .advertise-loyalty-band__inner,

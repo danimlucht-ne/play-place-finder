@@ -101,7 +101,7 @@ function EditPlaceInner() {
             <label className="hub-checkbox"><input type="checkbox" checked={form.isToddlerFriendly} onChange={(e) => setForm((c) => ({ ...c, isToddlerFriendly: e.target.checked }))} /><span>Toddler friendly</span></label>
             <div className="hub-actions-inline hub-field--full">
               <button type="submit" className="btn btn-teal" disabled={busy}>{busy ? 'Submitting…' : 'Submit edit'}</button>
-              <Link className="btn btn-outline hub-btn-dark" href={placeId ? `/place?id=${encodeURIComponent(placeId)}` : '/discover'}>Back</Link>
+              <Link className="btn btn-outline hub-btn-dark" href={placeId ? `/playground/${encodeURIComponent(placeId)}` : '/discover'}>Back</Link>
             </div>
           </form>
         </section>

@@ -88,7 +88,7 @@ export default function EventsPage() {
                   </a>
                 ) : null}
                 {eventRow.placeId ? (
-                  <Link className="btn btn-teal" href={`/place?id=${encodeURIComponent(eventRow.placeId)}`}>
+                  <Link className="btn btn-teal" href={`/playground/${encodeURIComponent(eventRow.placeId)}`}>
                     Open related place
                   </Link>
                 ) : null}

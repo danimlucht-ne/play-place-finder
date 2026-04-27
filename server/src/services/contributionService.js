@@ -97,14 +97,21 @@ async function recordContribution(userId, type, submissionId, city = null) {
     });
 
     const user = await getUser(userId);
-    const newScore = user.score + points;
+    const baseScore = Number(user.score) || 0;
+    const newScore = baseScore + points;
     const newLevel = await assignLevel(newScore);
+
+    // Legacy users may have a missing/partial `contributions` subdoc. Coerce to numbers
+    // so missing fields don't NaN-poison the user's score.
+    const prevContribs = user.contributions || {};
+    const prevField = Number(prevContribs[fieldName]) || 0;
+    const prevTotal = Number(prevContribs.total) || 0;
 
     const updateFields = {
         score: newScore,
         level: newLevel,
-        [`contributions.${fieldName}`]: (user.contributions[fieldName] || 0) + 1,
-        'contributions.total': user.contributions.total + 1,
+        [`contributions.${fieldName}`]: prevField + 1,
+        'contributions.total': prevTotal + 1,
         updatedAt: new Date(),
     };
 

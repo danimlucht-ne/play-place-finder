@@ -121,6 +121,15 @@ fun AdminHubScreen(
         }
         scope.launch {
             try {
+                // Distinct queue from the support tickets above: feature-label suggestions
+                // (equipment / amenity / ground / etc.) live behind queue=suggestions.
+                // Without this fetch the "Label suggestions" tile never lights up.
+                val tickets = service.getSupportQueue("NEEDS_ADMIN_REVIEW", "suggestions")
+                suggestionsCount = tickets.size
+            } catch (_: Exception) {}
+        }
+        scope.launch {
+            try {
                 val regions = service.getSeededRegions().data
                 activeSeeds = regions.filter { it.seedStatus == "running" || it.seedStatus == "partial" }
             } catch (_: Exception) {}

@@ -6,6 +6,10 @@ const AUDIT_COLLECTION = 'playground_change_audit';
 function cloneForSnapshot(value) {
     if (value === null || value === undefined) return value;
     if (value instanceof Date) return new Date(value.getTime());
+    if (value instanceof ObjectId) return new ObjectId(value);
+    // Preserve BSON-ish primitives (Buffer, etc.) instead of stringifying their internals
+    // to empty objects. Anything that doesn't have a useful enumerable shape gets stringified.
+    if (Buffer && Buffer.isBuffer && Buffer.isBuffer(value)) return Buffer.from(value);
     if (Array.isArray(value)) return value.map(cloneForSnapshot);
     if (typeof value === 'object') {
         const out = {};

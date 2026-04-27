@@ -155,6 +155,9 @@ export default function AccountWorkspaceClient() {
             <Link href="/add-playground/" className="btn btn-outline hub-btn-dark">
               Suggest a place
             </Link>
+            <Link href="/my-submissions/" className="btn btn-outline hub-btn-dark">
+              My submissions
+            </Link>
             <Link href="/activity/" className="btn btn-outline hub-btn-dark">
               My activity
             </Link>

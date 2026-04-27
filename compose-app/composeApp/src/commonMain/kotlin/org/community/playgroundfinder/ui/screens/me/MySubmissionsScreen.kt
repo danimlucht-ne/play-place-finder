@@ -75,6 +75,21 @@ private fun noteForDisplay(raw: Any?): String? {
     return s
 }
 
+/**
+ * Filter previewUrl values that come back as the literal string "null" from the JSON
+ * deserializer. Without this, the row reserved a 168.dp image slot and rendered a dead
+ * "Open full image" link for every non-photo submission (edits, suggestions, etc.).
+ */
+private fun previewUrlForDisplay(raw: Any?): String? {
+    val s = noteForDisplay(raw) ?: return null
+    if (!s.startsWith("http://", ignoreCase = true) &&
+        !s.startsWith("https://", ignoreCase = true)
+    ) {
+        return null
+    }
+    return s
+}
+
 @Composable
 private fun SubmissionRow(row: Map<String, Any>) {
     val type = row["submissionType"]?.toString() ?: ""
@@ -83,7 +98,7 @@ private fun SubmissionRow(row: Map<String, Any>) {
     val reason = noteForDisplay(row["reason"])
     val created = row["createdAt"]?.toString() ?: ""
     val source = row["source"]?.toString()?.uppercase() ?: "MODERATION"
-    val previewUrl = row["previewUrl"]?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+    val previewUrl = previewUrlForDisplay(row["previewUrl"])
     val uriHandler = LocalUriHandler.current
 
     val statusColor = when (status) {

@@ -152,6 +152,15 @@ fun AddEditPlaygroundScreen(
     var hasBugSprayStation by remember { mutableStateOf(playgroundToEdit.hasBugSprayStation) }
     var hasEVCharging by remember { mutableStateOf(playgroundToEdit.hasEVCharging) }
 
+    // Free-form / approved-via-suggestion amenities that don't map to one of the hardcoded
+    // boolean fields above (e.g. "Skate Park"). Initialized from the playground; merged with
+    // the global category_options/amenity catalog so previously-approved suggestions show up
+    // as toggles for everyone going forward.
+    var customAmenities by remember {
+        mutableStateOf(playgroundToEdit.customAmenities.filter { it.isNotBlank() }.toSet())
+    }
+    var amenityCatalog by remember { mutableStateOf<List<String>>(emptyList()) }
+
     // Multi-select lists (base + admin-approved options from server)
     val baseEquipment = listOf("Swings", "Slide", "Climbing Wall", "Monkey Bars", "Sandbox", "Seesaw", "Spring Riders", "Balance Beam", "Zip Line")
     val baseSwingTypes = listOf("Belt", "Bucket", "Tire", "Accessible")
@@ -181,6 +190,12 @@ fun AddEditPlaygroundScreen(
         try {
             allGroundTypes = (baseGroundTypes + service.getCategoryOptions("ground_surface")).distinct().sorted()
         } catch (_: Exception) { allGroundTypes = baseGroundTypes }
+        try {
+            amenityCatalog = service.getCategoryOptions("amenity")
+                .filter { it.isNotBlank() }
+                .distinct()
+                .sorted()
+        } catch (_: Exception) { /* leave catalog empty; existing customAmenities still render */ }
     }
 
     var equipment by remember { mutableStateOf(playgroundToEdit.equipment.toMutableSet()) }
@@ -267,6 +282,7 @@ fun AddEditPlaygroundScreen(
                 hasSunscreenStation != playgroundToEdit.hasSunscreenStation ||
                 hasBugSprayStation != playgroundToEdit.hasBugSprayStation ||
                 hasEVCharging != playgroundToEdit.hasEVCharging ||
+                customAmenities != playgroundToEdit.customAmenities.toSet() ||
                 adminNotes != (playgroundToEdit.notesForAdmin ?: "") ||
                 locationPinned != (playgroundToEdit.latitude != 0.0)
         }
@@ -376,6 +392,7 @@ fun AddEditPlaygroundScreen(
                     hasArcadeGames = hasArcadeGames, isStrollerFriendly = isStrollerFriendly,
                     hasSunscreenStation = hasSunscreenStation, hasBugSprayStation = hasBugSprayStation,
                     hasEVCharging = hasEVCharging,
+                    customAmenities = customAmenities.toList(),
                     submittedBy = if (submitAnonymously) "Anonymous" else playgroundToEdit.submittedBy,
                     notesForAdmin = adminNotes.ifBlank { null },
                 )
@@ -475,6 +492,7 @@ fun AddEditPlaygroundScreen(
                     if (hasSunscreenStation != playgroundToEdit.hasSunscreenStation) changed.add("Sunscreen station")
                     if (hasBugSprayStation != playgroundToEdit.hasBugSprayStation) changed.add("Bug spray station")
                     if (hasEVCharging != playgroundToEdit.hasEVCharging) changed.add("EV charging")
+                    if (customAmenities != playgroundToEdit.customAmenities.toSet()) changed.add("Other amenities")
                     if (adminNotes != (playgroundToEdit.notesForAdmin ?: "")) changed.add("Admin notes")
                     updatedFields = changed
                     showConfirmation = true
@@ -761,6 +779,36 @@ fun AddEditPlaygroundScreen(
                     if ("Sunscreen Station" in visible) AmenityToggle("Sunscreen Station", hasSunscreenStation) { hasSunscreenStation = it }
                     if ("Bug Spray Station" in visible) AmenityToggle("Bug Spray Station", hasBugSprayStation) { hasBugSprayStation = it }
                     if ("EV Charging" in visible) AmenityToggle("EV Charging", hasEVCharging) { hasEVCharging = it }
+                }
+                // Extra amenities = anything in the global catalog or already on the playground
+                // that doesn't map to one of the hardcoded boolean toggles above. This is how
+                // approved-via-suggestion options surface for everyone going forward.
+                val extraAmenities = remember(amenityCatalog, customAmenities) {
+                    val merged = (amenityCatalog + customAmenities).filter { it.isNotBlank() }
+                    val seen = mutableSetOf<String>()
+                    merged.filter { label ->
+                        val k = label.lowercase().trim()
+                        if (k in HARDCODED_AMENITY_KEYS) return@filter false
+                        seen.add(k)
+                    }.sortedBy { it.lowercase() }
+                }
+                if (extraAmenities.isNotEmpty()) {
+                    HorizontalDivider(color = FormColors.Divider, modifier = Modifier.padding(top = 8.dp))
+                    Text(
+                        "Other amenities",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        extraAmenities.forEach { label ->
+                            val checked = label in customAmenities
+                            CustomAmenityToggle(label = label, checked = checked) { isOn ->
+                                customAmenities = if (isOn) customAmenities + label
+                                else customAmenities.filterNot { it.equals(label, ignoreCase = true) }.toSet()
+                            }
+                        }
+                    }
                 }
                 SuggestNewChip("Amenity") { cat ->
                     suggestionCategory = cat; suggestionText = ""; showSuggestionDialog = true
@@ -1191,6 +1239,7 @@ fun AddEditPlaygroundScreen(
                                         hasArcadeGames = hasArcadeGames, isStrollerFriendly = isStrollerFriendly,
                                         hasSunscreenStation = hasSunscreenStation, hasBugSprayStation = hasBugSprayStation,
                                         hasEVCharging = hasEVCharging,
+                                        customAmenities = customAmenities.toList(),
                                         submittedBy = if (submitAnonymously) "Anonymous" else playgroundToEdit.submittedBy,
                                         notesForAdmin = adminNotes.ifBlank { null },
                                     )
@@ -1384,3 +1433,53 @@ private fun AmenityToggle(label: String, value: Boolean?, onChange: (Boolean?) -
         }
     }
 }
+
+/**
+ * Yes/no toggle for amenities that come from the suggestion catalog (or were already on the
+ * playground but aren't one of the hardcoded boolean fields). Adds or removes the label
+ * from a Set<String> instead of toggling a Boolean.
+ */
+@Composable
+private fun CustomAmenityToggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 0.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.weight(1f), fontSize = 14.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            FilterChip(
+                selected = checked,
+                onClick = { onChange(!checked) },
+                label = { Text("Yes", fontSize = 11.sp) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = FormColors.SelectedChip,
+                    selectedLabelColor = FormColors.SelectedChipText,
+                ),
+            )
+            FilterChip(
+                selected = !checked,
+                onClick = { onChange(false) },
+                label = { Text("No", fontSize = 11.sp) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = FormColors.SelectedChip,
+                    selectedLabelColor = FormColors.SelectedChipText,
+                ),
+            )
+        }
+    }
+}
+
+/**
+ * Lower-cased labels of every amenity that has a dedicated boolean field on the Playground.
+ * Mirrors AMENITY_LABEL_TO_FIELD in suggestionApprovalService so a server-approved label
+ * that maps to a boolean (e.g. "Bathrooms") doesn't get rendered twice.
+ */
+private val HARDCODED_AMENITY_KEYS: Set<String> = setOf(
+    "bathrooms", "shade", "fenced", "toddler friendly", "dog friendly", "parking",
+    "splash pad", "accessible", "wifi", "wi fi", "walking trail", "water fountain",
+    "bottle filler", "benches", "picnic tables", "trash cans",
+    "requires grip socks", "needs grip socks", "requires waiver",
+    "outdoor shower", "changing rooms", "lockers", "nursing room", "party room",
+    "covered seating", "food services", "snack bar", "alcohol on site",
+    "gift shop", "rental equipment", "card only", "atm",
+    "height/age restrictions", "height age restrictions",
+    "arcade games", "stroller friendly", "sunscreen station", "bug spray station",
+    "ev charging",
+)

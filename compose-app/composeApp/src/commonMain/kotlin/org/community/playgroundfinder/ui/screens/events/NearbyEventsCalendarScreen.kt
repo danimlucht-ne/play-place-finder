@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons as MaterialIcons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -14,7 +15,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -30,6 +33,7 @@ import org.community.playgroundfinder.events.EventsCalendarSort
 import org.community.playgroundfinder.events.applyEventsCalendarSort
 import org.community.playgroundfinder.events.eventCreativeDedupeKey
 import org.community.playgroundfinder.events.eventCreativeDisplayTitle
+import org.community.playgroundfinder.events.eventCreativeGoogleCalendarUrl
 import org.community.playgroundfinder.events.paidEventCreativesSortedForCalendar
 import org.community.playgroundfinder.models.AdCreativePayload
 import org.community.playgroundfinder.models.AllAdsResponse
@@ -53,39 +57,6 @@ private fun localDateToDatePickerUtcMillis(d: LocalDate): Long =
 private fun datePickerUtcMillisToLocalDate(ms: Long): LocalDate {
     val utc = Instant.fromEpochMilliseconds(ms).toLocalDateTime(TimeZone.UTC)
     return LocalDate(utc.year, utc.monthNumber, utc.dayOfMonth)
-}
-
-private fun encodeUrlComponent(raw: String): String {
-    val bytes = raw.encodeToByteArray()
-    val out = StringBuilder()
-    for (b in bytes) {
-        val ch = b.toInt().toChar()
-        val safe = (ch in 'a'..'z') || (ch in 'A'..'Z') || (ch in '0'..'9') || ch == '-' || ch == '_' || ch == '.' || ch == '~'
-        if (safe) {
-            out.append(ch)
-        } else {
-            val v = b.toInt() and 0xFF
-            out.append('%')
-            out.append("0123456789ABCDEF"[v ushr 4])
-            out.append("0123456789ABCDEF"[v and 0x0F])
-        }
-    }
-    return out.toString()
-}
-
-private fun eventGoogleCalendarUrl(ad: AdCreativePayload): String? {
-    val date = ad.eventDate?.trim()?.takeIf { it.length >= 10 }?.take(10) ?: return null
-    val title = eventCreativeDisplayTitle(ad).ifBlank { "Event" }
-    val details = ad.body.trim().ifBlank { title }
-    val location = ad.eventLocation?.trim()?.takeIf { it.isNotBlank() } ?: ad.businessName.trim()
-    val start = date.replace("-", "")
-    // all-day single-date events in Google Calendar format (inclusive start, exclusive end)
-    val end = date.replace("-", "")
-    return "https://calendar.google.com/calendar/render?action=TEMPLATE" +
-        "&text=${encodeUrlComponent(title)}" +
-        "&details=${encodeUrlComponent(details)}" +
-        "&location=${encodeUrlComponent(location)}" +
-        "&dates=${start}/${end}"
 }
 
 /**
@@ -209,22 +180,68 @@ fun NearbyEventsCalendarScreen(
             .background(Color(0xFFF4FAFB))
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
+            // Eye-catching hero replaces the small white card. Cyan gradient banner with a
+            // calendar glyph reads as a destination instead of another filter strip and gives
+            // the screen a clear visual identity that matches the rest of the brand.
             Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = Color.White,
-                tonalElevation = 1.dp,
+                shape = RoundedCornerShape(20.dp),
+                color = Color.Transparent,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(regionLabel, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF006064))
-                    Text(
-                        "Discover upcoming local events. Use date filters, save events, or add them to your calendar.",
-                        fontSize = 12.sp,
-                        color = Color(0xFF546E7A),
-                    )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            Brush.linearGradient(
+                                listOf(Color(0xFF00CED1), Color(0xFF26C6DA), Color(0xFF80DEEA)),
+                            ),
+                        )
+                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = Color.White.copy(alpha = 0.22f),
+                        ) {
+                            Box(
+                                modifier = Modifier.size(48.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = MaterialIcons.Filled.CalendarMonth,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(28.dp),
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Events near you",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                            )
+                            Text(
+                                regionLabel,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White.copy(alpha = 0.92f),
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                "Tap a card to learn more, save favorites, or drop them right on your calendar.",
+                                fontSize = 12.sp,
+                                color = Color.White.copy(alpha = 0.92f),
+                                lineHeight = 16.sp,
+                            )
+                        }
+                    }
                 }
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
 
             when {
                 isLoading -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
@@ -265,157 +282,154 @@ fun NearbyEventsCalendarScreen(
                     }
                 }
                 else -> {
-                    Text("Sort by", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF006064))
-                    Spacer(Modifier.height(6.dp))
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item {
-                            FilterChip(
-                                selected = sortMode == EventsCalendarSort.ByDate,
-                                onClick = { sortMode = EventsCalendarSort.ByDate },
-                                label = { Text("Date") },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFFE0F7FA),
-                                    selectedLabelColor = Color(0xFF006064),
-                                ),
-                            )
-                        }
-                        item {
-                            FilterChip(
-                                selected = sortMode == EventsCalendarSort.ByDistance,
-                                onClick = { sortMode = EventsCalendarSort.ByDistance },
-                                label = { Text("Distance") },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFFE0F7FA),
-                                    selectedLabelColor = Color(0xFF006064),
-                                ),
-                            )
-                        }
-                        item {
-                            FilterChip(
-                                selected = sortMode == EventsCalendarSort.ByBusinessName,
-                                onClick = { sortMode = EventsCalendarSort.ByBusinessName },
-                                label = { Text("Business") },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFFE0F7FA),
-                                    selectedLabelColor = Color(0xFF006064),
-                                ),
-                            )
-                        }
-                    }
-                    if (sortMode == EventsCalendarSort.ByDistance && (userLat == null || userLng == null)) {
-                        Text(
-                            "Turn on location to sort by distance; list is in date order until then.",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 6.dp),
-                        )
-                    }
-                    if (dateKeys.isNotEmpty()) {
-                        Spacer(Modifier.height(10.dp))
-                        Text("Filter by date", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF006064))
-                        Spacer(Modifier.height(6.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            item {
-                                FilterChip(
-                                    selected = selectedDate == null,
-                                    onClick = { selectedDate = null },
-                                    label = { Text("All") },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = Color(0xFFE0F7FA),
-                                        selectedLabelColor = Color(0xFF006064),
-                                    ),
-                                )
-                            }
-                            item {
-                                FilterChip(
-                                    selected = selectedDate != null,
-                                    onClick = { showDatePicker = true },
-                                    label = {
-                                        Text(
-                                            selectedDate?.let { formatEventDateDisplay(it, false) ?: it.take(10) } ?: "Pick date",
-                                        )
-                                    },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = Color(0xFFB2EBF2),
-                                        selectedLabelColor = Color(0xFF004D40),
-                                    ),
-                                )
-                            }
-                            items(dateKeys) { d ->
-                                val chipLabel = formatEventDateDisplay(d, isRecurring = false)
-                                    ?: d.trim().take(10)
-                                FilterChip(
-                                    selected = selectedDate == d,
-                                    onClick = { selectedDate = if (selectedDate == d) null else d },
-                                    label = { Text(chipLabel) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = Color(0xFFE0F7FA),
-                                        selectedLabelColor = Color(0xFF006064),
-                                    ),
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(12.dp))
-                    } else {
-                        Spacer(Modifier.height(12.dp))
-                    }
-                    Text("Saved events", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF006064))
-                    Spacer(Modifier.height(6.dp))
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item {
-                            FilterChip(
-                                selected = !showSavedOnly,
-                                onClick = { showSavedOnly = false },
-                                label = { Text("All events") },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFFE0F7FA),
-                                    selectedLabelColor = Color(0xFF006064),
-                                ),
-                            )
-                        }
-                        item {
-                            FilterChip(
-                                selected = showSavedOnly,
-                                onClick = { showSavedOnly = true },
-                                label = { Text("Saved only (${savedVisible.size})") },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = if (savedVisible.isEmpty()) MaterialIcons.Filled.FavoriteBorder else MaterialIcons.Filled.Favorite,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
+                    // Group all three filter strips into one rounded white card so they read as a
+                    // single "controls panel" instead of three independent stacks of chips. Same
+                    // chip behavior; just unified visual chrome.
+                    val filterChipColors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFFE0F7FA),
+                        selectedLabelColor = Color(0xFF006064),
+                    )
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color.White,
+                        tonalElevation = 1.dp,
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            FilterStripLabel("Sort by")
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                item {
+                                    FilterChip(
+                                        selected = sortMode == EventsCalendarSort.ByDate,
+                                        onClick = { sortMode = EventsCalendarSort.ByDate },
+                                        label = { Text("Date") },
+                                        colors = filterChipColors,
                                     )
-                                },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFFE0F7FA),
-                                    selectedLabelColor = Color(0xFF006064),
-                                ),
-                            )
+                                }
+                                item {
+                                    FilterChip(
+                                        selected = sortMode == EventsCalendarSort.ByDistance,
+                                        onClick = { sortMode = EventsCalendarSort.ByDistance },
+                                        label = { Text("Distance") },
+                                        colors = filterChipColors,
+                                    )
+                                }
+                                item {
+                                    FilterChip(
+                                        selected = sortMode == EventsCalendarSort.ByBusinessName,
+                                        onClick = { sortMode = EventsCalendarSort.ByBusinessName },
+                                        label = { Text("Business") },
+                                        colors = filterChipColors,
+                                    )
+                                }
+                            }
+                            if (sortMode == EventsCalendarSort.ByDistance && (userLat == null || userLng == null)) {
+                                Text(
+                                    "Turn on location to sort by distance; list is in date order until then.",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            if (dateKeys.isNotEmpty()) {
+                                FilterStripLabel("Filter by date")
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    item {
+                                        FilterChip(
+                                            selected = selectedDate == null,
+                                            onClick = { selectedDate = null },
+                                            label = { Text("All") },
+                                            colors = filterChipColors,
+                                        )
+                                    }
+                                    item {
+                                        FilterChip(
+                                            selected = selectedDate != null,
+                                            onClick = { showDatePicker = true },
+                                            label = {
+                                                Text(
+                                                    selectedDate?.let { formatEventDateDisplay(it, false) ?: it.take(10) }
+                                                        ?: "Pick date",
+                                                )
+                                            },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = Color(0xFFB2EBF2),
+                                                selectedLabelColor = Color(0xFF004D40),
+                                            ),
+                                        )
+                                    }
+                                    items(dateKeys) { d ->
+                                        val chipLabel = formatEventDateDisplay(d, isRecurring = false)
+                                            ?: d.trim().take(10)
+                                        FilterChip(
+                                            selected = selectedDate == d,
+                                            onClick = { selectedDate = if (selectedDate == d) null else d },
+                                            label = { Text(chipLabel) },
+                                            colors = filterChipColors,
+                                        )
+                                    }
+                                }
+                            }
+                            FilterStripLabel("Show")
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                item {
+                                    FilterChip(
+                                        selected = !showSavedOnly,
+                                        onClick = { showSavedOnly = false },
+                                        label = { Text("All events") },
+                                        colors = filterChipColors,
+                                    )
+                                }
+                                item {
+                                    FilterChip(
+                                        selected = showSavedOnly,
+                                        onClick = { showSavedOnly = true },
+                                        label = { Text("Saved only (${savedVisible.size})") },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = if (savedVisible.isEmpty()) MaterialIcons.Filled.FavoriteBorder else MaterialIcons.Filled.Favorite,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp),
+                                            )
+                                        },
+                                        colors = filterChipColors,
+                                    )
+                                }
+                            }
+                            if (!showSavedOnly && savedVisible.isNotEmpty()) {
+                                Text(
+                                    "Saved events appear first so you can find them quickly.",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF546E7A),
+                                )
+                            }
                         }
                     }
-                    if (!showSavedOnly && savedVisible.isNotEmpty()) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "Saved events appear first so you can find them quickly.",
-                            fontSize = 11.sp,
-                            color = Color(0xFF546E7A),
-                        )
-                    }
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(12.dp))
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(bottom = 24.dp),
                         modifier = Modifier.weight(1f),
                     ) {
+                        // Helper: render a card + a single "Save" button. The calendar CTA now lives
+                        // inside SponsoredListingCard so we don't render two side-by-side actions.
                         if (!showSavedOnly) {
                             items(savedVisible, key = { "saved-${eventCreativeDedupeKey(it)}" }) { ad ->
-                                val title = eventCreativeDisplayTitle(ad)
-                                SponsoredListingCard(
-                                    businessName = title,
-                                    category = ad.businessCategory.takeIf { it.isNotBlank() },
-                                    description = ad.body.takeIf { it.isNotBlank() },
-                                    websiteUrl = ad.ctaUrl.takeIf { it.isNotBlank() },
-                                    imageUrl = ad.imageUrl?.takeIf { it.isNotBlank() },
-                                    onLearnMore = { url ->
+                                EventCalendarRow(
+                                    ad = ad,
+                                    isSaved = savedEventIds.contains(ad.id),
+                                    onToggleSaved = {
+                                        savedEventIds = if (savedEventIds.contains(ad.id)) {
+                                            savedEventIds - ad.id
+                                        } else {
+                                            savedEventIds + ad.id
+                                        }
+                                        settings.putString(SAVED_EVENT_IDS_KEY, toCsv(savedEventIds))
+                                    },
+                                    onAdClick = onAdClick,
+                                    onTrackClick = {
                                         scope.launch {
                                             try {
                                                 playgroundService.trackAdEvent(
@@ -426,74 +440,31 @@ fun NearbyEventsCalendarScreen(
                                                     placement = "inline_listing",
                                                 )
                                             } catch (_: Exception) {}
-                                            onAdClick(url)
                                         }
                                     },
-                                    isEvent = true,
-                                    eventDate = ad.eventDate,
-                                    eventTime = ad.eventTime,
-                                    eventLocation = ad.eventLocation ?: ad.businessName,
-                                    isRecurring = ad.isRecurring,
+                                    onOpenCalendar = { url -> openExternalUrl(url) },
                                     userLat = userLat,
                                     userLng = userLng,
-                                    businessLat = ad.businessLat.takeIf { it != 0.0 },
-                                    businessLng = ad.businessLng.takeIf { it != 0.0 },
-                                    showDistance = ad.showDistance,
-                                    matchCarouselMinHeight = false,
-                                    showCategory = false,
-                                    imageContentScale = ContentScale.Crop,
-                                    imageAlignment = ad.imageAlignment,
                                 )
-                                Spacer(Modifier.height(6.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    OutlinedButton(
-                                        onClick = {
-                                            eventGoogleCalendarUrl(ad)?.let(openExternalUrl)
-                                        },
-                                        enabled = eventGoogleCalendarUrl(ad) != null,
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(10.dp),
-                                        border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp),
-                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = FormColors.PrimaryButton),
-                                    ) {
-                                        Text("Add to calendar", fontSize = 12.sp)
-                                    }
-                                    FilledTonalButton(
-                                        onClick = {
-                                            savedEventIds = savedEventIds - ad.id
-                                            settings.putString(SAVED_EVENT_IDS_KEY, toCsv(savedEventIds))
-                                        },
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.filledTonalButtonColors(
-                                            containerColor = Color(0xFFE0F7FA),
-                                            contentColor = Color(0xFF006064),
-                                        ),
-                                    ) {
-                                        Icon(
-                                            imageVector = MaterialIcons.Filled.Favorite,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp),
-                                        )
-                                        Spacer(Modifier.width(6.dp))
-                                        Text("Saved", fontSize = 12.sp)
-                                    }
-                                }
                             }
                         }
-                        items(listVisible.filter { if (showSavedOnly) true else !savedEventIds.contains(it.id) }, key = { eventCreativeDedupeKey(it) }) { ad ->
-                            val title = eventCreativeDisplayTitle(ad)
-                            SponsoredListingCard(
-                                businessName = title,
-                                category = ad.businessCategory.takeIf { it.isNotBlank() },
-                                description = ad.body.takeIf { it.isNotBlank() },
-                                websiteUrl = ad.ctaUrl.takeIf { it.isNotBlank() },
-                                imageUrl = ad.imageUrl?.takeIf { it.isNotBlank() },
-                                onLearnMore = { url ->
+                        items(
+                            listVisible.filter { if (showSavedOnly) true else !savedEventIds.contains(it.id) },
+                            key = { eventCreativeDedupeKey(it) },
+                        ) { ad ->
+                            EventCalendarRow(
+                                ad = ad,
+                                isSaved = savedEventIds.contains(ad.id),
+                                onToggleSaved = {
+                                    savedEventIds = if (savedEventIds.contains(ad.id)) {
+                                        savedEventIds - ad.id
+                                    } else {
+                                        savedEventIds + ad.id
+                                    }
+                                    settings.putString(SAVED_EVENT_IDS_KEY, toCsv(savedEventIds))
+                                },
+                                onAdClick = onAdClick,
+                                onTrackClick = {
                                     scope.launch {
                                         try {
                                             playgroundService.trackAdEvent(
@@ -504,67 +475,12 @@ fun NearbyEventsCalendarScreen(
                                                 placement = "inline_listing",
                                             )
                                         } catch (_: Exception) {}
-                                        onAdClick(url)
                                     }
                                 },
-                                isEvent = true,
-                                eventDate = ad.eventDate,
-                                eventTime = ad.eventTime,
-                                eventLocation = ad.eventLocation ?: ad.businessName,
-                                isRecurring = ad.isRecurring,
+                                onOpenCalendar = { url -> openExternalUrl(url) },
                                 userLat = userLat,
                                 userLng = userLng,
-                                businessLat = ad.businessLat.takeIf { it != 0.0 },
-                                businessLng = ad.businessLng.takeIf { it != 0.0 },
-                                showDistance = ad.showDistance,
-                                matchCarouselMinHeight = false,
-                                showCategory = false,
-                                imageContentScale = ContentScale.Crop,
-                                imageAlignment = ad.imageAlignment,
                             )
-                            Spacer(Modifier.height(6.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                OutlinedButton(
-                                    onClick = {
-                                        eventGoogleCalendarUrl(ad)?.let(openExternalUrl)
-                                    },
-                                    enabled = eventGoogleCalendarUrl(ad) != null,
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(10.dp),
-                                    border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = FormColors.PrimaryButton),
-                                ) {
-                                    Text("Add to calendar", fontSize = 12.sp)
-                                }
-                                FilledTonalButton(
-                                    onClick = {
-                                        savedEventIds = if (savedEventIds.contains(ad.id)) {
-                                            savedEventIds - ad.id
-                                        } else {
-                                            savedEventIds + ad.id
-                                        }
-                                        settings.putString(SAVED_EVENT_IDS_KEY, toCsv(savedEventIds))
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = if (savedEventIds.contains(ad.id)) Color(0xFFE0F7FA) else Color(0xFFF1F3F4),
-                                        contentColor = if (savedEventIds.contains(ad.id)) Color(0xFF006064) else Color(0xFF455A64),
-                                    ),
-                                ) {
-                                    Icon(
-                                        imageVector = if (savedEventIds.contains(ad.id)) MaterialIcons.Filled.Favorite else MaterialIcons.Filled.FavoriteBorder,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(if (savedEventIds.contains(ad.id)) "Saved" else "Save", fontSize = 12.sp)
-                                }
-                            }
                         }
                     }
                 }
@@ -584,5 +500,85 @@ fun NearbyEventsCalendarScreen(
                 )
             } catch (_: Exception) {}
         }
+    }
+}
+
+@Composable
+private fun FilterStripLabel(text: String) {
+    Text(
+        text,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = Color(0xFF006064),
+        letterSpacing = 0.5.sp,
+    )
+}
+
+/**
+ * One event row: card (with the in-card "Add to calendar" button) plus a full-width Save toggle
+ * underneath. Splitting this out keeps the LazyColumn body readable and ensures the unsaved /
+ * saved variants stay structurally identical.
+ */
+@Composable
+private fun EventCalendarRow(
+    ad: AdCreativePayload,
+    isSaved: Boolean,
+    onToggleSaved: () -> Unit,
+    onAdClick: (String) -> Unit,
+    onTrackClick: () -> Unit,
+    onOpenCalendar: (String) -> Unit,
+    userLat: Double?,
+    userLng: Double?,
+) {
+    val title = eventCreativeDisplayTitle(ad)
+    val calendarUrl = eventCreativeGoogleCalendarUrl(ad)
+    SponsoredListingCard(
+        businessName = title,
+        category = ad.businessCategory.takeIf { it.isNotBlank() },
+        description = ad.body.takeIf { it.isNotBlank() },
+        websiteUrl = ad.ctaUrl.takeIf { it.isNotBlank() },
+        imageUrl = ad.imageUrl?.takeIf { it.isNotBlank() },
+        onLearnMore = { url ->
+            onTrackClick()
+            onAdClick(url)
+        },
+        isEvent = true,
+        eventDate = ad.eventDate,
+        eventTime = ad.eventTime,
+        eventLocation = ad.eventLocation ?: ad.businessName,
+        isRecurring = ad.isRecurring,
+        userLat = userLat,
+        userLng = userLng,
+        businessLat = ad.businessLat.takeIf { it != 0.0 },
+        businessLng = ad.businessLng.takeIf { it != 0.0 },
+        showDistance = ad.showDistance,
+        matchCarouselMinHeight = false,
+        showCategory = false,
+        imageContentScale = ContentScale.Crop,
+        imageAlignment = ad.imageAlignment,
+        onAddToCalendar = calendarUrl?.let { url -> { onOpenCalendar(url) } },
+    )
+    Spacer(Modifier.height(6.dp))
+    FilledTonalButton(
+        onClick = onToggleSaved,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = if (isSaved) Color(0xFFFFE0B2) else Color(0xFFF1F3F4),
+            contentColor = if (isSaved) Color(0xFFE65100) else Color(0xFF455A64),
+        ),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+    ) {
+        Icon(
+            imageVector = if (isSaved) MaterialIcons.Filled.Favorite else MaterialIcons.Filled.FavoriteBorder,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            if (isSaved) "Saved" else "Save event",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }

@@ -3,6 +3,8 @@
 const DEFAULT_LOCAL_API_BASE = 'http://localhost:3001';
 const DEFAULT_PRODUCTION_API_BASE = 'https://api.play-spotter.com';
 export const HUB_AUTH_EVENT = 'playplace-auth-change';
+/** Keep in sync with `webAuthClient` so consumer routes refresh after hub/account login. */
+const WEB_AUTH_EVENT = 'playplace-web-auth-change';
 const WEB_AUTH_TOKEN_KEY = 'playplace-web-auth-token';
 
 function storageKey(kind, field) {
@@ -12,6 +14,7 @@ function storageKey(kind, field) {
 function notifyAuthChange() {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(HUB_AUTH_EVENT));
+  window.dispatchEvent(new CustomEvent(WEB_AUTH_EVENT));
 }
 
 function isLocalHostname(hostname) {

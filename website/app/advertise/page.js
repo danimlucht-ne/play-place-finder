@@ -3,7 +3,7 @@ import SiteNav from '../components/SiteNav';
 import FooterCreditBanner from '../components/FooterCreditBanner';
 
 export const metadata = {
-  title: 'Advertise Your Business â€” Play Spotter',
+  title: 'Advertise Your Business — Play Spotter',
   description: 'Reach local families with targeted advertising on Play Spotter. Regional rates for Prime, Inline, and Event packages — see live pricing in the app after you sign in.',
 };
 
@@ -215,7 +215,7 @@ export default function Advertise() {
                 <span className="hiw-step-num" aria-hidden="true">1</span>
               </div>
               <h3>Tell us about your business</h3>
-              <p>Name, category, city, and contact â€” about two minutes in the app.</p>
+              <p>Name, category, city, and contact — about two minutes in the app.</p>
               <span className="hiw-accent">No long contracts</span>
             </div>
             <div className="hiw-card">
@@ -223,7 +223,7 @@ export default function Advertise() {
                 <span className="hiw-step-num" aria-hidden="true">2</span>
               </div>
               <h3>Choose package &amp; radius</h3>
-              <p>Prime placement, inline listings, or a short event spotlight â€” plus a clear map of which regions see your ad.</p>
+              <p>Prime placement, inline listings, or a short event spotlight — plus a clear map of which regions see your ad.</p>
               <span className="hiw-accent">Transparent reach</span>
             </div>
             <div className="hiw-card">
@@ -231,7 +231,7 @@ export default function Advertise() {
                 <span className="hiw-step-num" aria-hidden="true">3</span>
               </div>
               <h3>Create your creative</h3>
-              <p>Image, headline, body copy, and a destination link with optional short button text â€” tuned for parents browsing on the go.</p>
+              <p>Image, headline, body copy, and a destination link with optional short button text — tuned for parents browsing on the go.</p>
               <span className="hiw-accent">You control the story</span>
             </div>
             <div className="hiw-card">
@@ -240,7 +240,7 @@ export default function Advertise() {
               </div>
               <h3>Pay &amp; go live</h3>
               <p>
-                Secure checkout with Stripe, a quick family-friendly review, then your ad goes live â€” often within a day.
+                Secure checkout with Stripe, a quick family-friendly review, then your ad goes live — often within a day.
                 After your first campaign completes, we email a <strong>20% code</strong> for your next one.
               </p>
               <span className="hiw-accent">Loyalty built in</span>
@@ -307,7 +307,7 @@ export default function Advertise() {
             <Link href="/advertiser-agreement">Advertiser Agreement</Link>
             <Link href="/admin-hub">Admin Sign In</Link>
           </div>
-          <p>&copy; {new Date().getFullYear()} Lucht Applications LLC â€” Play Spotter</p>
+          <p>&copy; {new Date().getFullYear()} Lucht Applications LLC — Play Spotter</p>
         </div>
       </footer>
     </>

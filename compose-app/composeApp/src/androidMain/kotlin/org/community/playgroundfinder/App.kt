@@ -1411,6 +1411,15 @@ fun PlaygroundListScreen(
                                     !creative.eventName.isNullOrBlank() -> creative.eventName.trim()
                                     else -> "Sponsored"
                                 }
+                                // Event creatives need eventTime/eventLocation so the inline card
+                                // shows a "Where:" line consistent with the prime slot and the
+                                // dedicated Events Near You screen — without these the inline card
+                                // only rendered "When:" and looked like a different ad type.
+                                val calendarUrl = if (creative.isEvent) {
+                                    org.community.playgroundfinder.events.eventCreativeGoogleCalendarUrl(creative)
+                                } else {
+                                    null
+                                }
                                 SponsoredListingCard(
                                     businessName = title,
                                     category = creative.businessCategory.takeIf { it.isNotBlank() },
@@ -1442,6 +1451,9 @@ fun PlaygroundListScreen(
                                     },
                                     isEvent = creative.isEvent,
                                     eventDate = creative.eventDate,
+                                    eventTime = creative.eventTime,
+                                    eventLocation = creative.eventLocation
+                                        ?: creative.businessName.takeIf { it.isNotBlank() },
                                     isRecurring = creative.isRecurring,
                                     userLat = userLat,
                                     userLng = userLng,
@@ -1451,6 +1463,17 @@ fun PlaygroundListScreen(
                                     matchCarouselMinHeight = false,
                                     showCategory = false,
                                     imageContentScale = ContentScale.Fit,
+                                    onAddToCalendar = calendarUrl?.let { url ->
+                                        {
+                                            runCatching {
+                                                val intent = android.content.Intent(
+                                                    android.content.Intent.ACTION_VIEW,
+                                                    android.net.Uri.parse(url),
+                                                )
+                                                context.startActivity(intent)
+                                            }
+                                        }
+                                    },
                                 )
                             }
                             sponsoredBusiness != null -> {

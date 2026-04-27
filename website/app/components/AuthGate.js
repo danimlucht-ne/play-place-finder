@@ -1,28 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { WEB_AUTH_EVENT, getAuthToken, readJwtClaims } from './webAuthClient';
+import useAuthSession from './useAuthSession';
 
 export default function AuthGate({ children, requireAdmin = false }) {
-  const [token, setToken] = useState('');
-
-  useEffect(() => {
-    function syncToken() {
-      setToken(getAuthToken());
-    }
-    syncToken();
-    window.addEventListener('storage', syncToken);
-    window.addEventListener(WEB_AUTH_EVENT, syncToken);
-    return () => {
-      window.removeEventListener('storage', syncToken);
-      window.removeEventListener(WEB_AUTH_EVENT, syncToken);
-    };
-  }, []);
-
-  const claims = useMemo(() => readJwtClaims(token), [token]);
-  const isAuthed = Boolean(token);
-  const isAllowed = requireAdmin ? Boolean(claims?.admin) : isAuthed;
+  const session = useAuthSession();
+  const isAuthed = session.isLoggedIn;
+  const isAllowed = requireAdmin ? session.isAdmin : isAuthed;
 
   if (!isAuthed) {
     return (

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import ConsumerPageFrame from '../components/ConsumerPageFrame';
-import { getAuthToken, webFetch } from '../components/webAuthClient';
+import { WEB_AUTH_EVENT, getAuthToken, webFetch } from '../components/webAuthClient';
 
 export default function DiscoverPage() {
   const [busy, setBusy] = useState(true);
@@ -82,6 +82,18 @@ export default function DiscoverPage() {
   useEffect(() => {
     loadDiscover();
   }, [playgroundType, hasBathrooms, isToddlerFriendly, sortBy]);
+
+  useEffect(() => {
+    function refreshFavorites() {
+      loadFavorites();
+    }
+    window.addEventListener(WEB_AUTH_EVENT, refreshFavorites);
+    window.addEventListener('storage', refreshFavorites);
+    return () => {
+      window.removeEventListener(WEB_AUTH_EVENT, refreshFavorites);
+      window.removeEventListener('storage', refreshFavorites);
+    };
+  }, []);
 
   async function loadMore() {
     if (!cursor || usingSearchEndpoint) return;
@@ -185,7 +197,7 @@ export default function DiscoverPage() {
               </div>
               <p>{place.description || 'No description yet.'}</p>
               <div className="hub-actions-inline">
-                <Link href={`/place?id=${encodeURIComponent(place._id)}`} className="btn btn-teal">View details</Link>
+                <Link href={`/playground/${encodeURIComponent(place._id)}`} className="btn btn-teal">View details</Link>
                 <button
                   type="button"
                   className="btn btn-outline hub-btn-dark"

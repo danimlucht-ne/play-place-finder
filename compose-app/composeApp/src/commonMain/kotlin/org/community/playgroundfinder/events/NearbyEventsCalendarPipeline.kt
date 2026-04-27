@@ -28,6 +28,48 @@ enum class EventsCalendarSort {
 fun eventCreativeDisplayTitle(ad: AdCreativePayload): String =
     ad.eventName?.takeIf { it.isNotBlank() } ?: ad.businessName.ifBlank { ad.headline }
 
+/**
+ * Percent-encode a string for safe embedding in a URL query value.
+ * Hand-rolled because [java.net.URLEncoder] isn't available in commonMain.
+ */
+private fun encodeUrlComponent(raw: String): String {
+    val bytes = raw.encodeToByteArray()
+    val out = StringBuilder()
+    for (b in bytes) {
+        val ch = b.toInt().toChar()
+        val safe = (ch in 'a'..'z') || (ch in 'A'..'Z') || (ch in '0'..'9') ||
+            ch == '-' || ch == '_' || ch == '.' || ch == '~'
+        if (safe) {
+            out.append(ch)
+        } else {
+            val v = b.toInt() and 0xFF
+            out.append('%')
+            out.append("0123456789ABCDEF"[v ushr 4])
+            out.append("0123456789ABCDEF"[v and 0x0F])
+        }
+    }
+    return out.toString()
+}
+
+/**
+ * Build a Google Calendar `?action=TEMPLATE` URL for an event creative, or null when the
+ * creative has no usable date. Shared between the inline list, prime/featured slot, and
+ * the dedicated "Events near you" screen so every event surface has the same experience.
+ */
+fun eventCreativeGoogleCalendarUrl(ad: AdCreativePayload): String? {
+    val date = ad.eventDate?.trim()?.takeIf { it.length >= 10 }?.take(10) ?: return null
+    val title = eventCreativeDisplayTitle(ad).ifBlank { "Event" }
+    val details = ad.body.trim().ifBlank { title }
+    val location = ad.eventLocation?.trim()?.takeIf { it.isNotBlank() } ?: ad.businessName.trim()
+    val start = date.replace("-", "")
+    val end = date.replace("-", "")
+    return "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+        "&text=${encodeUrlComponent(title)}" +
+        "&details=${encodeUrlComponent(details)}" +
+        "&location=${encodeUrlComponent(location)}" +
+        "&dates=${start}/${end}"
+}
+
 private fun dateSortKey(ad: AdCreativePayload): String =
     ad.eventDate.orEmpty().trim().ifBlank { "9999-99-99" }
 

@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons as MaterialIcons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -17,9 +18,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -72,6 +76,12 @@ fun SponsoredListingCard(
     useSplitLayout: Boolean = true,
     /** Server: top | center | bottom — vertical focal in the image half (with [ContentScale.Fit] in split). */
     imageAlignment: String? = null,
+    /**
+     * When non-null AND [isEvent] is true, the card renders an "Add to calendar" button below
+     * the main card UI (outside the Card surface). Provided as a callback rather than a URL so
+     * tracking/intent dispatching stays at the call site (PlaygroundList, FeaturedAd, Events).
+     */
+    onAddToCalendar: (() -> Unit)? = null,
 ) {
     val openExternalUrl = rememberOpenExternalUrl()
     val hasCreativeImage = !imageUrl.isNullOrBlank()
@@ -79,31 +89,37 @@ fun SponsoredListingCard(
     val listMode = !matchCarouselMinHeight && !useSplitLayout
 
     if (useSplitLayout) {
-        SponsoredListingCardSplit(
-            businessName = businessName,
-            category = category,
-            description = description,
-            websiteUrl = websiteUrl,
-            onLearnMore = onLearnMore,
-            isSample = isSample,
-            onSampleTap = onSampleTap,
-            isEvent = isEvent,
-            eventDate = eventDate,
-            eventTime = eventTime,
-            eventLocation = eventLocation,
-            isRecurring = isRecurring,
-            userLat = userLat,
-            userLng = userLng,
-            businessLat = businessLat,
-            businessLng = businessLng,
-            showDistance = showDistance,
-            matchCarouselMinHeight = matchCarouselMinHeight,
-            hasCreativeImage = hasCreativeImage,
-            imageUrl = imageUrl,
-            showCategory = showCategory,
-            imageContentScale = imageContentScale,
-            imageAlignment = imageAlignment,
-        )
+        Column(modifier = Modifier.fillMaxWidth()) {
+            SponsoredListingCardSplit(
+                businessName = businessName,
+                category = category,
+                description = description,
+                websiteUrl = websiteUrl,
+                onLearnMore = onLearnMore,
+                isSample = isSample,
+                onSampleTap = onSampleTap,
+                isEvent = isEvent,
+                eventDate = eventDate,
+                eventTime = eventTime,
+                eventLocation = eventLocation,
+                isRecurring = isRecurring,
+                userLat = userLat,
+                userLng = userLng,
+                businessLat = businessLat,
+                businessLng = businessLng,
+                showDistance = showDistance,
+                matchCarouselMinHeight = matchCarouselMinHeight,
+                hasCreativeImage = hasCreativeImage,
+                imageUrl = imageUrl,
+                showCategory = showCategory,
+                imageContentScale = imageContentScale,
+                imageAlignment = imageAlignment,
+            )
+            if (isEvent && onAddToCalendar != null) {
+                Spacer(Modifier.height(6.dp))
+                AddToCalendarButton(onClick = onAddToCalendar)
+            }
+        }
         return
     }
     val minTotalHeight = when {
@@ -136,6 +152,7 @@ fun SponsoredListingCard(
             },
         )
 
+    Column(modifier = Modifier.fillMaxWidth()) {
     Card(
         modifier = cardModifier,
         shape = RoundedCornerShape(16.dp),
@@ -393,6 +410,11 @@ fun SponsoredListingCard(
             }
         }
     }
+        if (isEvent && onAddToCalendar != null) {
+            Spacer(Modifier.height(6.dp))
+            AddToCalendarButton(onClick = onAddToCalendar)
+        }
+    } // end outer Column wrapper for legacy stack mode
 }
 
 @Composable
@@ -524,10 +546,11 @@ private fun SponsoredListingCardSplit(
                         lineHeight = 18.sp,
                     )
                     if (!whenLine.isNullOrBlank()) {
+                        // Bold "When:" prefix so it visually matches "Where:" and reads the same
+                        // across the inline list, prime/featured slot, and Events Near You screen.
                         Text(
-                            "When: $whenLine",
+                            text = labeledEventLine("When:", whenLine, valueColor = Color(0xFF37474F)),
                             fontSize = 11.sp,
-                            color = Color(0xFF37474F),
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                             lineHeight = 15.sp,
@@ -535,9 +558,8 @@ private fun SponsoredListingCardSplit(
                     }
                     if (!whereLine.isNullOrBlank()) {
                         Text(
-                            "Where: $whereLine",
+                            text = labeledEventLine("Where:", whereLine, valueColor = Color(0xFF37474F)),
                             fontSize = 11.sp,
-                            color = Color(0xFF546E7A),
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                             lineHeight = 15.sp,
@@ -677,5 +699,50 @@ private fun SponsoredListingCardSplit(
                 }
             }
         }
+    }
+}
+
+/**
+ * Renders a "When:" / "Where:" line where only the label is bold. Both labels match in weight
+ * so the user sees a consistent two-line block on every event surface.
+ */
+private fun labeledEventLine(
+    label: String,
+    value: String,
+    valueColor: Color,
+): androidx.compose.ui.text.AnnotatedString = buildAnnotatedString {
+    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF263238))) {
+        append(label)
+    }
+    append(" ")
+    withStyle(SpanStyle(color = valueColor)) {
+        append(value)
+    }
+}
+
+/**
+ * Standardized "Add to calendar" CTA used by every event surface (inline list, prime/featured
+ * slot, and the dedicated events screen). Visual: tonal pill with calendar leading icon, full
+ * width below the card so it's obvious without crowding the existing CTA row.
+ */
+@Composable
+internal fun AddToCalendarButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    FilledTonalButton(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = Color(0xFFE0F7FA),
+            contentColor = Color(0xFF006064),
+        ),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+    ) {
+        Icon(
+            imageVector = MaterialIcons.Filled.CalendarMonth,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text("Add to calendar", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
     }
 }

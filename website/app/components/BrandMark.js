@@ -1,9 +1,9 @@
-/** App icon for nav/hero — `playplace-app-icon.png` from `syncWebsiteAppIcon` (branding pack 1024 layers when present). */
+/** Icon-only brand mark for nav/hero to remain visible on small screens. */
 export default function BrandMark({ className = 'nav-logo-mark' }) {
   return (
     <img
       className={className}
-      src="/playplace-app-icon.png"
+      src="/play-spotter-favicon.png"
       alt="Play Spotter"
       decoding="async"
     />

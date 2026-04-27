@@ -249,8 +249,11 @@ router.get('/support-tickets/:id', async (req, res) => {
 router.post('/support-tickets/:id/approve-suggestion', async (req, res) => {
     const db = getDb();
     const { finalLabel } = req.body || {};
+    const ticketIdHex = req.params.id;
+    const adminUid = req.user && req.user.uid ? req.user.uid : null;
+    let stage = 'load_ticket';
     try {
-        const ticket = await db.collection('support_tickets').findOne({ _id: new ObjectId(req.params.id) });
+        const ticket = await db.collection('support_tickets').findOne({ _id: new ObjectId(ticketIdHex) });
         if (!ticket) return res.status(404).json({ message: 'Support ticket not found' });
         if (ticket.ticketType !== SupportTicketType.SUGGESTION) {
             return res.status(400).json({ error: 'This ticket is not a feature suggestion.' });
@@ -273,24 +276,40 @@ router.post('/support-tickets/:id/approve-suggestion', async (req, res) => {
             return res.status(400).json({ error: 'Suggestion has no target playground.' });
         }
 
+        stage = 'load_before';
         const targetFilter = resolvePlaygroundIdFilter(targetPlaygroundId);
         const beforePg = await db.collection('playgrounds').findOne(targetFilter);
+
+        stage = 'apply';
         const { appliedLabel, cityForPoints } = await applyApprovedSuggestion(db, targetPlaygroundId, cat, raw);
+
+        stage = 'load_after';
         const afterPg = await db.collection('playgrounds').findOne(targetFilter);
+
+        // Side-effects below are best-effort: a failure here must NOT roll back the
+        // approval that already wrote to the playground + catalog. Any error gets logged
+        // with the stage so we can still see what's broken without 500-ing the admin.
         if (beforePg && afterPg) {
-            await recordPlaygroundAudit(db, {
-                playgroundId: String(afterPg._id),
-                operationType: 'update',
-                actorUserId: req.user.uid,
-                sourceType: 'support_suggestion_approval',
-                sourceId: ticket._id.toHexString(),
-                reason: `Approved suggestion: ${appliedLabel}`,
-                beforeSnapshot: beforePg,
-                afterSnapshot: afterPg,
-                metadata: { suggestionCategory: cat },
-            });
+            try {
+                stage = 'audit';
+                await recordPlaygroundAudit(db, {
+                    playgroundId: String(afterPg._id),
+                    operationType: 'update',
+                    actorUserId: adminUid,
+                    sourceType: 'support_suggestion_approval',
+                    sourceId: ticket._id.toHexString(),
+                    reason: `Approved suggestion: ${appliedLabel}`,
+                    beforeSnapshot: beforePg,
+                    afterSnapshot: afterPg,
+                    metadata: { suggestionCategory: cat },
+                });
+            } catch (auditErr) {
+                console.error('[approve-suggestion] audit failed (non-fatal):',
+                    { ticketId: ticketIdHex, message: auditErr.message });
+            }
         }
 
+        stage = 'resolve_ticket';
         await db.collection('support_tickets').updateOne(
             { _id: ticket._id },
             {
@@ -298,7 +317,7 @@ router.post('/support-tickets/:id/approve-suggestion', async (req, res) => {
                     status: SupportTicketStatus.RESOLVED,
                     resolutionReason: `Approved and applied: ${appliedLabel}`,
                     resolvedAt: new Date(),
-                    resolvedBy: req.user.uid,
+                    resolvedBy: adminUid,
                     appliedSuggestionLabel: appliedLabel,
                     updatedAt: new Date(),
                 },
@@ -306,29 +325,53 @@ router.post('/support-tickets/:id/approve-suggestion', async (req, res) => {
         );
 
         const pts = contributionService.CONTRIBUTION_POINTS.SUGGESTION_APPROVED || 100;
-        const mergedTicket = await ensureTargetPlaygroundSummary(db, ticket);
-        const pgName = (mergedTicket.targetPlaygroundSummary && mergedTicket.targetPlaygroundSummary.name)
-            ? mergedTicket.targetPlaygroundSummary.name
-            : 'the place';
+        let pgName = 'the place';
+        try {
+            stage = 'summary';
+            const mergedTicket = await ensureTargetPlaygroundSummary(db, ticket);
+            if (mergedTicket.targetPlaygroundSummary && mergedTicket.targetPlaygroundSummary.name) {
+                pgName = mergedTicket.targetPlaygroundSummary.name;
+            }
+        } catch (sumErr) {
+            console.error('[approve-suggestion] summary failed (non-fatal):',
+                { ticketId: ticketIdHex, message: sumErr.message });
+        }
 
         if (ticket.actorUserId) {
-            await contributionService.recordContribution(
-                ticket.actorUserId,
-                'SUGGESTION_APPROVED',
-                ticket._id.toHexString(),
-                cityForPoints
-            );
-            await notifyUser(
-                db,
-                ticket.actorUserId,
-                `Your suggestion "${appliedLabel}" for "${pgName}" was approved. It is now on the listing and you earned ${pts} points. Thank you!`
-            );
+            try {
+                stage = 'contribution';
+                await contributionService.recordContribution(
+                    ticket.actorUserId,
+                    'SUGGESTION_APPROVED',
+                    ticket._id.toHexString(),
+                    cityForPoints
+                );
+            } catch (contribErr) {
+                console.error('[approve-suggestion] contribution failed (non-fatal):',
+                    { ticketId: ticketIdHex, message: contribErr.message });
+            }
+            try {
+                stage = 'notify';
+                await notifyUser(
+                    db,
+                    ticket.actorUserId,
+                    `Your suggestion "${appliedLabel}" for "${pgName}" was approved. It is now on the listing and you earned ${pts} points. Thank you!`
+                );
+            } catch (notifyErr) {
+                console.error('[approve-suggestion] notify failed (non-fatal):',
+                    { ticketId: ticketIdHex, message: notifyErr.message });
+            }
         }
 
         res.json({ message: 'success', data: { appliedLabel } });
     } catch (err) {
         const code = err.statusCode || 500;
-        res.status(code).json({ error: err.message });
+        console.error('[approve-suggestion] failed at stage:', stage, {
+            ticketId: ticketIdHex,
+            message: err.message,
+            stack: err.stack,
+        });
+        res.status(code).json({ error: err.message, stage });
     }
 });
 

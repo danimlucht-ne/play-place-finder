@@ -19,14 +19,18 @@ function readLegalMd(filename) {
 }
 
 const legalPagePaths = new Set(['privacy/page.js', 'terms/page.js', 'advertiser-agreement/page.js']);
+const delegatedShellPaths = new Set(['lists/[id]/page.js', 'my-submissions/page.js', 'sites/page.js']);
 
 const routes = [
   { path: 'page.js', name: 'home', requiredText: ['Find Kid-Friendly Play Places Near You', 'Get it on Google Play'] },
   { path: 'advertise/page.js', name: 'advertise', requiredText: ['Reach Local Families', 'Advertising Packages'] },
   { path: 'login/page.js', name: 'login', requiredText: ['Login - Play Spotter', 'AccountWorkspaceClient'] },
   { path: 'account/page.js', name: 'account', requiredText: ['My account - Play Spotter', 'AccountWorkspaceClient'] },
+  { path: 'sites/page.js', name: 'sites', requiredText: ['DiscoverPage'] },
+  { path: 'my-submissions/page.js', name: 'my submissions', requiredText: ['My submissions', 'AuthGate'] },
   { path: 'advertiser-hub/page.js', name: 'advertiser hub', requiredText: ['Advertiser Hub', 'AdvertiserHubClient'] },
   { path: 'admin-hub/page.js', name: 'admin hub', requiredText: ['Advertising Admin Hub', 'AdminHubClient'] },
+  { path: 'lists/[id]/page.js', name: 'list detail', requiredText: ['ListDetailClient'] },
   {
     path: 'advertiser-agreement/page.js',
     name: 'advertiser agreement',
@@ -52,7 +56,7 @@ test('all public app routes exist and export a page component', () => {
 });
 
 test('site navigation keeps critical public links reachable', () => {
-  const expectedLinks = ['href="/"', 'href="/advertise"', 'href="/privacy"', 'href="/terms"'];
+  const expectedLinks = ['href="/"', 'href="/discover"', 'href="/sites"', 'href="/advertise"', 'href="/privacy"', 'href="/terms"'];
   const navSource = readAppFile('components/SiteNav.js');
   for (const link of expectedLinks) {
     assert.ok(navSource.includes(link), `SiteNav should include navigation link ${link}`);
@@ -72,6 +76,9 @@ test('site navigation keeps critical public links reachable', () => {
       assert.ok(source.includes('LegalDocPage'), `${route.name} should render through LegalDocPage`);
       continue;
     }
+    if (delegatedShellPaths.has(route.path)) {
+      continue;
+    }
     assert.ok(
       source.includes("from './components/SiteNav'") || source.includes("from '../components/SiteNav'"),
       `${route.name} should import shared SiteNav`,
@@ -88,7 +95,7 @@ test('metadata is present for search and sharing surfaces', () => {
   assert.ok(layout.includes('<html lang="en">'), 'layout should set the document language');
   assert.ok(layout.includes('name="viewport"'), 'layout should include a viewport meta tag');
   assert.ok(layout.includes('play-spotter-favicon.png'), 'layout should use icon-only PNG for favicon');
-  assert.ok(layout.includes('playplace-app-icon.png'), 'layout should use full lockup for apple-touch-icon');
+  assert.ok(layout.includes('play-spotter-favicon.png'), 'layout should use icon-only PNG for apple-touch-icon');
   assert.ok(!layout.includes('playplace-mark.svg'), 'layout should not reference legacy vector mark');
 });
 
@@ -101,6 +108,7 @@ test('conversion and contact paths stay intact', () => {
 
   assert.ok(home.includes('https://play.google.com/store'), 'home page should link to Google Play');
   assert.ok(home.includes('Coming Soon to iOS'), 'home page should set iOS launch expectations');
+  assert.ok(home.includes('/feature-graphic-hero.png'), 'home page should use the feature graphic asset');
   assert.ok(advertise.includes('mailto:playplacefinder@gmail.com'), 'advertise page should include an email CTA');
   assert.ok(advertise.includes('Open advertiser dashboard'), 'advertise page should include the advertiser dashboard entry');
   assert.ok(advertise.includes('Admin Sign In'), 'advertise page footer should include admin sign-in');
@@ -111,11 +119,12 @@ test('conversion and contact paths stay intact', () => {
   assert.ok(advertise.includes('Prime Placement'), 'advertise page should show Prime Placement package details');
   assert.ok(advertise.includes('Inline Listing'), 'advertise page should show Inline Listing package details');
   assert.ok(advertise.includes('Event Spotlight'), 'advertise page should show Event Spotlight package details');
-  assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'playplace-app-icon.png')), 'full lockup PNG should exist for nav / apple-touch');
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'playplace-app-icon.png')), 'full lockup PNG should exist for large promotional surfaces');
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'play-spotter-favicon.png')), 'icon-only PNG should exist for favicon');
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'media', 'playground-1.jpg')), 'hero strip image 1 should exist');
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'media', 'playground-2.jpg')), 'hero strip image 2 should exist');
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'media', 'playground-3.jpg')), 'hero strip image 3 should exist');
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'feature-graphic-hero.png')), 'home hero feature graphic should exist');
 });
 
 test('legal pages cover core risk disclosures', () => {

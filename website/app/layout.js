@@ -11,7 +11,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <head>
         <link rel="icon" href="/play-spotter-favicon.png" type="image/png" sizes="512x512" />
-        <link rel="apple-touch-icon" href="/playplace-app-icon.png" />
+        <link rel="apple-touch-icon" href="/play-spotter-favicon.png" sizes="512x512" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body>{children}</body>

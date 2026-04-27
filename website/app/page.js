@@ -7,18 +7,34 @@ export default function Home() {
     <>
       <SiteNav />
 
-      {/* Hero */}
-      <section className="hero">
-        <div className="container">
-          <p className="hero-eyebrow">Play Spotter</p>
-          <h1 className="hero-tagline">Find Kid-Friendly Play Places Near You</h1>
-          <p className="hero-lead">
-            Discover playgrounds, indoor play areas, parks, and family-friendly activities — all community-verified and free to use.
-          </p>
-          <div className="hero-badges">
-            <a href="https://play.google.com/store" className="btn btn-primary">Get it on Google Play</a>
-            <Link href="/discover" className="btn btn-outline">Open web app</Link>
-            <span className="btn btn-outline" style={{ cursor: 'default', opacity: 0.7 }}>Coming Soon to iOS</span>
+      {/* Hero — dark band + feature graphic (matches app marketing asset) */}
+      <section className="hero hero--feature" aria-labelledby="hero-heading">
+        <div className="container hero-feature-grid">
+          <div className="hero-feature-copy">
+            <p className="hero-eyebrow hero-eyebrow--on-dark">Play Spotter</p>
+            <h1 id="hero-heading" className="hero-tagline hero-tagline--on-dark">
+              Find Kid-Friendly Play Places Near You
+            </h1>
+            <p className="hero-lead hero-lead--on-dark">
+              Discover and save playgrounds you love, plan your next outing, and explore the best play spots — near or far. Community-verified listings, maps, lists, and events.
+            </p>
+            <div className="hero-badges">
+              <a href="https://play.google.com/store" className="btn btn-primary">Get it on Google Play</a>
+              <Link href="/discover" className="btn btn-outline btn-outline--on-dark">Open web app</Link>
+              <span className="btn btn-outline btn-outline--on-dark btn--muted" style={{ cursor: 'default' }}>Coming Soon to iOS</span>
+            </div>
+          </div>
+          <div className="hero-feature-art">
+            <img
+              src="/feature-graphic-hero.png"
+              alt="Find, save, and explore play spots — line illustration of a slide and swings"
+              width={1200}
+              height={675}
+              decoding="async"
+              fetchPriority="high"
+              className="hero-feature-img"
+            />
+            <p className="hero-feature-caption">Find. Save. Explore. Every play spot.</p>
           </div>
         </div>
       </section>

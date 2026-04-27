@@ -127,15 +127,16 @@ async function applyApprovedSuggestion(db, playgroundId, suggestionCategory, raw
     const appliedFilter = { _id: pg._id };
 
     if (cfg.mode === 'array') {
+        // Fetch + dedupe + $set instead of $addToSet so corrupted/non-array fields
+        // (legacy docs that stored null/string) don't 500 the approval. Manually-added
+        // playgrounds without a region were the most common path here.
+        const existing = Array.isArray(pg[cfg.field]) ? pg[cfg.field].slice() : [];
+        const has = existing.some((x) => normKey(x) === normKey(label));
+        const next = has ? existing : [...existing, label];
         await db.collection('playgrounds').updateOne(appliedFilter, {
-            $addToSet: { [cfg.field]: label },
-            $set: { updatedAt: new Date() },
+            $set: { [cfg.field]: next, updatedAt: new Date() },
         });
-        await db.collection('category_options').updateOne(
-            { category: cfg.optionsCategory },
-            { $addToSet: { values: label } },
-            { upsert: true }
-        );
+        await upsertCategoryOption(db, cfg.optionsCategory, label);
         return { appliedLabel: label, cityForPoints };
     }
 
@@ -150,11 +151,7 @@ async function applyApprovedSuggestion(db, playgroundId, suggestionCategory, raw
         await db.collection('playgrounds').updateOne(appliedFilter, {
             $set: { groundType: merged, updatedAt: new Date() },
         });
-        await db.collection('category_options').updateOne(
-            { category: cfg.optionsCategory },
-            { $addToSet: { values: label }, $setOnInsert: { category: cfg.optionsCategory, values: [] } },
-            { upsert: true }
-        );
+        await upsertCategoryOption(db, cfg.optionsCategory, label);
         return { appliedLabel: label, cityForPoints };
     }
 
@@ -166,27 +163,41 @@ async function applyApprovedSuggestion(db, playgroundId, suggestionCategory, raw
                 $set: { [boolField]: true, updatedAt: new Date() },
             });
         } else {
+            const existing = Array.isArray(pg.customAmenities) ? pg.customAmenities.slice() : [];
+            const has = existing.some((x) => normKey(x) === normKey(label));
+            const next = has ? existing : [...existing, label];
             await db.collection('playgrounds').updateOne(appliedFilter, {
-                $addToSet: { customAmenities: label },
-                $set: { updatedAt: new Date() },
+                $set: { customAmenities: next, updatedAt: new Date() },
             });
-            await db.collection('category_options').updateOne(
-                { category: 'amenity' },
-                { $addToSet: { values: label }, $setOnInsert: { category: 'amenity', values: [] } },
-                { upsert: true }
-            );
         }
-        await db.collection('category_options').updateOne(
-            { category: 'amenity' },
-            { $addToSet: { values: label }, $setOnInsert: { category: 'amenity', values: [] } },
-            { upsert: true }
-        );
+        // Always advertise to the global option catalog so it appears as an option going
+        // forward, even if it mapped to a known boolean field on this playground.
+        await upsertCategoryOption(db, 'amenity', label);
         return { appliedLabel: label, cityForPoints };
     }
 
     const err = new Error('Unsupported suggestion category configuration.');
     err.statusCode = 500;
     throw err;
+}
+
+/**
+ * Idempotently add `label` to `category_options[category].values`. Repairs docs whose
+ * `values` is missing or non-array (legacy data) instead of letting `$addToSet` 500.
+ */
+async function upsertCategoryOption(db, category, label) {
+    const cur = await db.collection('category_options').findOne({ category });
+    if (!cur) {
+        await db.collection('category_options').insertOne({ category, values: [label] });
+        return;
+    }
+    const values = Array.isArray(cur.values) ? cur.values.slice() : [];
+    if (values.some((v) => normKey(v) === normKey(label))) return;
+    values.push(label);
+    await db.collection('category_options').updateOne(
+        { _id: cur._id },
+        { $set: { values } }
+    );
 }
 
 async function buildTargetPlaygroundSummary(db, targetKind, targetId) {
