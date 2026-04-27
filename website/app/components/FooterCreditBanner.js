@@ -7,7 +7,14 @@ export default function FooterCreditBanner() {
       rel="noreferrer"
       aria-label="Built by Lucht Applications"
     >
-      <img src="/built-by-lucht-applications.png" alt="Built by Lucht Applications" />
+      <img
+        src="/built-by-lucht-applications.svg"
+        alt="Built by Lucht Applications"
+        width="1774"
+        height="887"
+        loading="lazy"
+        decoding="async"
+      />
     </a>
   );
 }
