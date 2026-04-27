@@ -19,7 +19,7 @@ function readLegalMd(filename) {
 }
 
 const legalPagePaths = new Set(['privacy/page.js', 'terms/page.js', 'advertiser-agreement/page.js']);
-const delegatedShellPaths = new Set(['lists/[id]/page.js', 'my-submissions/page.js', 'sites/page.js']);
+const delegatedShellPaths = new Set(['lists/detail/page.js', 'my-submissions/page.js', 'sites/page.js', 'playground/page.js']);
 
 const routes = [
   { path: 'page.js', name: 'home', requiredText: ['Find Kid-Friendly Play Places Near You', 'Get it on Google Play'] },
@@ -30,7 +30,8 @@ const routes = [
   { path: 'my-submissions/page.js', name: 'my submissions', requiredText: ['My submissions', 'AuthGate'] },
   { path: 'advertiser-hub/page.js', name: 'advertiser hub', requiredText: ['Advertiser Hub', 'AdvertiserHubClient'] },
   { path: 'admin-hub/page.js', name: 'admin hub', requiredText: ['Advertising Admin Hub', 'AdminHubClient'] },
-  { path: 'lists/[id]/page.js', name: 'list detail', requiredText: ['ListDetailClient'] },
+  { path: 'lists/detail/page.js', name: 'list detail', requiredText: ['ListDetailClient'] },
+  { path: 'playground/page.js', name: 'playground detail', requiredText: ['PlaceDetailClient'] },
   {
     path: 'advertiser-agreement/page.js',
     name: 'advertiser agreement',

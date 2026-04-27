@@ -56,7 +56,7 @@ export default function ListsPage() {
     setError('');
     setMessage('');
     try {
-      await webFetch(`/api/lists/${encodeURIComponent(listId)}`, { method: 'DELETE' });
+      await webFetch(`/api/lists/detail?id=${encodeURIComponent(listId)}`, { method: 'DELETE' });
       setMessage('List deleted.');
       await loadLists();
     } catch (err) {
@@ -93,7 +93,7 @@ export default function ListsPage() {
                 <h3>{list.name || 'Untitled list'}</h3>
                 <p>{list.placeCount || 0} saved places</p>
                 <div className="hub-actions-inline">
-                  <Link className="btn btn-outline hub-btn-dark" href={`/lists/${encodeURIComponent(list.id)}`}>
+                  <Link className="btn btn-outline hub-btn-dark" href={`/lists/detail?id=${encodeURIComponent(list.id)}`}>
                     View places
                   </Link>
                   <button type="button" className="btn btn-outline hub-btn-dark" disabled={saveBusy} onClick={() => deleteList(list.id)}>

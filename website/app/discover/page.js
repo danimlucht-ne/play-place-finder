@@ -197,7 +197,7 @@ export default function DiscoverPage() {
               </div>
               <p>{place.description || 'No description yet.'}</p>
               <div className="hub-actions-inline">
-                <Link href={`/playground/${encodeURIComponent(place._id)}`} className="btn btn-teal">View details</Link>
+                <Link href={`/playground?id=${encodeURIComponent(place._id)}`} className="btn btn-teal">View details</Link>
                 <button
                   type="button"
                   className="btn btn-outline hub-btn-dark"

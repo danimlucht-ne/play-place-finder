@@ -83,7 +83,7 @@ export default function FavoritesPage() {
                     <h3>{place.name || place._id}</h3>
                     <p>{[place.city, place.state].filter(Boolean).join(', ') || 'Location unavailable'}</p>
                     <div className="hub-actions-inline">
-                      <Link className="btn btn-teal" href={`/playground/${encodeURIComponent(place._id)}`}>View details</Link>
+                      <Link className="btn btn-teal" href={`/playground?id=${encodeURIComponent(place._id)}`}>View details</Link>
                       <button
                         type="button"
                         className="btn btn-outline hub-btn-dark"

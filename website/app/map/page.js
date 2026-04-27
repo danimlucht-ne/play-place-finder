@@ -110,7 +110,7 @@ export default function MapPage() {
                   <td>
                     <div className="hub-actions-inline">
                       <button type="button" onClick={() => setSelectedPlaceId(place._id)}>Preview</button>
-                      <Link href={`/playground/${encodeURIComponent(place._id)}`}>Details</Link>
+                      <Link href={`/playground?id=${encodeURIComponent(place._id)}`}>Details</Link>
                     </div>
                   </td>
                 </tr>
@@ -141,7 +141,7 @@ export default function MapPage() {
               >
                 Open directions
               </a>
-              <Link href={`/playground/${encodeURIComponent(selectedPlace._id)}`} className="btn btn-outline hub-btn-dark">
+              <Link href={`/playground?id=${encodeURIComponent(selectedPlace._id)}`} className="btn btn-outline hub-btn-dark">
                 Open place details
               </Link>
             </div>
