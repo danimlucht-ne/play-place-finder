@@ -27,7 +27,7 @@ Operational scripts in this folder are intended for admin or maintenance workflo
 ## Local test/dev helpers
 
 - `testStickerService.js`: Manual script to test sticker service behavior.
-- `generateAppIcon.js`: One-off utility for generating app icon assets.
+- `applyAndroidBranding.js` / `branding/android-launcher-res/`: copies the Android res pack into Compose and rebuilds website + Play feature graphic PNGs. `generateAppIcon.js` only refreshes web/Play PNGs from the branding pack.
 
 ## Notes
 

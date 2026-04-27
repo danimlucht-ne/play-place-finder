@@ -1,6 +1,6 @@
 /**
- * Google Play feature graphic: 1024×500 PNG (required aspect for store listing).
- * Gradient background + centered full lockup (`playSpotterLogo` via sync pick order).
+ * Google Play feature graphic: 1024×500 PNG.
+ * Flat brand teal (matches adaptive background) + centered composite icon.
  *
  * Run: npm run generate:play-feature-graphic  (from `server/`)
  * Output: `website/public/store/google-play-feature-graphic-1024x500.png`
@@ -10,69 +10,85 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 
-const { pickFullLogoPath, REPO_ROOT } = require('./syncWebsiteAppIcon');
+const { pickFullLogoPath, REPO_ROOT, rasterAfterTrim, hasBranding1024, FG1024, BG1024 } = require(
+  './syncWebsiteAppIcon',
+);
 
 const W = 1024;
 const H = 500;
+const BRAND = '#00ced1';
 const OUT_DIR = path.join(REPO_ROOT, 'website', 'public', 'store');
 const OUT = path.join(OUT_DIR, 'google-play-feature-graphic-1024x500.png');
 
-function gradientBasePng() {
+function flatBrandBasePng() {
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#025a63"/>
-      <stop offset="45%" style="stop-color:#05b4c6"/>
-      <stop offset="100%" style="stop-color:#067d8a"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="28%" cy="12%" r="65%">
-      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.22"/>
-      <stop offset="55%" style="stop-color:#ffffff;stop-opacity:0"/>
-    </radialGradient>
-  </defs>
-  <rect width="${W}" height="${H}" fill="url(#bg)"/>
-  <rect width="${W}" height="${H}" fill="url(#glow)"/>
+  <rect width="${W}" height="${H}" fill="${BRAND}"/>
 </svg>`;
   return sharp(Buffer.from(svg)).png();
 }
 
-async function main() {
-  const logoPath = pickFullLogoPath();
-  if (!logoPath) {
-    console.error('generatePlayStoreFeatureGraphic: no logo source found (add playSpotterLogo.png or similar).');
-    process.exit(1);
-  }
+async function openLogo(logoPath) {
+  if (path.extname(logoPath).toLowerCase() === '.svg') return sharp(logoPath);
+  return rasterAfterTrim(logoPath);
+}
 
+async function main() {
   if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
 
-  const baseBuf = await gradientBasePng().toBuffer();
+  const baseBuf = await flatBrandBasePng().toBuffer();
+  let zoomed;
+  let label;
 
-  const logoBuf = await sharp(logoPath)
-    .resize({
-      width: 820,
-      height: 340,
-      fit: 'inside',
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    })
-    .png()
-    .toBuffer();
+  if (hasBranding1024()) {
+    const body = await sharp(BG1024)
+      .ensureAlpha()
+      .composite([{ input: await sharp(FG1024).ensureAlpha().png().toBuffer(), left: 0, top: 0 }])
+      .png()
+      .toBuffer();
+    zoomed = await sharp(body)
+      .resize(940, 410, { fit: 'inside', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png()
+      .toBuffer();
+    label = 'branding/android-launcher-res (1024×1024 layers)';
+  } else {
+    const logoPath = pickFullLogoPath();
+    if (!logoPath) {
+      console.error('generatePlayStoreFeatureGraphic: add branding pack or playSpotterLogo.png.');
+      process.exit(1);
+    }
+    const logoSharp = await openLogo(logoPath);
+    zoomed = await logoSharp
+      .resize({
+        width: 940,
+        height: 410,
+        fit: 'inside',
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .png()
+      .toBuffer();
+    label = path.relative(REPO_ROOT, logoPath);
+  }
 
-  const meta = await sharp(logoBuf).metadata();
+  const meta = await sharp(zoomed).metadata();
   const lw = meta.width || 400;
   const lh = meta.height || 120;
   const left = Math.round((W - lw) / 2);
   const top = Math.round((H - lh) / 2);
 
   await sharp(baseBuf)
-    .composite([{ input: logoBuf, left, top }])
+    .composite([{ input: zoomed, left, top }])
     .png()
     .toFile(OUT);
 
-  console.log('generatePlayStoreFeatureGraphic: wrote', OUT, 'from', path.relative(REPO_ROOT, logoPath));
+  console.log('generatePlayStoreFeatureGraphic: wrote', OUT, 'from', label);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+module.exports = { main };
+
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

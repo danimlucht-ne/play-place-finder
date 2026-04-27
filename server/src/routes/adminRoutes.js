@@ -41,6 +41,18 @@ async function notifyUser(db, userId, message) {
     });
 }
 
+/** Keep 2dsphere index in sync when approving edits that only send latitude/longitude. */
+function mergeLatLngIntoLocationForSet(setDoc) {
+    if (!setDoc || typeof setDoc !== 'object') return {};
+    const out = { ...setDoc };
+    const lat = out.latitude;
+    const lng = out.longitude;
+    if (typeof lat === 'number' && Number.isFinite(lat) && typeof lng === 'number' && Number.isFinite(lng)) {
+        out.location = { type: 'Point', coordinates: [lng, lat] };
+    }
+    return out;
+}
+
 /** Batch-load email + displayName for admin triage (support tickets, etc.). */
 async function loadUserBasicsByIds(db, userIds) {
     const ids = [...new Set((userIds || []).filter(Boolean))];
@@ -796,10 +808,11 @@ router.post("/moderation/:id/approve-edit", verifyAdminToken, async (req, res) =
         if (!item) return res.status(404).json({ error: "Item not found" });
 
         const beforePlayground = await db.collection('playgrounds').findOne({ _id: new ObjectId(item.playgroundId) });
-        // Apply proposed changes to playground
+        const setPayload = mergeLatLngIntoLocationForSet(item.proposedChanges || {});
+        setPayload.lastUpdated = new Date();
         await db.collection("playgrounds").updateOne(
             { _id: new ObjectId(item.playgroundId) },
-            { $set: item.proposedChanges }
+            { $set: setPayload }
         );
         const afterPlayground = await db.collection('playgrounds').findOne({ _id: new ObjectId(item.playgroundId) });
         if (beforePlayground && afterPlayground) {

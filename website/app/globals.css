@@ -9,14 +9,15 @@
   --app-card: #fafafa;
   --app-border: #e0e0e0;
   /* Android adaptive launcher background + neighbors */
-  --launcher-teal: #05b4c6;
-  --launcher-teal-light: #2ec9d8;
-  --launcher-teal-deep: #048896;
+  /* Aligned with adaptive icon background in branding pack (#00ced1) */
+  --launcher-teal: #00ced1;
+  --launcher-teal-light: #5eeef1;
+  --launcher-teal-deep: #00aeb7;
   /* Subtle link / hero accent (keep light; not a second brand color) */
   --brand-blue: #329df8;
   --brand-blue-dark: #1475f2;
   --brand-blue-wash: rgba(50, 157, 248, 0.1);
-  --launcher-teal-glow: rgba(5, 180, 198, 0.35);
+  --launcher-teal-glow: rgba(0, 206, 209, 0.35);
   --warm-cream: #f7f7f4;
   --sky-wash: #e8f4f5;
   --dark-gray: #5e5e5e;

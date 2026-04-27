@@ -19,6 +19,7 @@
     "reset:seed:geo": "node scripts/resetSeedGeo.js",
     "recategorize:types": "node scripts/recategorizePlaygroundTypes.js",
     "sync:web-brand-icon": "node scripts/syncWebsiteAppIcon.js",
+    "apply:android-branding": "node scripts/applyAndroidBranding.js",
     "generate:app-icon": "node scripts/generateAppIcon.js",
     "generate:play-feature-graphic": "node scripts/generatePlayStoreFeatureGraphic.js"
   },

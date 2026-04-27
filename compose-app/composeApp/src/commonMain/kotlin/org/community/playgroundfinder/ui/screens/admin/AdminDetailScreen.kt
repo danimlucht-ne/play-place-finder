@@ -28,8 +28,48 @@ import org.community.playgroundfinder.data.PlaygroundService
 import org.community.playgroundfinder.ui.composables.FormColors
 import org.community.playgroundfinder.ui.composables.TextWithClickableMongoObjectIds
 import org.community.playgroundfinder.util.mongoIdString
+import kotlinx.serialization.encodeToJsonElement
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 
 private val mongoObjectIdInString = Regex("[a-fA-F0-9]{24}")
+
+private val moderationJson = Json {
+    encodeDefaults = true
+    ignoreUnknownKeys = true
+}
+
+private fun proposedToJsonElement(v: Any?): JsonElement {
+    return when (v) {
+        null -> JsonNull
+        is Boolean -> JsonPrimitive(v)
+        is Number -> JsonPrimitive(v.toDouble())
+        is String -> JsonPrimitive(v)
+        is List<*> -> JsonArray(v.map { proposedToJsonElement(it) })
+        else -> JsonPrimitive(v.toString())
+    }
+}
+
+private fun jsonElementComparableString(el: JsonElement?): String {
+    if (el == null || el is JsonNull) return ""
+    if (el is JsonPrimitive) return el.content
+    return el.toString()
+}
+
+/** When we have the live [Playground], hide proposed rows that match the published record (full-document submits). */
+private fun editValueMatchesPlayground(key: String, proposed: Any?, pg: Playground): Boolean {
+    val pgEl = try {
+        moderationJson.encodeToJsonElement(Playground.serializer(), pg).jsonObject[key]
+    } catch (_: Exception) {
+        null
+    }
+    val propEl = proposedToJsonElement(proposed)
+    return jsonElementComparableString(pgEl) == jsonElementComparableString(propEl)
+}
 
 /** City/state plus region key for admin queue context. */
 private fun playgroundLocationSubtitle(pg: Playground): String {
@@ -99,6 +139,7 @@ fun AdminDetailScreen(
     var forceReviewReasonInput by remember { mutableStateOf("") }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showRollbackDialog by remember { mutableStateOf(false) }
+    var showAllProposedFields by remember { mutableStateOf(false) }
     var latestAudit by remember { mutableStateOf<Map<String, Any?>?>(null) }
     var auditLoading by remember { mutableStateOf(false) }
     var playgroundPreview by remember { mutableStateOf<Playground?>(null) }
@@ -220,6 +261,123 @@ fun AdminDetailScreen(
                     }
                 }
 
+                val reviewBullets = remember(item) {
+                    val out = mutableListOf<String>()
+                    item["reason"]?.toString()?.trim()?.takeIf { it.isNotEmpty() && !it.equals("null", true) }?.let { out += it }
+                    item["decisionReason"]?.toString()?.trim()?.takeIf { it.isNotEmpty() && !it.equals("null", true) }?.let { out += it }
+                    @Suppress("UNCHECKED_CAST")
+                    val review = item["geminiSubmissionReview"] as? Map<String, Any?>
+                    @Suppress("UNCHECKED_CAST")
+                    val text = review?.get("text") as? Map<String, Any?>
+                    @Suppress("UNCHECKED_CAST")
+                    val textConcerns = text?.get("concerns") as? List<Any?>
+                    val concernLines = textConcerns.orEmpty().mapNotNull { it?.toString()?.trim()?.takeIf(String::isNotEmpty) }
+                    concernLines.forEach { out += it }
+                    @Suppress("UNCHECKED_CAST")
+                    val images = review?.get("images") as? List<Map<String, Any?>>
+                    images.orEmpty().forEach { img ->
+                        @Suppress("UNCHECKED_CAST")
+                        val concerns = img["concerns"] as? List<Any?>
+                        concerns.orEmpty().mapNotNull { it?.toString()?.trim()?.takeIf(String::isNotEmpty) }.forEach { out += it }
+                    }
+                    if (concernLines.isEmpty()) {
+                        text?.get("severity")?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { sev ->
+                            out += "Automated text review flagged this edit (severity: $sev)."
+                        }
+                    }
+                    if (out.none { it.contains("manual", true) || it.contains("mandatory", true) } &&
+                        review != null && review["autoApprove"] == false && concernLines.isEmpty() && text?.get("severity") == null
+                    ) {
+                        out += "Automated review did not auto-approve; manual check required."
+                    }
+                    out.distinct()
+                }
+
+                if (!isDeleteRequest) {
+                    @Suppress("UNCHECKED_CAST")
+                    val flagList = item["moderationFlags"] as? List<Map<String, Any?>>
+                    val hasQueueStory = reviewBullets.isNotEmpty() ||
+                        item["confidence"] != null ||
+                        (!flagList.isNullOrEmpty())
+                    if (hasQueueStory) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            border = BorderStroke(1.dp, FormColors.PrimaryButton.copy(alpha = 0.35f)),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    "Why this needs review",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = FormColors.BodyText,
+                                )
+                                if (reviewBullets.isEmpty()) {
+                                    Text(
+                                        "No automated explanation was attached. Decide from the changed fields below.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        lineHeight = 18.sp,
+                                    )
+                                } else {
+                                    reviewBullets.take(10).forEach { line ->
+                                        Text(
+                                            "• $line",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = FormColors.BodyText,
+                                            lineHeight = 18.sp,
+                                        )
+                                    }
+                                }
+                                item["confidence"]?.let { conf ->
+                                    val confFloat = conf.toString().toFloatOrNull() ?: 0f
+                                    val color = when {
+                                        confFloat >= 0.8f -> Color(0xFF2E7D32)
+                                        confFloat >= 0.5f -> Color(0xFFE65100)
+                                        else -> Color(0xFFC62828)
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = color.copy(alpha = 0.12f),
+                                        border = BorderStroke(1.dp, color.copy(alpha = 0.35f)),
+                                    ) {
+                                        Text(
+                                            "Model confidence ${"%.0f".format(confFloat * 100)}% · ${item["recommendedAction"] ?: ""}",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = color,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        )
+                                    }
+                                }
+                                if (!flagList.isNullOrEmpty()) {
+                                    Text(
+                                        "Flags",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    flagList.take(6).forEach { f ->
+                                        val t = f["type"]?.toString() ?: f["flagType"]?.toString() ?: "flag"
+                                        val d = f["description"]?.toString().orEmpty()
+                                        Text(
+                                            "• ${t.replace("_", " ")}${if (d.isNotBlank()) ": $d" else ""}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            lineHeight = 18.sp,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if (playgroundIdStr != null && onNavigateToPlayground != null) {
                     Spacer(Modifier.height(4.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -320,113 +478,6 @@ fun AdminDetailScreen(
                     Spacer(Modifier.height(8.dp))
                 }
 
-                item["confidence"]?.let { conf ->
-                    if (isDeleteRequest) return@let
-                    val confFloat = conf.toString().toFloatOrNull() ?: 0f
-                    val color = when {
-                        confFloat >= 0.8f -> Color(0xFF2E7D32)
-                        confFloat >= 0.5f -> Color(0xFFE65100)
-                        else -> Color(0xFFC62828)
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = color.copy(alpha = 0.12f),
-                        border = BorderStroke(1.dp, color.copy(alpha = 0.35f)),
-                    ) {
-                        Text(
-                            "AI confidence ${"%.0f".format(confFloat * 100)}% · ${item["recommendedAction"] ?: ""}",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = color,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        )
-                    }
-                }
-
-                item["moderationFlags"]?.let { flags ->
-                    if (isDeleteRequest) return@let
-                    @Suppress("UNCHECKED_CAST")
-                    val asList = flags as? List<Map<String, Any?>>
-                    if (!asList.isNullOrEmpty()) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = FormColors.CardBackground),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Text(
-                                    "Moderation flags (${asList.size})",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                asList.forEach { f ->
-                                    val t = f["type"]?.toString() ?: f["flagType"]?.toString() ?: "flag"
-                                    val d = f["description"]?.toString().orEmpty()
-                                    Text(
-                                        "• ${t.replace("_", " ")}${if (d.isNotBlank()) ": $d" else ""}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        lineHeight = 18.sp,
-                                    )
-                                }
-                            }
-                        }
-                    } else if (flags.toString().isNotBlank() && flags.toString() != "[]") {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = FormColors.CardBackground),
-                        ) {
-                            Text(
-                                flags.toString(),
-                                modifier = Modifier.padding(14.dp),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-
-                val reviewReasons = remember(item) {
-                    val out = mutableListOf<String>()
-                    item["reason"]?.toString()?.trim()?.takeIf { it.isNotEmpty() && !it.equals("null", true) }?.let { out += it }
-                    item["decisionReason"]?.toString()?.trim()?.takeIf { it.isNotEmpty() && !it.equals("null", true) }?.let { out += it }
-                    @Suppress("UNCHECKED_CAST")
-                    val review = item["geminiSubmissionReview"] as? Map<String, Any?>
-                    @Suppress("UNCHECKED_CAST")
-                    val text = review?.get("text") as? Map<String, Any?>
-                    @Suppress("UNCHECKED_CAST")
-                    val textConcerns = text?.get("concerns") as? List<Any?>
-                    textConcerns.orEmpty().mapNotNull { it?.toString()?.trim()?.takeIf(String::isNotEmpty) }.forEach { out += it }
-                    @Suppress("UNCHECKED_CAST")
-                    val images = review?.get("images") as? List<Map<String, Any?>>
-                    images.orEmpty().forEach { img ->
-                        @Suppress("UNCHECKED_CAST")
-                        val concerns = img["concerns"] as? List<Any?>
-                        concerns.orEmpty().mapNotNull { it?.toString()?.trim()?.takeIf(String::isNotEmpty) }.forEach { out += it }
-                    }
-                    out.distinct()
-                }
-                if (reviewReasons.isNotEmpty()) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1)),
-                        border = BorderStroke(1.dp, Color(0xFFFFE082)),
-                    ) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("Why this needs review", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = Color(0xFF6D4C41))
-                            reviewReasons.take(6).forEach { line ->
-                                Text("• $line", fontSize = 12.sp, color = Color(0xFF6D4C41), lineHeight = 17.sp)
-                            }
-                        }
-                    }
-                }
-
                 HorizontalDivider(color = FormColors.SubtleDivider)
 
                 // Photo preview
@@ -450,50 +501,104 @@ fun AdminDetailScreen(
                     }
                 }
 
-                // Edit diff
+                // Edit: only fields that differ from the live listing (full-document submits are common).
                 if (isEdit) {
                     @Suppress("UNCHECKED_CAST")
                     val proposed = item["proposedChanges"] as? Map<String, Any?> ?: emptyMap()
                     val skipKeys = setOf("lastUpdated", "_id", "id", "__v")
-                    val displayFields = proposed.filterKeys { it !in skipKeys }
+                    val proposedClean = proposed.filterKeys { it !in skipKeys }
+                    val displayFields = remember(proposedClean, playgroundPreview, showAllProposedFields, playgroundPreviewLoading) {
+                        if (showAllProposedFields) proposedClean
+                        else {
+                            val pg = playgroundPreview
+                            if (pg == null) proposedClean
+                            else proposedClean.filter { (k, v) -> !editValueMatchesPlayground(k, v, pg) }
+                        }
+                    }
 
-                    if (displayFields.isEmpty()) {
+                    Text(
+                        if (showAllProposedFields) "All submitted fields" else "Changed fields only",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    if (!showAllProposedFields && playgroundPreviewLoading) {
                         Text(
-                            "No changes detected.",
+                            "Comparing to the live listing…",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                    } else {
+                    } else if (!showAllProposedFields && playgroundPreview == null && playgroundIdStr != null) {
                         Text(
-                            "Proposed changes",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
+                            "Could not load the live listing; showing every submitted field.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        displayFields.forEach { (key, value) ->
+                    }
+
+                    TextButton(
+                        onClick = { showAllProposedFields = !showAllProposedFields },
+                        contentPadding = PaddingValues(0.dp),
+                    ) {
+                        Text(if (showAllProposedFields) "Show changed fields only" else "Show all submitted fields", fontSize = 12.sp)
+                    }
+
+                    if (displayFields.isEmpty()) {
+                        Text(
+                            "No differences found vs the live listing. If this looks wrong, use “Show all submitted fields”.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp,
+                        )
+                    } else {
+                        displayFields.toSortedMap().forEach { (key, value) ->
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(14.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                colors = CardDefaults.cardColors(containerColor = FormColors.CardBackground),
                                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                             ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Text(
-                                        key,
+                                        key.replaceFirstChar { it.titlecase() },
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontWeight = FontWeight.Medium,
+                                        fontWeight = FontWeight.SemiBold,
                                     )
-                                    val vs = value?.toString() ?: "(cleared)"
-                                    if (onNavigateToPlayground != null && vs != "(cleared)" && mongoObjectIdInString.containsMatchIn(vs)) {
-                                        TextWithClickableMongoObjectIds(
-                                            text = vs,
-                                            baseColor = Color(0xFF212121),
-                                            linkColor = FormColors.PrimaryButton,
-                                            fontSize = 13.sp,
-                                            onObjectIdClick = { openPlaygroundById(it) },
-                                        )
+                                    if (key == "imageUrls" && value is List<*>) {
+                                        val urls = value.mapNotNull { it?.toString()?.trim()?.takeIf { u -> u.isNotEmpty() } }
+                                        Text("${urls.size} image(s)", style = MaterialTheme.typography.bodySmall, color = FormColors.BodyText)
+                                        urls.take(3).forEach { u ->
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                AsyncImage(
+                                                    model = u,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(72.dp),
+                                                )
+                                                TextButton(
+                                                    onClick = { runCatching { uriHandler.openUri(u) } },
+                                                    contentPadding = PaddingValues(0.dp),
+                                                ) { Text("Open", fontSize = 12.sp) }
+                                            }
+                                        }
+                                        if (urls.size > 3) {
+                                            Text("+ ${urls.size - 3} more", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
                                     } else {
-                                        Text(vs, style = MaterialTheme.typography.bodyMedium)
+                                        val vs = value?.toString() ?: "(cleared)"
+                                        if (onNavigateToPlayground != null && vs != "(cleared)" && mongoObjectIdInString.containsMatchIn(vs)) {
+                                            TextWithClickableMongoObjectIds(
+                                                text = vs,
+                                                baseColor = Color(0xFF212121),
+                                                linkColor = FormColors.PrimaryButton,
+                                                fontSize = 13.sp,
+                                                onObjectIdClick = { openPlaygroundById(it) },
+                                            )
+                                        } else {
+                                            Text(vs, style = MaterialTheme.typography.bodyMedium, color = FormColors.BodyText)
+                                        }
                                     }
                                 }
                             }
@@ -502,7 +607,13 @@ fun AdminDetailScreen(
                 }
 
                 if (!isEdit && !isPhoto && !isDeleteRequest) {
-                    val skipKeys = setOf("_id", "id", "__v", "previewUrl")
+                    val skipKeys = setOf(
+                        "_id", "id", "__v", "previewUrl",
+                        "geminiSubmissionReview", "proposedChanges", "moderationFlags",
+                        "submissionType", "submissionId", "status", "createdAt", "updatedAt",
+                        "reviewedAt", "reviewedBy", "confidence", "recommendedAction",
+                        "reason", "decisionReason",
+                    )
                     val rows = item.filterKeys { it !in skipKeys }
                     if (rows.isNotEmpty()) {
                         Card(

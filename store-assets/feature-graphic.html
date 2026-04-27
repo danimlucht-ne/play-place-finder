@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<style>
+  body {
+    margin: 0;
+    background: #111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+
+  .feature {
+    width: 1024px;
+    height: 500px;
+    border-radius: 16px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 20% 60%, rgba(255,255,255,0.15) 0 20%, transparent 21%),
+      linear-gradient(135deg, #00CED1, #02aebb);
+    display: grid;
+    grid-template-columns: 35% 65%;
+    align-items: center;
+    padding: 40px;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+  }
+
+  .left img {
+    width: 100%;
+    max-width: 300px;
+  }
+
+  .right h1 {
+    margin: 0;
+    font-size: 64px;
+    font-weight: 900;
+    color: black;
+  }
+
+  .right p {
+    font-size: 28px;
+    margin: 16px 0 28px;
+    font-weight: 700;
+  }
+
+  .features {
+    display: flex;
+    gap: 28px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .features div {
+    text-align: center;
+  }
+
+  .features span {
+    display: block;
+    font-size: 24px;
+    margin-bottom: 6px;
+  }
+</style>
+</head>
+
+<body>
+  <div class="feature">
+    <div class="left">
+      <!-- REPLACE THIS PATH -->
+      <img src="play-spotter-logo.png" />
+    </div>
+
+    <div class="right">
+      <h1>Play Spotter</h1>
+      <p>Discover. Save. Play.</p>
+
+      <div class="features">
+        <div><span>📍</span>Find</div>
+        <div><span>♥</span>Save</div>
+        <div><span>👥</span>Share</div>
+        <div><span>🛡</span>Safe</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -201,8 +201,99 @@ function moderationReasonFromSubmissionReview(submissionReview, forcedByUserPoli
     const combined = [...new Set([...textConcerns, ...imageConcerns])];
     if (combined.length > 0) {
         parts.push(combined.slice(0, 5).join('; '));
+    } else {
+        const sev = submissionReview?.text?.severity && String(submissionReview.text.severity).trim();
+        if (sev) {
+            parts.push(`Automated text review flagged this submission (severity: ${sev}).`);
+        } else if (submissionReview && submissionReview.autoApprove === false) {
+            parts.push('Automated review did not auto-approve this edit; manual check required.');
+        }
     }
     return parts.join(' ').trim() || null;
+}
+
+/** Keys we never store in moderation_queue proposedChanges (noise or server-owned). */
+const PLAYGROUND_QUEUE_PATCH_SKIP = new Set([
+    '_id',
+    'id',
+    '__v',
+    'lastUpdated',
+    'googleRaw',
+    'badges',
+    'queueId',
+    'geminiSubmissionReview',
+    'averageRating',
+    'ratingCount',
+    'openIssues',
+    'trustScores',
+    'photoValidation',
+    'subVenues',
+    'normalized',
+    'admin',
+]);
+
+function normalizeComparableForQueue(v) {
+    if (v === undefined) return '__undefined__';
+    if (v === null) return null;
+    if (v instanceof Date) return v.toISOString();
+    if (typeof v === 'number') {
+        if (!Number.isFinite(v)) return String(v);
+        return Number(v.toFixed(9));
+    }
+    if (typeof v === 'boolean') return v;
+    if (typeof v === 'string') return v;
+    if (Array.isArray(v)) {
+        try {
+            return JSON.stringify(v.map(normalizeComparableForQueue));
+        } catch {
+            return JSON.stringify(v);
+        }
+    }
+    if (typeof v === 'object') {
+        if (v && typeof v.toHexString === 'function') return v.toHexString();
+        try {
+            return JSON.stringify(v);
+        } catch {
+            return String(v);
+        }
+    }
+    return String(v);
+}
+
+function valuesEqualForQueue(a, b) {
+    return normalizeComparableForQueue(a) === normalizeComparableForQueue(b);
+}
+
+function flattenPlaygroundDocForCompare(doc) {
+    if (!doc || typeof doc !== 'object') return {};
+    const flat = { ...doc };
+    if (doc.location && Array.isArray(doc.location.coordinates) && doc.location.coordinates.length >= 2) {
+        flat.longitude = doc.location.coordinates[0];
+        flat.latitude = doc.location.coordinates[1];
+    }
+    return flat;
+}
+
+/**
+ * Only fields that actually differ from the current DB document — keeps admin UI and queue payloads small.
+ * Approve-edit uses $set with this object (+ lastUpdated).
+ */
+function buildPlaygroundEditQueuePatch(existingMongoDoc, updates) {
+    const flat = flattenPlaygroundDocForCompare(existingMongoDoc);
+    const patch = {};
+    for (const [key, val] of Object.entries(updates)) {
+        if (key === 'lastUpdated') continue;
+        if (PLAYGROUND_QUEUE_PATCH_SKIP.has(key)) continue;
+        if (val === undefined) continue;
+        if (!Object.prototype.hasOwnProperty.call(flat, key)) {
+            patch[key] = val;
+            continue;
+        }
+        if (!valuesEqualForQueue(flat[key], val)) {
+            patch[key] = val;
+        }
+    }
+    return patch;
 }
 
 /**
@@ -651,6 +742,14 @@ router.put("/:id", verifyToken, ensureCanSubmit, async (req, res) => {
         });
         const effectiveAutoApprove = submissionReview.autoApprove && !forceManualReview;
 
+        const queueProposed = buildPlaygroundEditQueuePatch(playground, updates);
+        const queuePayload =
+            Object.keys(queueProposed).length > 0
+                ? queueProposed
+                : Object.fromEntries(
+                      Object.entries(updates).filter(([k]) => k !== 'lastUpdated' && !PLAYGROUND_QUEUE_PATCH_SKIP.has(k)),
+                  );
+
         if (effectiveAutoApprove) {
             const beforePlayground = await db.collection("playgrounds").findOne(idFilter);
             const patch = {
@@ -694,7 +793,7 @@ router.put("/:id", verifyToken, ensureCanSubmit, async (req, res) => {
                 submissionId: String(playground._id),
                 playgroundId: String(playground._id),
                 playgroundName: playground.name || 'Unknown',
-                proposedChanges: updates,
+                proposedChanges: queuePayload,
                 submittedByUserId: req.user.uid,
                 status: 'AUTO_APPROVED',
                 geminiSubmissionReview: submissionReview,
@@ -725,7 +824,7 @@ router.put("/:id", verifyToken, ensureCanSubmit, async (req, res) => {
             submissionId: String(playground._id),
             playgroundId: String(playground._id),
             playgroundName: playground.name || 'Unknown',
-            proposedChanges: updates,
+            proposedChanges: queuePayload,
             submittedByUserId: req.user.uid,
             status: 'NEEDS_ADMIN_REVIEW',
             geminiSubmissionReview: submissionReview,
