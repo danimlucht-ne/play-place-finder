@@ -25,6 +25,7 @@ const LUCHT_PLAY_PLACE_FINDER = path.join(REPO_ROOT, '..', '..', 'lucht-applicat
 /** Single brand plate for fallbacks; aligned with `values/colors.xml` ic_launcher_background (#00CED1). */
 const BG = { r: 0, g: 206, b: 209 }; // #00CED1
 const TRIM_THRESHOLD = 14;
+const BRANDING_FOREGROUND_ZOOM = 3.2;
 
 function hasBranding1024() {
   return fs.existsSync(FG1024) && fs.existsSync(BG1024);
@@ -34,10 +35,19 @@ function hasBranding1024() {
  * Pixels of the in-app / store icon (adaptive layers combined), at `size`×`size`.
  */
 async function buildBrandingAppIconPngBuffer(size) {
+  const cropSide = Math.max(64, Math.round(1024 / BRANDING_FOREGROUND_ZOOM));
+  const left = Math.max(0, Math.round((1024 - cropSide) / 2));
+  const top = Math.max(0, Math.round((1024 - cropSide) / 2));
+  const fgBuf = await sharp(FG1024)
+    .ensureAlpha()
+    .extract({ left, top, width: cropSide, height: cropSide })
+    .resize(1024, 1024, { fit: 'fill' })
+    .png()
+    .toBuffer();
   const body = await sharp(BG1024)
     .ensureAlpha()
     .composite([
-      { input: await sharp(FG1024).ensureAlpha().png().toBuffer(), left: 0, top: 0 },
+      { input: fgBuf, left: 0, top: 0 },
     ])
     .png()
     .toBuffer();
