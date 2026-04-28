@@ -9,6 +9,9 @@ object MarketingLinks {
     /** Product / pricing page for prospective advertisers (create matching route on the web app). */
     fun advertiserLanding(): String = "${base()}/advertise"
 
+    /** Signed-in advertiser workspace (deeper analytics and draft tools in the browser). */
+    fun advertiserHub(): String = "${base()}/advertiser-hub"
+
     /** Hosted privacy policy (Play Console / legal; keep in sync with in-app copy or replace app text with a WebView). */
     fun privacyPolicy(): String = "${base()}/privacy"
 

@@ -95,7 +95,7 @@ function inferRegionKeyFromPlayground(pg) {
 
 /**
  * Apply an approved feature suggestion to a playground document and global option catalog.
- * @returns {{ appliedLabel: string, cityForPoints: string|null }}
+ * @returns {{ appliedLabel: string, cityForPoints: string|null, stateForPoints: string|null, regionKeyForPoints: string|null }}
  */
 async function applyApprovedSuggestion(db, playgroundId, suggestionCategory, rawLabel) {
     const label = titleCaseLabel(rawLabel);
@@ -124,6 +124,8 @@ async function applyApprovedSuggestion(db, playgroundId, suggestionCategory, raw
     }
 
     const cityForPoints = pg.city || (pg.normalized && pg.normalized.cityDisplay) || null;
+    const stateForPoints = pg.state || (pg.normalized && pg.normalized.stateCode) || null;
+    const regionKeyForPoints = inferRegionKeyFromPlayground(pg);
     const appliedFilter = { _id: pg._id };
 
     if (cfg.mode === 'array') {
@@ -137,7 +139,7 @@ async function applyApprovedSuggestion(db, playgroundId, suggestionCategory, raw
             $set: { [cfg.field]: next, updatedAt: new Date() },
         });
         await upsertCategoryOption(db, cfg.optionsCategory, label);
-        return { appliedLabel: label, cityForPoints };
+        return { appliedLabel: label, cityForPoints, stateForPoints, regionKeyForPoints };
     }
 
     if (cfg.mode === 'ground') {
@@ -152,7 +154,7 @@ async function applyApprovedSuggestion(db, playgroundId, suggestionCategory, raw
             $set: { groundType: merged, updatedAt: new Date() },
         });
         await upsertCategoryOption(db, cfg.optionsCategory, label);
-        return { appliedLabel: label, cityForPoints };
+        return { appliedLabel: label, cityForPoints, stateForPoints, regionKeyForPoints };
     }
 
     if (cfg.mode === 'amenity') {
@@ -173,7 +175,7 @@ async function applyApprovedSuggestion(db, playgroundId, suggestionCategory, raw
         // Always advertise to the global option catalog so it appears as an option going
         // forward, even if it mapped to a known boolean field on this playground.
         await upsertCategoryOption(db, 'amenity', label);
-        return { appliedLabel: label, cityForPoints };
+        return { appliedLabel: label, cityForPoints, stateForPoints, regionKeyForPoints };
     }
 
     const err = new Error('Unsupported suggestion category configuration.');

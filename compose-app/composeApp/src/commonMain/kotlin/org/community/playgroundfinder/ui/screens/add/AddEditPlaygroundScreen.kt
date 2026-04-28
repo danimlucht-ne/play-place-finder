@@ -162,10 +162,10 @@ fun AddEditPlaygroundScreen(
     var amenityCatalog by remember { mutableStateOf<List<String>>(emptyList()) }
 
     // Multi-select lists (base + admin-approved options from server)
-    val baseEquipment = listOf("Swings", "Slide", "Climbing Wall", "Monkey Bars", "Sandbox", "Seesaw", "Spring Riders", "Balance Beam", "Zip Line")
-    val baseSwingTypes = listOf("Belt", "Bucket", "Tire", "Accessible")
-    val baseSportsCourts = listOf("Football", "Basketball", "Soccer", "Tennis", "Pickleball", "Volleyball", "Sand Volleyball", "Baseball", "Softball")
-    val baseExerciseEquipment = listOf("Pull-up Bar", "Fitness Station", "Walking Trail Exercise Stops", "Outdoor Gym", "Balance Beam", "Parallel Bars")
+    val baseEquipment = OptionCatalogDefaults.equipment
+    val baseSwingTypes = OptionCatalogDefaults.swingTypes
+    val baseSportsCourts = OptionCatalogDefaults.sportsCourts
+    val baseExerciseEquipment = OptionCatalogDefaults.exerciseEquipment
     val baseGroundTypes = listOf("Wood Chips", "Rubber", "Sand", "Pea Gravel", "Grass", "Concrete", "Turf")
     var allEquipment by remember { mutableStateOf(baseEquipment) }
     var allSwingTypes by remember { mutableStateOf(baseSwingTypes) }
@@ -788,7 +788,7 @@ fun AddEditPlaygroundScreen(
                     val seen = mutableSetOf<String>()
                     merged.filter { label ->
                         val k = label.lowercase().trim()
-                        if (k in HARDCODED_AMENITY_KEYS) return@filter false
+                        if (k in OptionCatalogDefaults.hardcodedAmenityKeys) return@filter false
                         seen.add(k)
                     }.sortedBy { it.lowercase() }
                 }
@@ -1466,20 +1466,3 @@ private fun CustomAmenityToggle(label: String, checked: Boolean, onChange: (Bool
     }
 }
 
-/**
- * Lower-cased labels of every amenity that has a dedicated boolean field on the Playground.
- * Mirrors AMENITY_LABEL_TO_FIELD in suggestionApprovalService so a server-approved label
- * that maps to a boolean (e.g. "Bathrooms") doesn't get rendered twice.
- */
-private val HARDCODED_AMENITY_KEYS: Set<String> = setOf(
-    "bathrooms", "shade", "fenced", "toddler friendly", "dog friendly", "parking",
-    "splash pad", "accessible", "wifi", "wi fi", "walking trail", "water fountain",
-    "bottle filler", "benches", "picnic tables", "trash cans",
-    "requires grip socks", "needs grip socks", "requires waiver",
-    "outdoor shower", "changing rooms", "lockers", "nursing room", "party room",
-    "covered seating", "food services", "snack bar", "alcohol on site",
-    "gift shop", "rental equipment", "card only", "atm",
-    "height/age restrictions", "height age restrictions",
-    "arcade games", "stroller friendly", "sunscreen station", "bug spray station",
-    "ev charging",
-)

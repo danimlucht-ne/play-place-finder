@@ -2,7 +2,7 @@
 const { getDb } = require('../database');
 const axios = require('axios');
 const adminNotificationService = require('./adminNotificationService');
-const { getGeminiSummary, getGeminiLocationValidation, getGeminiDescription } = require('./photoClassificationService');
+const { getGeminiSummary, getGeminiLocationValidation } = require('./photoClassificationService');
 const { classifyPlaceForValidation } = require('./placeValidityRules');
 const { getManyCached, setCached } = require('./locationValidationCache');
 const { isKidFriendlySeedCandidate } = require('./kidPlaceFilters');
@@ -116,6 +116,41 @@ function envInt(name, fallback, min, max) {
     const value = parseInt(process.env[name] || '', 10);
     if (Number.isNaN(value)) return fallback;
     return Math.max(min, Math.min(max, value));
+}
+
+function getSeedCostMode() {
+    const mode = String(process.env.SEED_COST_MODE || 'review').trim().toLowerCase();
+    return ['cheap', 'review', 'full'].includes(mode) ? mode : 'review';
+}
+
+function getQuickSeedPhotoGeminiCap() {
+    const fallback = getSeedCostMode() === 'cheap' ? 1 : getSeedCostMode() === 'full' ? 3 : 2;
+    return envInt('QUICK_SORT_MAX_GEMINI_PHOTOS_PER_PLACE', fallback, 0, 5);
+}
+
+function getScrubSeedPhotoGeminiCap() {
+    const fallback = getSeedCostMode() === 'cheap' ? 2 : getSeedCostMode() === 'full' ? 5 : 3;
+    return envInt('SCRUB_MAX_GOOGLE_PHOTOS_PER_PLACE', fallback, 0, 10);
+}
+
+function shouldGeminiBackfillTrimScores() {
+    if (process.env.TRIM_GEMINI_BACKFILL === '1' || process.env.TRIM_GEMINI_BACKFILL === 'true') {
+        return true;
+    }
+    if (process.env.TRIM_GEMINI_BACKFILL === '0' || process.env.TRIM_GEMINI_BACKFILL === 'false') {
+        return false;
+    }
+    return getSeedCostMode() === 'full';
+}
+
+function shouldUseGeminiLocationValidation() {
+    if (process.env.SEED_USE_GEMINI_LOCATION_VALIDATION === '1' || process.env.SEED_USE_GEMINI_LOCATION_VALIDATION === 'true') {
+        return true;
+    }
+    if (process.env.SEED_USE_GEMINI_LOCATION_VALIDATION === '0' || process.env.SEED_USE_GEMINI_LOCATION_VALIDATION === 'false') {
+        return false;
+    }
+    return getSeedCostMode() === 'full';
 }
 
 /** `seeded_regions.center` may be GeoJSON Point or legacy { lat, lng }. */
@@ -1288,39 +1323,6 @@ async function enrichPlacesWithDetails(regionKey) {
                     }
                 }
 
-                const editorialSummary = details?.editorial_summary?.overview || '';
-                const skipGeminiDesc =
-                    process.env.SKIP_GEMINI_DESCRIPTION === '1' ||
-                    process.env.SKIP_GEMINI_DESCRIPTION === 'true';
-
-                // Generate Gemini description if we don't have one from Google
-                if (!editorialSummary || editorialSummary.length < 20) {
-                    let heroBuffer = null;
-                    if (!skipGeminiDesc) {
-                        const heroUrl = place.imageUrls?.[0];
-                        if (heroUrl && !heroUrl.startsWith('google_photo:')) {
-                            try {
-                                const r = await axios.get(heroUrl, { responseType: 'arraybuffer', timeout: 8000 });
-                                heroBuffer = Buffer.from(r.data, 'binary');
-                            } catch (_) {}
-                        } else if (heroUrl?.startsWith('google_photo:')) {
-                            try {
-                                const ref = heroUrl.split(':')[1];
-                                const photoApiUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${ref}&key=${GOOGLE_MAPS_API_KEY}`;
-                                const r = await axios.get(photoApiUrl, { responseType: 'arraybuffer', timeout: 8000 });
-                                heroBuffer = Buffer.from(r.data, 'binary');
-                            } catch (_) {}
-                        }
-                    }
-
-                    const generated = skipGeminiDesc
-                        ? ''
-                        : await getGeminiDescription(place.name, place.types || [], heroBuffer, editorialSummary);
-                    if (generated) update.description = generated;
-                } else {
-                    update.description = editorialSummary;
-                }
-
                 if (Object.keys(update).length > 0) {
                     await db.collection('playgrounds').updateOne({ _id: place._id }, { $set: update });
                 }
@@ -1743,7 +1745,7 @@ async function scrubPlaygroundLocations(regionKey) {
             }
         }
 
-        if (needLlm.length > 0) {
+        if (needLlm.length > 0 && shouldUseGeminiLocationValidation()) {
             const llmResult = await getGeminiLocationValidation(needLlm);
             for (const p of needLlm) {
                 const id = String(p.id);
@@ -1756,6 +1758,11 @@ async function scrubPlaygroundLocations(regionKey) {
                 }
                 validationResult[id] = v;
                 await setCached(db, id, v, 'gemini');
+            }
+        } else if (needLlm.length > 0) {
+            for (const p of needLlm) {
+                const id = String(p.id);
+                validationResult[id] = true;
             }
         }
 
@@ -1790,6 +1797,7 @@ async function scrubPlaygroundLocations(regionKey) {
 async function quickSortFastSeedPhotos(places) {
     const db = getDb();
     const maxPlaces = parseInt(process.env.QUICK_SORT_MAX_PLACES || "8", 10);
+    const maxGeminiPhotosPerPlace = getQuickSeedPhotoGeminiCap();
     const placesToScore = places
         .filter(p => p.imageUrls && p.imageUrls.length > 1)
         .slice(0, maxPlaces);
@@ -1799,7 +1807,7 @@ async function quickSortFastSeedPhotos(places) {
         if (googleRefs.length < 2) continue;
 
         const scored = [];
-        for (const url of googleRefs.slice(0, 3)) { // score up to 3 per place
+        for (const url of googleRefs.slice(0, maxGeminiPhotosPerPlace)) {
             const photoRef = url.split(':')[1];
             try {
                 const googlePhotoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photoRef}&key=${GOOGLE_MAPS_API_KEY}`;
@@ -1919,7 +1927,7 @@ async function scrubPlaygroundPhotos(regionKey) {
     for (const place of playgrounds) {
         if (!place.imageUrls || place.imageUrls.length === 0) continue;
 
-        const maxGooglePhotos = parseInt(process.env.SCRUB_MAX_GOOGLE_PHOTOS_PER_PLACE || "5", 10);
+        const maxGooglePhotos = getScrubSeedPhotoGeminiCap();
         let processedCount = 0;
 
         // Phase 1: Score all photos with Gemini
@@ -2487,8 +2495,8 @@ async function trimPhotoGalleries({ regionKey, maxPhotos = 25, dryRun = false } 
                 scored.push({ url, score: scoreMap[url] });
             } else if (url.startsWith('google_photo:')) {
                 scored.push({ url, score: 0.5 });
-            } else {
-                // Fallback: score with Gemini (only for legacy unscored photos)
+            } else if (shouldGeminiBackfillTrimScores()) {
+                // Fallback: score with Gemini (only for legacy unscored photos, and only in full-cost mode)
                 try {
                     const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 8000 });
                     const imageBuffer = Buffer.from(response.data, 'binary');
@@ -2503,6 +2511,8 @@ async function trimPhotoGalleries({ regionKey, maxPhotos = 25, dryRun = false } 
                 } catch (_) {
                     scored.push({ url, score: 0.2 });
                 }
+            } else {
+                scored.push({ url, score: 0.2 });
             }
         }
 

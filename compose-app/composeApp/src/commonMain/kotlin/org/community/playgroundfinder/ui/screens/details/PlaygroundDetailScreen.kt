@@ -91,6 +91,7 @@ import org.community.playgroundfinder.data.Playground
 import org.community.playgroundfinder.data.PlaygroundService
 import org.community.playgroundfinder.data.SubVenue
 import org.community.playgroundfinder.ui.composables.AmenityTypeMapping
+import org.community.playgroundfinder.ui.composables.OptionCatalogDefaults
 import org.community.playgroundfinder.ui.composables.FormColors
 import org.community.playgroundfinder.ui.composables.isColorDark
 import org.community.playgroundfinder.ui.composables.PlaygroundDescriptionWithLinks
@@ -561,15 +562,48 @@ fun PlaygroundDetailScreen(
     val typeConfig = AmenityTypeMapping.getConfigForType(pg.playgroundType)
     val filteredAmenityFields = amenityFields.filter { (name, _) -> name in typeConfig.visibleAmenities }
 
-    val allEquipmentLabels = listOf("Swings", "Slide", "Climbing Wall", "Monkey Bars", "Sandbox", "Seesaw", "Spring Riders", "Balance Beam", "Zip Line")
-    val allSwingLabels     = listOf("Belt", "Bucket", "Tire", "Accessible")
-    val equipmentFields    = allEquipmentLabels.map { it to if (pg.equipment.contains(it)) true else null }
-    val swingFields        = allSwingLabels.map { it to if (pg.swingTypes.contains(it)) true else null }
-
-    val allSportsLabels   = listOf("Football", "Basketball", "Soccer", "Tennis", "Pickleball", "Volleyball", "Sand Volleyball", "Baseball", "Softball")
-    val allExerciseLabels = listOf("Pull-up Bar", "Fitness Station", "Walking Trail Exercise Stops", "Outdoor Gym", "Balance Beam", "Parallel Bars")
-    val sportsFields      = allSportsLabels.map { it to if (pg.sportsCourts.contains(it)) true else null }
-    val exerciseFields    = allExerciseLabels.map { it to if (pg.exerciseEquipment.contains(it)) true else null }
+    val baseEquipmentLabels = OptionCatalogDefaults.equipment
+    val baseSwingLabels = OptionCatalogDefaults.swingTypes
+    val baseSportsLabels = OptionCatalogDefaults.sportsCourts
+    val baseExerciseLabels = OptionCatalogDefaults.exerciseEquipment
+    var catalogEquipmentLabels by remember { mutableStateOf<List<String>>(emptyList()) }
+    var catalogSwingLabels by remember { mutableStateOf<List<String>>(emptyList()) }
+    var catalogSportsLabels by remember { mutableStateOf<List<String>>(emptyList()) }
+    var catalogExerciseLabels by remember { mutableStateOf<List<String>>(emptyList()) }
+    LaunchedEffect(service) {
+        catalogEquipmentLabels = runCatching { service.getCategoryOptions("equipment") }.getOrDefault(emptyList())
+        catalogSwingLabels = runCatching { service.getCategoryOptions("swing_type") }.getOrDefault(emptyList())
+        catalogSportsLabels = runCatching { service.getCategoryOptions("sports_court") }.getOrDefault(emptyList())
+        catalogExerciseLabels = runCatching { service.getCategoryOptions("exercise_equipment") }.getOrDefault(emptyList())
+    }
+    val allEquipmentLabels = remember(baseEquipmentLabels, catalogEquipmentLabels, pg.equipment) {
+        (baseEquipmentLabels + catalogEquipmentLabels + pg.equipment)
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sortedBy { it.lowercase() }
+    }
+    val allSwingLabels = remember(baseSwingLabels, catalogSwingLabels, pg.swingTypes) {
+        (baseSwingLabels + catalogSwingLabels + pg.swingTypes)
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sortedBy { it.lowercase() }
+    }
+    val allSportsLabels = remember(baseSportsLabels, catalogSportsLabels, pg.sportsCourts) {
+        (baseSportsLabels + catalogSportsLabels + pg.sportsCourts)
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sortedBy { it.lowercase() }
+    }
+    val allExerciseLabels = remember(baseExerciseLabels, catalogExerciseLabels, pg.exerciseEquipment) {
+        (baseExerciseLabels + catalogExerciseLabels + pg.exerciseEquipment)
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sortedBy { it.lowercase() }
+    }
+    val equipmentFields = allEquipmentLabels.map { it to if (pg.equipment.contains(it)) true else null }
+    val swingFields = allSwingLabels.map { it to if (pg.swingTypes.contains(it)) true else null }
+    val sportsFields = allSportsLabels.map { it to if (pg.sportsCourts.contains(it)) true else null }
+    val exerciseFields = allExerciseLabels.map { it to if (pg.exerciseEquipment.contains(it)) true else null }
 
     // Photo validation confidence data
     val pv = pg.photoValidation

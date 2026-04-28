@@ -73,6 +73,72 @@ const packageLabels = {
   event_spotlight_14d: '14-day event spotlight',
 };
 
+function trackingPlacementLabel(raw) {
+  if (!raw || raw === 'unknown') return 'Unknown';
+  if (raw === 'featured_home') return 'Home featured';
+  if (raw === 'inline_listing') return 'Search listing';
+  if (raw === 'map_sponsored_pin') return 'Map pin';
+  return String(raw).replace(/_/g, ' ');
+}
+
+function downloadTextFile(filename, text) {
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function buildAnalyticsCsv(daily) {
+  const lines = [['date', 'impressions', 'clicks', 'ctr'].join(',')];
+  for (const row of daily || []) {
+    const d = row.date || row.ymd || '';
+    const imp = row.impressions ?? 0;
+    const clk = row.clicks ?? 0;
+    const ctr = row.ctr != null ? row.ctr : (imp > 0 ? clk / imp : 0);
+    lines.push([d, imp, clk, ctr].join(','));
+  }
+  return lines.join('\n');
+}
+
+function DailyImpressionsChart({ daily }) {
+  const days = useMemo(() => {
+    const list = [...(daily || [])].filter((d) => d && (d.date || d.ymd));
+    list.sort((a, b) => String(a.date || a.ymd).localeCompare(String(b.date || b.ymd)));
+    return list.slice(-21);
+  }, [daily]);
+  const maxImp = useMemo(
+    () => Math.max(1, ...days.map((d) => d.impressions || 0)),
+    [days],
+  );
+  if (days.length === 0) return null;
+  return (
+    <div className="hub-analytics-section">
+      <h4>Impressions trend</h4>
+      <p className="hub-analytics-sub">Bar height follows views per day (up to the last 21 days in the table below).</p>
+      <div className="hub-bar-chart" role="img" aria-label="Impressions by day">
+        {days.map((d) => {
+          const ymd = d.date || d.ymd;
+          const im = d.impressions || 0;
+          const h = Math.max(4, (im / maxImp) * 100);
+          return (
+            <div
+              key={ymd}
+              className="hub-bar-chart__col"
+              title={`${ymd}: ${im} views, ${d.clicks || 0} taps`}
+            >
+              <div className="hub-bar-chart__bar" style={{ height: `${h}%` }} />
+              <span className="hub-bar-chart__tick">{ymd.slice(5)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function AdPreviewCard({
   placement,
   isEvent,
@@ -856,7 +922,7 @@ export default function AdvertiserHubClient({ embedded = false }) {
             <div className="hub-detail-card">
               <h3>Selected campaign</h3>
               <p><strong>Status:</strong> {campaignDetail.campaign?.status || 'Unknown'}</p>
-              <p><strong>Where it appears:</strong> {campaignDetail.campaign?.placement || 'Not set'}</p>
+              <p><strong>Where it appears:</strong> {trackingPlacementLabel(campaignDetail.campaign?.placement)}</p>
               <p><strong>Areas included:</strong> {campaignDetail.campaign?.targetedCityLabels?.join(', ') || 'None'}</p>
               {campaignDetail.campaign?.creativePreview ? (
                 <AdPreviewCard
@@ -885,31 +951,152 @@ export default function AdvertiserHubClient({ embedded = false }) {
                   tone="pending"
                 />
               ) : null}
-              <div className="hub-stats-grid">
-                <div><strong>{campaignDetail.analytics?.totals?.impressions || 0}</strong><span>Total times shown</span></div>
-                <div><strong>{campaignDetail.analytics?.totals?.clicks || 0}</strong><span>Total taps</span></div>
-                <div><strong>{((campaignDetail.analytics?.totals?.ctr || 0) * 100).toFixed(1)}%</strong><span>Overall tap rate</span></div>
-              </div>
-              <div className="hub-table-wrap">
-                <table className="hub-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Times shown</th>
-                      <th>Taps</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(campaignDetail.analytics?.daily || []).map((row) => (
-                      <tr key={row.ymd}>
-                        <td>{row.ymd}</td>
-                        <td>{row.impressions || 0}</td>
-                        <td>{row.clicks || 0}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {(() => {
+                const a = campaignDetail.analytics || {};
+                const imps = a.totals?.impressions ?? a.impressions ?? 0;
+                const clks = a.totals?.clicks ?? a.clicks ?? 0;
+                const ctr = a.totals?.ctr != null
+                  ? a.totals.ctr
+                  : (imps > 0 ? clks / imps : 0);
+                const reach = a.totals?.uniqueReach ?? a.uniqueReach ?? 0;
+                const freq = a.totals?.frequency != null
+                  ? a.totals.frequency
+                  : a.frequency;
+                const daily = a.daily || [];
+                return (
+                  <>
+                    <div className="hub-stats-grid hub-stats-grid--four" style={{ marginTop: 16 }}>
+                      <div><strong>{imps.toLocaleString()}</strong><span>Times shown</span></div>
+                      <div><strong>{clks.toLocaleString()}</strong><span>Taps</span></div>
+                      <div><strong>{(ctr * 100).toFixed(2)}%</strong><span>Tap rate (CTR)</span></div>
+                      <div><strong>{reach.toLocaleString()}</strong><span>Est. unique viewers</span></div>
+                    </div>
+                    {typeof freq === 'number' && freq > 0 && (
+                      <p className="hub-analytics-sub" style={{ marginTop: 8 }}>
+                        Avg. impressions per viewer (frequency):
+                        <strong> {freq.toFixed(2)}</strong>
+                      </p>
+                    )}
+
+                    <div className="hub-analytics-section">
+                      <h4>By placement (screen)</h4>
+                      <p className="hub-analytics-sub">
+                        Shown and tapped in each inventory slot; map pins and search listings are tracked separately when both apply.
+                      </p>
+                      {(!a.byPlacement || a.byPlacement.length === 0) ? (
+                        <p className="hub-muted-copy">No placement detail yet. Open the app in your regions to accrue data.</p>
+                      ) : (
+                        <div className="hub-table-wrap">
+                          <table className="hub-table">
+                            <thead>
+                              <tr>
+                                <th>Placement</th>
+                                <th>Views</th>
+                                <th>Taps</th>
+                                <th>CTR</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {a.byPlacement.map((r) => (
+                                <tr key={r.placement || 'p'}>
+                                  <td>{trackingPlacementLabel(r.placement)}</td>
+                                  <td>{(r.impressions ?? 0).toLocaleString()}</td>
+                                  <td>{(r.clicks ?? 0).toLocaleString()}</td>
+                                  <td>{((r.ctr || 0) * 100).toFixed(2)}%</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="hub-analytics-section">
+                      <h4>By area (region key)</h4>
+                      <p className="hub-analytics-sub">Counts rely on the city/region the app sent when the event was recorded.</p>
+                      {(!a.byCity || a.byCity.length === 0) ? (
+                        <p className="hub-muted-copy">No regional breakdown yet.</p>
+                      ) : (
+                        <div className="hub-table-wrap">
+                          <table className="hub-table">
+                            <thead>
+                              <tr>
+                                <th>Area</th>
+                                <th>Region key</th>
+                                <th>Views</th>
+                                <th>Taps</th>
+                                <th>CTR</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {a.byCity.map((r) => (
+                                <tr key={r.cityId || r.label || 'c'}>
+                                  <td>{r.label || r.cityId || '—'}</td>
+                                  <td style={{ fontSize: 12, color: '#5a7d80' }}>{r.cityId || '—'}</td>
+                                  <td>{(r.impressions ?? 0).toLocaleString()}</td>
+                                  <td>{(r.clicks ?? 0).toLocaleString()}</td>
+                                  <td>{((r.ctr || 0) * 100).toFixed(2)}%</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    <DailyImpressionsChart daily={daily} />
+
+                    <div className="hub-analytics-section">
+                      <h4>Day-by-day</h4>
+                      <p className="hub-analytics-sub">Same daily totals as the mobile campaign screen; export for spreadsheets.</p>
+                      <div className="hub-actions-inline" style={{ marginBottom: 10 }}>
+                        <button
+                          type="button"
+                          className="btn btn-outline hub-btn-dark hub-csv-btn"
+                          onClick={() => {
+                            const title = (selectedCampaign || 'campaign').toString().replace(/[^\w-]+/g, '_');
+                            downloadTextFile(`ad-analytics-${title}.csv`, buildAnalyticsCsv(daily));
+                          }}
+                        >
+                          Download CSV
+                        </button>
+                      </div>
+                      <div className="hub-table-wrap">
+                        <table className="hub-table">
+                          <thead>
+                            <tr>
+                              <th>Date</th>
+                              <th>Times shown</th>
+                              <th>Taps</th>
+                              <th>CTR</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {daily.length === 0 ? (
+                              <tr><td colSpan={4}><span className="hub-muted-copy">No daily rows yet.</span></td></tr>
+                            ) : (
+                              daily.map((row) => {
+                                const ymd = row.date || row.ymd;
+                                const dCtr = row.ctr != null
+                                  ? row.ctr
+                                  : (row.impressions > 0 ? (row.clicks || 0) / row.impressions : 0);
+                                return (
+                                  <tr key={ymd}>
+                                    <td>{ymd}</td>
+                                    <td>{(row.impressions || 0).toLocaleString()}</td>
+                                    <td>{(row.clicks || 0).toLocaleString()}</td>
+                                    <td>{(dCtr * 100).toFixed(2)}%</td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           ) : null}
         </section>

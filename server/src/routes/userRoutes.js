@@ -35,6 +35,33 @@ function moderationReasonForUser(doc) {
     return merged.length > 0 ? merged.slice(0, 5).join('; ') : null;
 }
 
+function reviewDisplayNameByRules(value) {
+    const name = String(value || '').trim();
+    if (name.length < 2 || name.length > 30) {
+        return { appropriate: false, reason: "Display name must be 2-30 characters." };
+    }
+
+    if (!/^[A-Za-z0-9][A-Za-z0-9 .,'_-]{1,29}$/.test(name)) {
+        return { appropriate: false, reason: "Display name contains unsupported characters." };
+    }
+
+    const blockedPatterns = [
+        /\bhttps?:\/\//i,
+        /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i,
+        /(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}/,
+        /\b(onlyfans|nude|porn|sex|escort|hate|nazi|slur)\b/i,
+        /(.)\1{4,}/,
+    ];
+
+    for (const pattern of blockedPatterns) {
+        if (pattern.test(name)) {
+            return { appropriate: false, reason: "Display name is not appropriate." };
+        }
+    }
+
+    return { appropriate: true, reason: null, normalizedName: name };
+}
+
 // POST consent acceptance
 router.post("/consents", async (req, res) => {
     const db = getDb();
@@ -392,7 +419,7 @@ router.delete("/lists/:id", async (req, res) => {
     }
 });
 
-// PUT /api/users/me/display-name — set or clear contributor display name (validated by Gemini when setting)
+// PUT /api/users/me/display-name - set or clear contributor display name
 router.put("/users/me/display-name", async (req, res) => {
     const db = getDb();
     const userId = req.user?.uid;
@@ -402,7 +429,7 @@ router.put("/users/me/display-name", async (req, res) => {
     const clearRequested =
         clearDisplayName === true ||
         displayName === null ||
-        (typeof displayName === 'string' && displayName.trim() === '');
+        (typeof displayName === "string" && displayName.trim() === "");
 
     if (clearRequested) {
         try {
@@ -417,58 +444,20 @@ router.put("/users/me/display-name", async (req, res) => {
         }
     }
 
-    if (typeof displayName !== 'string' || displayName.trim().length < 2 || displayName.trim().length > 30) {
-        return res.status(400).json({ error: "Display name must be 2-30 characters." });
-    }
-
-    const name = displayName.trim();
-
-    // Gemini appropriateness check
-    try {
-        let ai;
-        try {
-            const { GoogleGenAI } = require('@google/genai');
-            ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        } catch (_) { ai = null; }
-
-        if (ai) {
-            const { retryWithBackoff } = require('../services/retryWithBackoff');
-            const { logGeminiCall } = require('../services/geminiCostLogger');
-            const model = process.env.GEMINI_MODEL_TEXT || process.env.GEMINI_MODEL_PRIMARY || 'gemini-2.5-flash';
-            const t0 = Date.now();
-            const response = await retryWithBackoff(
-                () => ai.models.generateContent({
-                    model,
-                    contents: `Is this display name appropriate for a family-friendly kids app? Name: "${name}". Respond with JSON only: { "appropriate": true/false, "reason": "brief explanation" }`,
-                }),
-                { maxRetries: 2, baseDelayMs: 1500, label: 'gemini-displayname' }
-            );
-            const text = (response.text || '').replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-            const parsed = JSON.parse(text);
-            logGeminiCall({
-                callSite: 'user.displayName',
-                model,
-                multimodal: false,
-                ms: Date.now() - t0,
-            });
-            if (!parsed.appropriate) {
-                return res.status(400).json({ error: parsed.reason || "Display name is not appropriate." });
-            }
-        }
-    } catch (err) {
-        // Fail open — if Gemini is unavailable, allow the name
-        console.warn('[displayName] Gemini check failed, allowing:', err.message);
+    const review = reviewDisplayNameByRules(displayName);
+    if (!review.appropriate) {
+        return res.status(400).json({ error: review.reason });
     }
 
     try {
         await db.collection("users").updateOne(
             { _id: userId },
-            { $set: { displayName: name, updatedAt: new Date() } },
+            { $set: { displayName: review.normalizedName, updatedAt: new Date() } },
             { upsert: true }
         );
-        res.json({ message: "success", displayName: name });
+        return res.json({ message: "success", displayName: review.normalizedName });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        return res.status(500).json({ error: err.message });
     }
 });
 
@@ -674,3 +663,4 @@ router.get('/users/me/submissions', async (req, res) => {
 });
 
 module.exports = router;
+

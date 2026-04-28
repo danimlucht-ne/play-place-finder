@@ -4,6 +4,15 @@
  */
 const axios = require('axios');
 const { GoogleGenAI } = require('@google/genai');
+const {
+  buildImageReviewKey,
+  buildTextReviewKey,
+  getCachedRecord,
+  normalizeText,
+  setCachedRecord,
+  IMAGE_REVIEW_COLLECTION,
+  TEXT_REVIEW_COLLECTION,
+} = require('./geminiModerationCache');
 
 let ai;
 try {
@@ -29,6 +38,18 @@ function getMultimodalModel() {
   return process.env.GEMINI_MODEL_MULTIMODAL || process.env.GEMINI_MODEL_PRIMARY || 'gemini-2.5-flash';
 }
 
+const TEXT_BLOCK_PATTERNS = [
+  { label: 'url', pattern: /https?:\/\//i },
+  { label: 'email', pattern: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i },
+  { label: 'phone', pattern: /(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}/ },
+  { label: 'off_app_contact', pattern: /\b(text me|dm me|telegram|whatsapp|snapchat|cashapp|venmo|zelle)\b/i },
+  { label: 'spam', pattern: /\b(click here|buy followers|crypto giveaway|guaranteed reviews?|limited time offer)\b/i },
+  { label: 'sexual_content', pattern: /\b(adult services?|onlyfans|sex(?:ual)?|nsfw|nude)\b/i },
+  { label: 'hate_or_slur', pattern: /\b(hate group|racial slur|white power|nazi)\b/i },
+];
+
+const SAFE_SHORT_TEXT_PATTERN = /^[a-z0-9\s:.,'"&()\-!/]+$/i;
+
 /**
  * Collect user-visible string fields for moderation (not coords / ids).
  */
@@ -52,6 +73,50 @@ function buildTextBundle({
   return parts.join('\n');
 }
 
+function ruleReviewTextBundle(textBundle) {
+  const normalized = normalizeText(textBundle);
+  if (!normalized) {
+    return null;
+  }
+
+  for (const { label, pattern } of TEXT_BLOCK_PATTERNS) {
+    if (pattern.test(textBundle)) {
+      return {
+        appropriate: false,
+        confidence: 0.99,
+        severity: 'high',
+        concerns: [`rule_blocked:${label}`],
+        blocked: true,
+        modelFailed: false,
+      };
+    }
+  }
+
+  const lineCount = textBundle
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .length;
+  const looksShortAndPlain =
+    normalized.length <= 120 &&
+    lineCount <= 3 &&
+    SAFE_SHORT_TEXT_PATTERN.test(textBundle) &&
+    !/(.)\1{4,}/.test(normalized);
+
+  if (looksShortAndPlain) {
+    return {
+      appropriate: true,
+      confidence: 0.98,
+      severity: 'none',
+      concerns: [],
+      blocked: false,
+      modelFailed: false,
+    };
+  }
+
+  return null;
+}
+
 async function reviewTextBundle(textBundle) {
   if (!textBundle || !textBundle.trim()) {
     return {
@@ -64,8 +129,20 @@ async function reviewTextBundle(textBundle) {
     };
   }
 
+  const cacheKey = buildTextReviewKey(textBundle);
+  const cached = await getCachedRecord(TEXT_REVIEW_COLLECTION, cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const ruleResult = ruleReviewTextBundle(textBundle);
+  if (ruleResult) {
+    await setCachedRecord(TEXT_REVIEW_COLLECTION, cacheKey, ruleResult, { source: 'rule' });
+    return ruleResult;
+  }
+
   if (!ai || !process.env.GEMINI_API_KEY) {
-    console.warn('[playgroundSubmissionReview] GEMINI_API_KEY missing — failing closed (queue)');
+    console.warn('[playgroundSubmissionReview] GEMINI_API_KEY missing - failing closed (queue)');
     return {
       appropriate: false,
       confidence: 0,
@@ -122,8 +199,13 @@ ${textBundle}
     const severity = ['none', 'low', 'medium', 'high'].includes(parsed.severity) ? parsed.severity : 'medium';
     const concerns = Array.isArray(parsed.concerns) ? parsed.concerns : [];
     const blocked = !!parsed.blocked || !appropriate || severity === 'high';
+    const result = { appropriate, confidence, severity, concerns, blocked, modelFailed: false };
 
-    return { appropriate, confidence, severity, concerns, blocked, modelFailed: false };
+    await setCachedRecord(TEXT_REVIEW_COLLECTION, cacheKey, result, {
+      source: 'gemini',
+      model,
+    });
+    return result;
   } catch (err) {
     console.error('[playgroundSubmissionReview] reviewTextBundle:', err.message);
     return {
@@ -138,9 +220,15 @@ ${textBundle}
 }
 
 /**
- * Vision check for inappropriate imagery (not playground-relevance — safety only).
+ * Vision check for inappropriate imagery (not playground-relevance - safety only).
  */
 async function reviewImageBuffer(buffer, mimeTypeHint, placeName) {
+  const cacheKey = buildImageReviewKey(buffer, placeName);
+  const cached = await getCachedRecord(IMAGE_REVIEW_COLLECTION, cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   if (!ai || !process.env.GEMINI_API_KEY) {
     return {
       appropriate: false,
@@ -158,7 +246,7 @@ Answer ONLY with JSON:
 {
   "appropriate": boolean,
   "confidence": number from 0 to 1,
-  "concerns": string[] (e.g. "nudity", "graphic violence", "hate symbols", "illegal activity", "not a place photo" — empty if fine)
+  "concerns": string[] (e.g. "nudity", "graphic violence", "hate symbols", "illegal activity", "not a place photo" - empty if fine)
 }
 
 appropriate=true only if the image is safe for a family app (no sexual content, no graphic gore, no hate symbols, no illegal activity) AND it could plausibly show the venue or a generic family-friendly scene there. Reject random memes, screenshots of chats, or clearly unrelated content.`;
@@ -198,7 +286,14 @@ appropriate=true only if the image is safe for a family app (no sexual content, 
     const appropriate = !!parsed.appropriate;
     const confidence = typeof parsed.confidence === 'number' ? parsed.confidence : 0;
     const concerns = Array.isArray(parsed.concerns) ? parsed.concerns : [];
-    return { appropriate, confidence, concerns, modelFailed: false };
+    const result = { appropriate, confidence, concerns, modelFailed: false };
+
+    await setCachedRecord(IMAGE_REVIEW_COLLECTION, cacheKey, result, {
+      source: 'gemini',
+      model,
+      placeName: placeName || null,
+    });
+    return result;
   } catch (err) {
     console.error('[playgroundSubmissionReview] reviewImageBuffer:', err.message);
     return {
@@ -277,7 +372,6 @@ async function reviewPlaygroundSubmission(fields) {
   if (text.severity === 'high') {
     autoApprove = false;
   }
-  // Medium severity: require higher confidence to auto-publish
   if (text.severity === 'medium' && text.confidence < Math.max(minConf, 0.9)) {
     autoApprove = false;
   }
@@ -301,4 +395,5 @@ async function reviewPlaygroundSubmission(fields) {
 module.exports = {
   reviewPlaygroundSubmission,
   buildTextBundle,
+  ruleReviewTextBundle,
 };

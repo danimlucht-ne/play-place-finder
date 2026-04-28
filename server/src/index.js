@@ -12,7 +12,22 @@ const multer = require('multer');
 const { GoogleGenAI, Type } = require('@google/genai');
 const axios = require('axios');
 const vision = require('@google-cloud/vision');
+const helmet = require('helmet');
 const { isOriginAllowed } = require('./utils/corsConfig');
+const {
+    ALLOWED_IMAGE_TYPES,
+    allowedMimeSet,
+    assertValidImageBuffer,
+    MAX_USER_UPLOAD_IMAGE_BYTES,
+} = require('./utils/imageUploadValidation');
+const {
+    authEndpointLimiter,
+    userImageUploadLimiter,
+    userMutationLimiter,
+    reportSupportMutationLimiter,
+    adminMutationLimiter,
+    limitWrites,
+} = require('./middleware/securityRateLimiters');
 
 // --- SERVICES ---
 const { verifyToken, verifyAdminToken, optionalVerifyToken } = require('./services/authService');
@@ -134,11 +149,18 @@ const visionClient = new vision.ImageAnnotatorClient(
         : {}
 );
 
-// 20MB cap here; if clients still see 413 + HTML, raise client_max_body_size on nginx / the load balancer
-// (Express never sees those requests).
-const upload = multer({
+const allowedImageMimes = allowedMimeSet();
+// User profile / submission photos via this endpoint only; validate MIME + magic bytes (see assertValidImageBuffer).
+const uploadImage = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 20 * 1024 * 1024 },
+    limits: { fileSize: MAX_USER_UPLOAD_IMAGE_BYTES },
+    fileFilter: (req, file, cb) => {
+        if (allowedImageMimes.has(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error(`Invalid image type. Allowed: ${ALLOWED_IMAGE_TYPES.join(', ')}`));
+        }
+    },
 });
 
 const storage = new Storage();
@@ -177,6 +199,11 @@ app.use('/api/ads/payments/webhook', express.raw({ type: 'application/json' }), 
 
 // JSON body parser for all other routes
 app.use(express.json());
+
+app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 
 // CORS for browser clients (web hub + marketing site calling API directly).
 app.use((req, res, next) => {
@@ -235,7 +262,7 @@ app.use('/:collection/:id', (req, res, next) => {
 app.use('/api/playgrounds', playgroundRoutes);
 // 9.7 — city completion meter: mount only the specific sub-path to avoid collision
 app.use('/api/cities', playgroundRoutes);
-app.use('/api/users', authRoutes);  // login + register (public)
+app.use('/api/users', authEndpointLimiter, authRoutes);  // login + register (public)
 app.use('/api/ads', adServingLimiter, adServingRoutes); // public ad serving (house ads, no auth needed)
 
 // Health check — public, no auth, for uptime monitors
@@ -251,24 +278,30 @@ app.use(verifyToken);
 
 // Simple image upload endpoint — accepts multipart form data, stores in GCS, returns URL
 const { uploadBufferToPublic } = require('./services/storageService');
-app.post('/api/upload-image', upload.single('image'), async (req, res) => {
+app.post('/api/upload-image', userImageUploadLimiter, uploadImage.single('image'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No image file provided.' });
-        const url = await uploadBufferToPublic(req.file.buffer, 'user-uploads');
+        const { contentType } = await assertValidImageBuffer(req.file.buffer, req.file.mimetype, {
+            maxBytes: MAX_USER_UPLOAD_IMAGE_BYTES,
+        });
+        const url = await uploadBufferToPublic(req.file.buffer, 'user-uploads', { contentType });
         res.json({ message: 'success', url });
     } catch (err) {
+        if (err.statusCode === 400) {
+            return res.status(400).json({ error: err.message });
+        }
         console.error('[upload-image] Error:', err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
-app.use('/api', userRoutes);
+app.use('/api', limitWrites(userMutationLimiter), userRoutes);
 // Log tail is mounted at /admin and /api/admin so a reverse proxy that only forwards /api/* still reaches it.
 app.use('/admin', adminServerLogRoutes);
 app.use('/api/admin', adminServerLogRoutes);
-app.use('/admin', adminRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/support', supportRoutes);
+app.use('/admin', limitWrites(adminMutationLimiter), adminRoutes);
+app.use('/api/reports', limitWrites(reportSupportMutationLimiter), reportRoutes);
+app.use('/api/support', limitWrites(reportSupportMutationLimiter), supportRoutes);
 app.use('/api', seedRoutes);
 app.use('/api/regions', regionRoutes);
 app.use('/api/advertisers', advertiserRoutes);
@@ -285,6 +318,21 @@ app.use('/api/ads/discounts', adDiscountValidateRoutes);
 // Default response for any other request
 app.use(function(req, res) {
     res.status(404).send("Not Found");
+});
+
+app.use((err, req, res, next) => {
+    if (res.headersSent) return next(err);
+    if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ error: 'File too large.' });
+        }
+        return res.status(400).json({ error: err.message || 'Upload error.' });
+    }
+    const msg = err && err.message ? String(err.message) : '';
+    if (msg.includes('Invalid image type')) {
+        return res.status(400).json({ error: msg });
+    }
+    next(err);
 });
 
 /**

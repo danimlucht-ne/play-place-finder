@@ -234,7 +234,9 @@ describe('adTrackingService', () => {
           { _id: { date: '2026-04-09', type: 'click' }, count: 1 },
           { _id: { date: '2026-04-10', type: 'impression' }, count: 5, visitors: ['c', 'd'] },
         ]),
-      });
+      })
+      .mockReturnValueOnce({ toArray: jest.fn().mockResolvedValue([]) })
+      .mockReturnValueOnce({ toArray: jest.fn().mockResolvedValue([]) });
     getDb.mockReturnValue({
       collection: jest.fn((name) => {
         if (name === 'adEvents') return { aggregate };
@@ -262,6 +264,8 @@ describe('adTrackingService', () => {
         { date: '2026-04-09', impressions: 5, clicks: 1, uniqueReach: 2, frequency: 2.5, ctr: 0.2 },
         { date: '2026-04-10', impressions: 5, clicks: 0, uniqueReach: 2, frequency: 2.5, ctr: 0 },
       ],
+      byPlacement: [],
+      byCity: [],
     });
     expect(aggregate.mock.calls[0][0][0].$match).toEqual({
       campaignId,
@@ -281,7 +285,9 @@ describe('adTrackingService', () => {
           { _id: { date: '2026-04-10', type: 'impression' }, count: 3, visitors: ['c'] },
           { _id: { date: '2026-04-10', type: 'click' }, count: 1 },
         ]),
-      });
+      })
+      .mockReturnValueOnce({ toArray: jest.fn().mockResolvedValue([]) })
+      .mockReturnValueOnce({ toArray: jest.fn().mockResolvedValue([]) });
     getDb.mockReturnValue({
       collection: jest.fn((name) => {
         if (name === 'adEvents') return { aggregate };
@@ -316,6 +322,8 @@ describe('adTrackingService', () => {
         { date: '2026-04-09', impressions: 8, clicks: 2, uniqueReach: 4, frequency: 2, ctr: 0.25 },
         { date: '2026-04-10', impressions: 3, clicks: 1, uniqueReach: 1, frequency: 3, ctr: 1 / 3 },
       ],
+      byPlacement: [],
+      byCity: [],
     });
   });
 });

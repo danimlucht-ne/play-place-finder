@@ -1069,6 +1069,67 @@ a:hover { text-decoration: underline; }
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
+.hub-analytics-section {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(0, 180, 184, 0.15);
+}
+.hub-analytics-section h4 {
+  margin: 0 0 10px 0;
+  font-size: 15px;
+  color: #153132;
+  font-weight: 650;
+}
+.hub-analytics-sub {
+  font-size: 13px;
+  color: #557173;
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+}
+.hub-bar-chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: stretch;
+  gap: 4px;
+  min-height: 140px;
+  padding: 8px 0 4px;
+  border-radius: 12px;
+  background: rgba(0, 180, 184, 0.06);
+}
+.hub-bar-chart__col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 120px;
+  justify-content: flex-end;
+}
+.hub-bar-chart__bar {
+  width: 100%;
+  max-width: 100%;
+  border-radius: 6px 6px 2px 2px;
+  background: linear-gradient(180deg, #00b4b8, #4dd4d6);
+  min-height: 4px;
+  transition: opacity 0.15s;
+}
+.hub-bar-chart__col:hover .hub-bar-chart__bar {
+  opacity: 0.9;
+}
+.hub-bar-chart__tick {
+  font-size: 10px;
+  color: #5a7d80;
+  margin-top: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: center;
+}
+.hub-csv-btn {
+  margin-top: 10px;
+  font-size: 14px;
+}
 .hub-json-block {
   margin-top: 14px;
   border-radius: 14px;

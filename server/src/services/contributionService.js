@@ -1,10 +1,59 @@
 const { ObjectId } = require('mongodb');
 const { getDb } = require('../database');
 
-// 5.1 — derive a stable region key from a city string
-function normalizeRegionKey(city) {
-    if (!city) return null;
-    return city.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+// 5.1 — derive a stable region key from city/state.
+// Keep underscore-separated format for compatibility with existing contributor tests/data.
+function normalizeRegionKey(city, state = null) {
+    if (city == null) return null;
+    const cityRaw = String(city);
+    if (cityRaw === '') return null;
+    const cityTrim = cityRaw.trim();
+    let stateRaw = String(state || '').trim();
+    if (!cityTrim) return '';
+
+    // Backwards compatibility: callers that only have "City, ST" can still produce city-state.
+    let cityPart = cityTrim;
+    if (!stateRaw && cityTrim.includes(',')) {
+        const [left, right] = cityTrim.split(',', 2);
+        cityPart = String(left || '').trim();
+        stateRaw = String(right || '').trim();
+    }
+
+    const citySlug = cityPart
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+    if (!citySlug) return null;
+
+    const stateSlug = stateRaw
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 2);
+    return stateSlug ? `${citySlug}_${stateSlug}` : citySlug;
+}
+
+function normalizeContributionLocation(locationContext) {
+    if (locationContext == null) return { city: null, state: null, regionKey: null };
+    if (typeof locationContext === 'string') {
+        const city = locationContext.trim() || null;
+        return {
+            city,
+            state: null,
+            regionKey: city ? normalizeRegionKey(city) : null,
+        };
+    }
+    if (typeof locationContext === 'object') {
+        const city = String(locationContext.city || '').trim() || null;
+        const state = String(locationContext.state || '').trim() || null;
+        const explicitRegion = String(locationContext.regionKey || '').trim() || null;
+        return {
+            city,
+            state,
+            regionKey: explicitRegion || (city ? normalizeRegionKey(city, state) : null),
+        };
+    }
+    return { city: null, state: null, regionKey: null };
 }
 
 const CONTRIBUTION_POINTS = {
@@ -71,7 +120,7 @@ async function assignLevel(score) {
     return CONTRIBUTOR_LEVELS[0].name; // Default to the lowest level
 }
 
-async function recordContribution(userId, type, submissionId, city = null) {
+async function recordContribution(userId, type, submissionId, locationContext = null) {
     const db = getDb();
     const points = CONTRIBUTION_POINTS[type] || 0;
     const fieldName = CONTRIBUTION_FIELD_MAP[type];
@@ -86,13 +135,16 @@ async function recordContribution(userId, type, submissionId, city = null) {
         return;
     }
 
+    const normalizedLocation = normalizeContributionLocation(locationContext);
+
     await db.collection('contribution_log').insertOne({
         userId,
         type,
         submissionId,
         scoreValue: points,
-        city: city || null,
-        regionKey: city ? normalizeRegionKey(city) : null,
+        city: normalizedLocation.city,
+        state: normalizedLocation.state,
+        regionKey: normalizedLocation.regionKey,
         createdAt: new Date(),
     });
 
@@ -115,10 +167,11 @@ async function recordContribution(userId, type, submissionId, city = null) {
         updatedAt: new Date(),
     };
 
-    // 5.1 — set city and derive regionKey on first contribution with a city
-    if (city && !user.city) {
-        updateFields.city = city;
-        updateFields.regionKey = normalizeRegionKey(city);
+    // Keep contributor region aligned with latest known contribution geography.
+    if (normalizedLocation.city) {
+        updateFields.city = normalizedLocation.city;
+        if (normalizedLocation.state) updateFields.state = normalizedLocation.state;
+        if (normalizedLocation.regionKey) updateFields.regionKey = normalizedLocation.regionKey;
     }
 
     // 5.5 — grant ad-free perk when score crosses threshold (never revoke)

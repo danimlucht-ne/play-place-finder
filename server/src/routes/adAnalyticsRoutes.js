@@ -97,11 +97,27 @@ router.get('/campaigns/:id', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const analytics = await adTrackingService.getCampaignAnalytics(
+    const rawAnalytics = await adTrackingService.getCampaignAnalytics(
       campaignId,
       campaign.startDate,
       campaign.endDate
     );
+
+    const cityKeysForLabels = (rawAnalytics.byCity || [])
+      .map((r) => r.cityId)
+      .filter((k) => k && k !== 'unknown');
+    const cityLabelMap = cityKeysForLabels.length
+      ? await regionKeyToLabelMap(db, cityKeysForLabels)
+      : {};
+    const analytics = {
+      ...rawAnalytics,
+      byCity: (rawAnalytics.byCity || []).map((r) => ({
+        ...r,
+        label: r.cityId === 'unknown'
+          ? 'Not attributed'
+          : (cityLabelMap[r.cityId] || r.cityId),
+      })),
+    };
 
     const keys = campaign.targetedRegionKeys && campaign.targetedRegionKeys.length
       ? campaign.targetedRegionKeys.map((k) => String(k))

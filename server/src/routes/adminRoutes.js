@@ -12,6 +12,7 @@ const {
     getCityGrowthSummary,
 } = require('../services/adminDailyTrendsService');
 const contributionService = require('../services/contributionService');
+const { DEFAULT_VOCAB, getClassificationVocab, upsertClassificationVocab } = require('../services/classificationVocabService');
 const { applyApprovedSuggestion, buildTargetPlaygroundSummary, parseFeatureSuggestionMessage } = require('../services/suggestionApprovalService');
 const seedOrchestratorService = require('../services/seedOrchestratorService');
 const { enqueueLightRefreshIfNeeded } = require('../services/seedJobQueueService');
@@ -281,7 +282,7 @@ router.post('/support-tickets/:id/approve-suggestion', async (req, res) => {
         const beforePg = await db.collection('playgrounds').findOne(targetFilter);
 
         stage = 'apply';
-        const { appliedLabel, cityForPoints } = await applyApprovedSuggestion(db, targetPlaygroundId, cat, raw);
+        const { appliedLabel, cityForPoints, stateForPoints, regionKeyForPoints } = await applyApprovedSuggestion(db, targetPlaygroundId, cat, raw);
 
         stage = 'load_after';
         const afterPg = await db.collection('playgrounds').findOne(targetFilter);
@@ -344,7 +345,7 @@ router.post('/support-tickets/:id/approve-suggestion', async (req, res) => {
                     ticket.actorUserId,
                     'SUGGESTION_APPROVED',
                     ticket._id.toHexString(),
-                    cityForPoints
+                    { city: cityForPoints, state: stateForPoints, regionKey: regionKeyForPoints }
                 );
             } catch (contribErr) {
                 console.error('[approve-suggestion] contribution failed (non-fatal):',
@@ -620,6 +621,30 @@ router.post('/category-options/:id/reject', async (req, res) => {
     }
 });
 
+// GET /admin/classification-vocab — current photo-classification vocabulary
+router.get('/classification-vocab', async (_req, res) => {
+    try {
+        const data = await getClassificationVocab();
+        res.json({ message: 'success', data, defaults: DEFAULT_VOCAB });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /admin/classification-vocab — upsert one or more vocab arrays
+router.post('/classification-vocab', async (req, res) => {
+    const { equipment, swingTypes, amenities, groundSurface, sportsCourts } = req.body || {};
+    try {
+        const data = await upsertClassificationVocab({
+            updates: { equipment, swingTypes, amenities, groundSurface, sportsCourts },
+            actorUserId: req.user && req.user.uid ? req.user.uid : null,
+        });
+        res.json({ message: 'success', data });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
 // ─── Monthly Awards (5.8) ─────────────────────────────────────────────────────
 // POST /admin/awards/run-monthly
 router.post('/awards/run-monthly', async (req, res) => {
@@ -706,7 +731,12 @@ router.post("/moderation/:id/approve-photo", verifyAdminToken, async (req, res) 
         const photoRecord = await db.collection("photo_uploads").findOne({ _id: new ObjectId(item.submissionId) });
         if (photoRecord?.uploadedBy) {
             const playground = await db.collection("playgrounds").findOne({ _id: new ObjectId(item.playgroundId) });
-            await contributionService.recordContribution(photoRecord.uploadedBy, 'PHOTO', item.submissionId, playground?.city);
+            await contributionService.recordContribution(
+                photoRecord.uploadedBy,
+                'PHOTO',
+                item.submissionId,
+                { city: playground?.city, state: playground?.state, regionKey: playground?.regionKey }
+            );
             await notifyUser(db, photoRecord.uploadedBy, `Your photo for "${item.playgroundName}" was approved! You earned points.`);
         }
 
@@ -795,7 +825,7 @@ router.post("/moderation/:id/approve-new-playground", verifyAdminToken, async (r
                 item.submittedByUserId,
                 'NEW_PLAYGROUND',
                 result.insertedId.toHexString(),
-                playground?.city,
+                { city: playground?.city, state: playground?.state, regionKey: playground?.regionKey },
             );
             await notifyUser(
                 db,
@@ -879,7 +909,12 @@ router.post("/moderation/:id/approve-edit", verifyAdminToken, async (req, res) =
         let playgroundAfter = null;
         if (item.submittedByUserId) {
             playgroundAfter = await db.collection("playgrounds").findOne({ _id: new ObjectId(item.playgroundId) });
-            await contributionService.recordContribution(item.submittedByUserId, 'PLAYGROUND_EDIT', item.playgroundId, playgroundAfter?.city);
+            await contributionService.recordContribution(
+                item.submittedByUserId,
+                'PLAYGROUND_EDIT',
+                item.playgroundId,
+                { city: playgroundAfter?.city, state: playgroundAfter?.state, regionKey: playgroundAfter?.regionKey }
+            );
             await notifyUser(db, item.submittedByUserId, `Your edit to "${item.playgroundName}" was approved! You earned points.`);
         }
 

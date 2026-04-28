@@ -13,6 +13,7 @@ const { logGeminiCall } = require('../services/geminiCostLogger');
 const {
   buildTextBundle,
   reviewPlaygroundSubmission,
+  ruleReviewTextBundle,
 } = require('../services/playgroundSubmissionReviewService');
 
 describe('playgroundSubmissionReviewService', () => {
@@ -61,6 +62,26 @@ describe('playgroundSubmissionReviewService', () => {
       'playgroundType: park',
       'customAmenities: story walk, sandbox',
     ].join('\n'));
+  });
+
+  test('ruleReviewTextBundle blocks obvious spam/off-app contact and auto-approves plain short text', () => {
+    expect(ruleReviewTextBundle('name: Elm Park\ndescription: Nice slides')).toEqual({
+      appropriate: true,
+      confidence: 0.98,
+      severity: 'none',
+      concerns: [],
+      blocked: false,
+      modelFailed: false,
+    });
+
+    expect(ruleReviewTextBundle('description: click here and text me at 402-555-1212')).toEqual({
+      appropriate: false,
+      confidence: 0.99,
+      severity: 'high',
+      concerns: ['rule_blocked:phone'],
+      blocked: true,
+      modelFailed: false,
+    });
   });
 
   test('auto-approves empty safe submissions without calling Gemini or fetching images', async () => {
@@ -150,6 +171,24 @@ describe('playgroundSubmissionReviewService', () => {
       callSite: 'playgroundSubmissionReview.image',
       multimodal: true,
     }));
+  });
+
+  test('uses rule-first text approval to skip Gemini for simple safe copy', async () => {
+    const result = await reviewPlaygroundSubmission({
+      name: 'Elm Park',
+      description: 'Nice slides',
+    });
+
+    expect(result.autoApprove).toBe(true);
+    expect(result.text).toEqual({
+      appropriate: true,
+      confidence: 0.98,
+      severity: 'none',
+      concerns: [],
+      blocked: false,
+      modelFailed: false,
+    });
+    expect(mockGenerateContent).not.toHaveBeenCalled();
   });
 
   test('requires admin review for blocked text, medium severity below stricter threshold, or failed image fetches', async () => {

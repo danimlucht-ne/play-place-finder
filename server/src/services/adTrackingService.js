@@ -250,6 +250,8 @@ async function getCampaignAnalytics(campaignId, startDate, endDate) {
   const mergedClicks = daily.reduce((sum, d) => sum + (d.clicks || 0), 0);
   const mergedReach = daily.reduce((sum, d) => sum + (d.uniqueReach || 0), 0);
 
+  const { byPlacement, byCity } = await getCampaignDimensionBreakdowns(db, matchStage);
+
   return {
     impressions: rollups.length > 0 ? mergedImpressions : impressions,
     clicks: rollups.length > 0 ? mergedClicks : clicks,
@@ -261,7 +263,70 @@ async function getCampaignAnalytics(campaignId, startDate, endDate) {
       ? (rollups.length > 0 ? mergedImpressions : impressions) / (rollups.length > 0 ? mergedReach : uniqueReach)
       : 0,
     daily,
+    byPlacement,
+    byCity,
   };
+}
+
+/**
+ * Per-placement and per-city (region key) event counts for advertiser breakdown tables / charts.
+ */
+async function getCampaignDimensionBreakdowns(db, matchStage) {
+  const typeCountRows = await db.collection('adEvents').aggregate([
+    { $match: matchStage },
+    {
+      $group: {
+        _id: { dim: { $ifNull: ['$placement', ''] }, type: '$type' },
+        count: { $sum: 1 },
+      },
+    },
+  ]).toArray();
+
+  const byPl = new Map();
+  for (const row of typeCountRows) {
+    const key = String(row._id.dim || '').trim() || 'unknown';
+    if (!byPl.has(key)) byPl.set(key, { impressions: 0, clicks: 0 });
+    const m = byPl.get(key);
+    if (row._id.type === 'impression') m.impressions = row.count;
+    if (row._id.type === 'click') m.clicks = row.count;
+  }
+  const byPlacement = Array.from(byPl.entries())
+    .map(([placement, v]) => ({
+      placement,
+      impressions: v.impressions,
+      clicks: v.clicks,
+      ctr: v.impressions > 0 ? v.clicks / v.impressions : 0,
+    }))
+    .sort((a, b) => b.impressions - a.impressions);
+
+  const cityTypeRows = await db.collection('adEvents').aggregate([
+    { $match: matchStage },
+    {
+      $group: {
+        _id: { city: { $ifNull: ['$cityId', ''] }, type: '$type' },
+        count: { $sum: 1 },
+      },
+    },
+  ]).toArray();
+
+  const byCityMap = new Map();
+  for (const row of cityTypeRows) {
+    const key = String(row._id.city || '').trim() || 'unknown';
+    if (!byCityMap.has(key)) byCityMap.set(key, { impressions: 0, clicks: 0 });
+    const m = byCityMap.get(key);
+    if (row._id.type === 'impression') m.impressions = row.count;
+    if (row._id.type === 'click') m.clicks = row.count;
+  }
+  const byCity = Array.from(byCityMap.entries())
+    .map(([cityId, v]) => ({
+      cityId,
+      impressions: v.impressions,
+      clicks: v.clicks,
+      ctr: v.impressions > 0 ? v.clicks / v.impressions : 0,
+    }))
+    .sort((a, b) => b.impressions - a.impressions);
+
+  return { byPlacement, byCity };
 }
 
 /**

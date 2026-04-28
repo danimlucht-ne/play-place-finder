@@ -13,13 +13,22 @@ const quarantineBucket = storage.bucket("playground_app_bucket"); // same bucket
  * Uploads an image buffer to the public GCS bucket and returns the public HTTPS URL.
  * @param {Buffer} buffer - image data
  * @param {string} [folder] - optional subfolder, e.g. "masked-photos"
+ * @param {{ contentType?: string }} [options] - when set, extension and GCS metadata match the real type (default image/jpeg)
  * @returns {Promise<string>} public URL
  */
-async function uploadBufferToPublic(buffer, folder = 'masked-photos') {
-    const filename = `${folder}/${randomUUID()}.jpg`;
+async function uploadBufferToPublic(buffer, folder = 'masked-photos', options = {}) {
+    const contentType = options.contentType || 'image/jpeg';
+    const extByMime = {
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/webp': 'webp',
+        'image/gif': 'gif',
+    };
+    const ext = extByMime[contentType] || 'jpg';
+    const filename = `${folder}/${randomUUID()}.${ext}`;
     const file = publicBucket.file(filename);
     await file.save(buffer, {
-        metadata: { contentType: 'image/jpeg' },
+        metadata: { contentType },
     });
     return `https://storage.googleapis.com/playground_app_bucket/${filename}`;
 }

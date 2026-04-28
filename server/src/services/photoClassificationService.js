@@ -1,14 +1,61 @@
 const { GoogleGenAI } = require('@google/genai');
 const { logGeminiCall } = require('./geminiCostLogger');
 const { resizeForGemini, getMaxEdge } = require('./geminiImageResize');
+const { getClassificationVocab } = require('./classificationVocabService');
+const {
+    buildDescriptionKey,
+    buildPhotoSummaryKey,
+    DESCRIPTION_COLLECTION,
+    getCachedRecord,
+    normalizeName,
+    setCachedRecord,
+    PHOTO_SUMMARY_COLLECTION,
+} = require('./geminiModerationCache');
 
 let ai;
+
+function quotedList(values) {
+    return (Array.isArray(values) ? values : [])
+        .map((v) => `"${String(v)}"`)
+        .join(', ');
+}
 
 try {
     ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 } catch (error) {
     console.error("Error initializing GoogleGenAI. Check GEMINI_API_KEY.", error.message);
     ai = { models: { generateContent: async () => ({ text: '{ "photoUseful": false, "playgroundVisible": false, "peopleDetected": true, "recommendedAction": "REJECT", "confidence": 0.0, "notes": "AI not initialized." }' }) } };
+}
+
+function getVenueContextKey(placeTypes = [], placeName = "") {
+    const types = Array.isArray(placeTypes) ? placeTypes : [];
+    const typesLower = types.map((t) => String(t).toLowerCase());
+    const nameLower = String(placeName || "").toLowerCase();
+
+    const isLibrary = typesLower.some((t) => t.includes("library"));
+    const isZoo = typesLower.some((t) => t.includes("zoo"));
+    const isAquarium = typesLower.some((t) => t.includes("aquarium"));
+    const isMuseum = typesLower.some((t) => t.includes("museum"));
+    const isArcade = typesLower.some((t) => t.includes("arcade") || t.includes("amusement_arcade"))
+        || nameLower.includes("arcade")
+        || nameLower.includes("beercade")
+        || nameLower.includes("brewcade");
+    const isWaterVenue =
+        typesLower.includes("swimming_pool") ||
+        /\bsplash\b|spray\s*pad|sprayground|water\s*park|waterpark|aquatic|natatorium|\bpool\b/i.test(nameLower);
+    const isBarVenue =
+        typesLower.some((t) => t.includes("bar") || t.includes("night_club") || t.includes("liquor_store"))
+        || nameLower.includes("beercade")
+        || nameLower.includes("brewcade");
+
+    if (isBarVenue) return "bar";
+    if (isLibrary) return "library";
+    if (isZoo) return "zoo";
+    if (isAquarium) return "aquarium";
+    if (isMuseum) return "museum";
+    if (isArcade) return "arcade";
+    if (isWaterVenue) return "water";
+    return "default";
 }
 
 async function getGeminiSummary(imageBuffer, faceCount, placeTypes = [], placeName = "") {
@@ -36,6 +83,12 @@ async function getGeminiSummary(imageBuffer, faceCount, placeTypes = [], placeNa
     const types = Array.isArray(placeTypes) ? placeTypes : [];
     const typesLower = types.map(t => String(t).toLowerCase());
     const nameLower = String(placeName || "").toLowerCase();
+    const contextKey = `${getVenueContextKey(types, placeName)}|faces:${faceCount}|name:${normalizeName(placeName)}`;
+    const cacheKey = buildPhotoSummaryKey(imageBuffer, contextKey);
+    const cached = await getCachedRecord(PHOTO_SUMMARY_COLLECTION, cacheKey);
+    if (cached) {
+        return cached;
+    }
 
     const isLibrary = typesLower.some(t => t.includes("library"));
     const isZoo = typesLower.some(t => t.includes("zoo"));
@@ -52,6 +105,7 @@ async function getGeminiSummary(imageBuffer, faceCount, placeTypes = [], placeNa
         typesLower.some(t => t.includes("bar") || t.includes("night_club") || t.includes("liquor_store"))
         || nameLower.includes("beercade")
         || nameLower.includes("brewcade");
+    const vocab = await getClassificationVocab();
 
     // If something is marketed/typed as a bar venue, we do not treat it as a valid play place
     // (even if it also has games). This matches your "bar should not be a play place" rule.
@@ -134,11 +188,11 @@ async function getGeminiSummary(imageBuffer, faceCount, placeTypes = [], placeNa
         - confidence: your confidence (0.0 to 1.0) in the recommendedAction.
         - notes: brief explanation mentioning what evidence (books/animals/exhibits/play equipment) you used to decide.
         - detectedFeatures: an object with the following optional arrays. Only include items you can clearly see in the photo — do not guess.
-          - equipment: visible play equipment from this list: "Swings", "Slide", "Climbing Wall", "Monkey Bars", "Sandbox", "Seesaw", "Spring Riders", "Balance Beam", "Zip Line", "Trampoline", "Tunnel", "Merry-Go-Round"
-          - swingTypes: if swings are visible, which types: "Belt", "Bucket", "Tire", "Accessible"
-          - amenities: visible amenities from this list: "Bathrooms", "Shade", "Fenced", "Picnic Tables", "Bottle Filler", "Benches", "Trash Cans", "Parking", "Splash Pad"
-          - groundSurface: the ground surface type if visible: "Grass", "Rubber", "Wood Chips", "Sand", "Pea Gravel", "Concrete", "Turf"
-          - sportsCourts: visible sports courts/fields: "Basketball", "Soccer", "Tennis", "Pickleball", "Volleyball", "Baseball", "Football"
+          - equipment: visible play equipment from this list: ${quotedList(vocab.equipment)}
+          - swingTypes: if swings are visible, which types: ${quotedList(vocab.swingTypes)}
+          - amenities: visible amenities from this list: ${quotedList(vocab.amenities)}
+          - groundSurface: the ground surface type if visible: ${quotedList(vocab.groundSurface)}
+          - sportsCourts: visible sports courts/fields: ${quotedList(vocab.sportsCourts)}
         Ensure the response is valid JSON and strictly follows the schema. Do not add any text outside the JSON object.
     `;
 
@@ -191,6 +245,11 @@ async function getGeminiSummary(imageBuffer, faceCount, placeTypes = [], placeNa
                         model,
                         multimodal: true,
                         ms: Date.now() - t0,
+                    });
+                    await setCachedRecord(PHOTO_SUMMARY_COLLECTION, cacheKey, parsedResponse, {
+                        source: 'gemini',
+                        model,
+                        contextKey,
                     });
                     return parsedResponse;
                 } catch (parseError) {
@@ -299,6 +358,12 @@ async function getGeminiDescription(placeName, placeTypes, heroImageBuffer = nul
         return '';
     }
 
+    const cacheKey = buildDescriptionKey(placeName, placeTypes, editorialSummary, heroImageBuffer);
+    const cached = await getCachedRecord(DESCRIPTION_COLLECTION, cacheKey);
+    if (cached && typeof cached.description === 'string') {
+        return cached.description;
+    }
+
     const modelText = process.env.GEMINI_MODEL_TEXT || process.env.GEMINI_MODEL_PRIMARY || 'gemini-2.5-flash';
     const modelMultimodal = process.env.GEMINI_MODEL_MULTIMODAL || process.env.GEMINI_MODEL_PRIMARY || 'gemini-2.5-flash';
     const types = (placeTypes || []).join(', ');
@@ -343,11 +408,24 @@ Rules:
     try {
         const textOnly = await runGenerate([{ text: prompt }], modelText, 'text');
         if (textOnly.length > 10) {
+            await setCachedRecord(DESCRIPTION_COLLECTION, cacheKey, { description: textOnly }, {
+                source: 'gemini',
+                model: modelText,
+                mode: 'text',
+            });
             return textOnly;
         }
 
         if (!heroImageBuffer) {
-            return textOnly.length > 0 ? textOnly : '';
+            const fallback = textOnly.length > 0 ? textOnly : '';
+            if (fallback) {
+                await setCachedRecord(DESCRIPTION_COLLECTION, cacheKey, { description: fallback }, {
+                    source: 'gemini',
+                    model: modelText,
+                    mode: 'text-fallback',
+                });
+            }
+            return fallback;
         }
 
         let imgBuf = heroImageBuffer;
@@ -363,7 +441,15 @@ Rules:
             modelMultimodal,
             'image',
         );
-        return withImage.length > 10 ? withImage : textOnly;
+        const result = withImage.length > 10 ? withImage : textOnly;
+        if (result.length > 0) {
+            await setCachedRecord(DESCRIPTION_COLLECTION, cacheKey, { description: result }, {
+                source: 'gemini',
+                model: withImage.length > 10 ? modelMultimodal : modelText,
+                mode: withImage.length > 10 ? 'image' : 'text-fallback',
+            });
+        }
+        return result;
     } catch (err) {
         console.error(`[gemini] getGeminiDescription failed for "${placeName}":`, err.message);
         return '';

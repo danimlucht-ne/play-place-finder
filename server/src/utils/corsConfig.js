@@ -20,7 +20,16 @@ function parseCsv(value) {
 
 function getAllowedOrigins(env = process.env) {
   const configured = parseCsv(env.CORS_ALLOWED_ORIGINS);
-  return Array.from(new Set([...DEFAULT_ALLOWED_ORIGINS, ...configured]));
+  let defaults = DEFAULT_ALLOWED_ORIGINS;
+  const production = String(env.NODE_ENV || '').toLowerCase() === 'production';
+  const allowLocal =
+    env.CORS_ALLOW_LOCALHOST === 'true' || env.CORS_ALLOW_LOCALHOST === '1';
+  if (production && !allowLocal) {
+    defaults = defaults.filter(
+      (o) => !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(o),
+    );
+  }
+  return Array.from(new Set([...defaults, ...configured]));
 }
 
 function isOriginAllowed(origin, env = process.env) {

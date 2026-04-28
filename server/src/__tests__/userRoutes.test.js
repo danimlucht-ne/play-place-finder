@@ -280,6 +280,22 @@ describe('userRoutes', () => {
     expect(updateOne).toHaveBeenCalledTimes(1);
   });
 
+  test('saves safe contributor display names and rejects obvious unsafe ones without model dependencies', async () => {
+    const updateOne = jest.fn().mockResolvedValue({ matchedCount: 1 });
+    getDb.mockReturnValue(makeDb({ users: { updateOne } }));
+
+    const saved = await request(buildApp()).put('/users/me/display-name').send({ displayName: 'Play Scout' }).expect(200);
+    expect(saved.body).toEqual({ message: 'success', displayName: 'Play Scout' });
+    expect(updateOne).toHaveBeenCalledWith(
+      { _id: 'user-1' },
+      { $set: { displayName: 'Play Scout', updatedAt: expect.any(Date) } },
+      { upsert: true },
+    );
+
+    const blocked = await request(buildApp()).put('/users/me/display-name').send({ displayName: 'text me 402-555-1212' }).expect(400);
+    expect(blocked.body).toEqual({ error: 'Display name is not appropriate.' });
+  });
+
   test('delete account anonymizes user content and removes stored photo objects', async () => {
     const updateMany = jest.fn();
     const deleteMany = jest.fn();

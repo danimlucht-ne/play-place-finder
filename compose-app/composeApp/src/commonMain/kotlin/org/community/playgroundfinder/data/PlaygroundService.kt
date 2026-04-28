@@ -399,7 +399,33 @@ data class AdCampaignListEnvelope(val message: String = "", val data: List<AdCam
 data class CampaignAnalyticsData(val campaign: AdCampaign = AdCampaign(), val analytics: CampaignDailyAnalytics = CampaignDailyAnalytics())
 
 @Serializable
-data class CampaignDailyAnalytics(val daily: List<DailyAdStats> = emptyList(), val impressions: Int = 0, val clicks: Int = 0, val ctr: Double = 0.0)
+data class AdPlacementStats(
+    val placement: String = "",
+    val impressions: Int = 0,
+    val clicks: Int = 0,
+    val ctr: Double = 0.0,
+)
+
+@Serializable
+data class AdCityStats(
+    val cityId: String = "",
+    val label: String = "",
+    val impressions: Int = 0,
+    val clicks: Int = 0,
+    val ctr: Double = 0.0,
+)
+
+@Serializable
+data class CampaignDailyAnalytics(
+    val daily: List<DailyAdStats> = emptyList(),
+    val impressions: Int = 0,
+    val clicks: Int = 0,
+    val ctr: Double = 0.0,
+    val uniqueReach: Int = 0,
+    val frequency: Double = 0.0,
+    val byPlacement: List<AdPlacementStats> = emptyList(),
+    val byCity: List<AdCityStats> = emptyList(),
+)
 
 @Serializable
 data class CampaignAnalyticsEnvelope(val message: String = "", val data: CampaignAnalyticsData = CampaignAnalyticsData())

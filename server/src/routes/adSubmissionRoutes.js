@@ -11,6 +11,11 @@ const pricingService = require('../services/pricingService');
 const radiusTargetingService = require('../services/radiusTargetingService');
 const stripeService = require('../services/stripeService');
 const adTrackingService = require('../services/adTrackingService');
+const {
+  ALLOWED_IMAGE_TYPES,
+  MAX_AD_ASSET_IMAGE_BYTES,
+  assertValidImageBuffer,
+} = require('../utils/imageUploadValidation');
 
 /**
  * Geocodes a street address to lat/lng using Google Geocoding API.
@@ -47,8 +52,6 @@ const ALLOWED_CATEGORIES = [
   'indoor_play', 'outdoor_recreation', 'family_dining', 'education',
   'entertainment', 'retail', 'health_wellness', 'services', 'other',
 ];
-
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
 const HTML_REGEX = /<[^>]*>/;
 
@@ -850,22 +853,29 @@ router.post('/:id/assets', upload.single('image'), async (req, res) => {
       return res.status(400).json({ error: 'No image file provided' });
     }
 
-    // Validate MIME type
-    if (!ALLOWED_IMAGE_TYPES.includes(req.file.mimetype)) {
-      return res.status(400).json({ error: `Invalid image type. Allowed: ${ALLOWED_IMAGE_TYPES.join(', ')}` });
+    let contentType;
+    try {
+      ({ contentType } = await assertValidImageBuffer(req.file.buffer, req.file.mimetype, {
+        maxBytes: MAX_AD_ASSET_IMAGE_BYTES,
+      }));
+    } catch (e) {
+      const code = e.statusCode || 400;
+      return res.status(code).json({ error: e.message || 'Invalid image' });
     }
 
-    // Validate file size (multer limits should catch this, but double-check)
-    if (req.file.size > 2 * 1024 * 1024) {
-      return res.status(400).json({ error: 'Image must not exceed 2MB' });
-    }
+    const extByMime = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/webp': 'webp',
+      'image/gif': 'gif',
+    };
+    const ext = extByMime[contentType] || 'jpg';
 
     // Upload to GCS with ad-assets/ prefix
-    const ext = req.file.originalname.split('.').pop() || 'jpg';
     const filename = `ad-assets/${randomUUID()}.${ext}`;
     const file = bucket.file(filename);
     await file.save(req.file.buffer, {
-      metadata: { contentType: req.file.mimetype },
+      metadata: { contentType },
     });
     const imageUrl = `https://storage.googleapis.com/playground_app_bucket/${filename}`;
 

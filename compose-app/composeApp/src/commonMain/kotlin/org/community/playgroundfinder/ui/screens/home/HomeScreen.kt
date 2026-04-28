@@ -378,10 +378,68 @@ fun HomeScreen(
     // playgroundTypes replaced by PLACE_CATEGORIES in CategoryTypePicker
     val groundTypes = listOf("Rubber", "Mulch", "Sand", "Grass", "Concrete")
     val expenseOptions = FormColors.COST_OPTIONS
-    val equipmentOptions = listOf("Swings", "Slide", "Climbing Wall", "Monkey Bars", "Sandbox", "Seesaw", "Spring Riders", "Balance Beam", "Zip Line")
-    val swingOptions = listOf("Belt", "Bucket", "Tire", "Accessible")
-    val sportOptions = listOf("Football", "Basketball", "Soccer", "Tennis", "Pickleball", "Volleyball", "Sand Volleyball", "Baseball", "Softball")
-    val exerciseOptions = listOf("Pull-up Bar", "Fitness Station", "Walking Trail Exercise Stops", "Outdoor Gym", "Balance Beam", "Parallel Bars")
+    val baseEquipmentOptions = OptionCatalogDefaults.equipment
+    val baseSwingOptions = OptionCatalogDefaults.swingTypes
+    val baseSportOptions = OptionCatalogDefaults.sportsCourts
+    val baseExerciseOptions = OptionCatalogDefaults.exerciseEquipment
+    var fetchedEquipmentOptions by remember { mutableStateOf<List<String>>(emptyList()) }
+    var fetchedSwingOptions by remember { mutableStateOf<List<String>>(emptyList()) }
+    var fetchedSportOptions by remember { mutableStateOf<List<String>>(emptyList()) }
+    var fetchedExerciseOptions by remember { mutableStateOf<List<String>>(emptyList()) }
+    val equipmentOptions = remember(baseEquipmentOptions, fetchedEquipmentOptions, selectedEquipment, nearbyPlaygrounds, syncedResults) {
+        (
+            baseEquipmentOptions +
+                fetchedEquipmentOptions +
+                selectedEquipment +
+                nearbyPlaygrounds.flatMap { it.equipment } +
+                syncedResults.flatMap { it.equipment }
+            )
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sortedBy { it.lowercase() }
+    }
+    val swingOptions = remember(baseSwingOptions, fetchedSwingOptions, selectedSwings, nearbyPlaygrounds, syncedResults) {
+        (
+            baseSwingOptions +
+                fetchedSwingOptions +
+                selectedSwings +
+                nearbyPlaygrounds.flatMap { it.swingTypes } +
+                syncedResults.flatMap { it.swingTypes }
+            )
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sortedBy { it.lowercase() }
+    }
+    val sportOptions = remember(baseSportOptions, fetchedSportOptions, selectedExercise, nearbyPlaygrounds, syncedResults) {
+        (
+            baseSportOptions +
+                fetchedSportOptions +
+                selectedExercise +
+                nearbyPlaygrounds.flatMap { it.sportsCourts } +
+                syncedResults.flatMap { it.sportsCourts }
+            )
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sortedBy { it.lowercase() }
+    }
+    val exerciseOptions = remember(baseExerciseOptions, fetchedExerciseOptions, nearbyPlaygrounds, syncedResults) {
+        (
+            baseExerciseOptions +
+                fetchedExerciseOptions +
+                nearbyPlaygrounds.flatMap { it.exerciseEquipment } +
+                syncedResults.flatMap { it.exerciseEquipment }
+            )
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sortedBy { it.lowercase() }
+    }
+
+    LaunchedEffect(service) {
+        fetchedEquipmentOptions = runCatching { service.getCategoryOptions("equipment") }.getOrDefault(emptyList())
+        fetchedSwingOptions = runCatching { service.getCategoryOptions("swing_type") }.getOrDefault(emptyList())
+        fetchedSportOptions = runCatching { service.getCategoryOptions("sports_court") }.getOrDefault(emptyList())
+        fetchedExerciseOptions = runCatching { service.getCategoryOptions("exercise_equipment") }.getOrDefault(emptyList())
+    }
 
     // Helper for manual distance sorting
     fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {

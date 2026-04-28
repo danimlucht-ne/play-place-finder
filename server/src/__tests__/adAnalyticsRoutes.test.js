@@ -166,6 +166,8 @@ describe('adAnalyticsRoutes', () => {
       clicks: 2,
       ctr: 0.25,
       daily: [],
+      byPlacement: [],
+      byCity: [],
     });
     getDb.mockReturnValue(makeDb({
       adCampaigns: {
@@ -201,7 +203,15 @@ describe('adAnalyticsRoutes', () => {
 
     expect(adTrackingService.getCampaignAnalytics).toHaveBeenCalledWith(campaignId, startDate, endDate);
     expect(res.body.message).toBe('success');
-    expect(res.body.data.analytics).toEqual({ impressions: 8, clicks: 2, ctr: 0.25, daily: [] });
+    expect(res.body.data.analytics).toMatchObject({
+      impressions: 8,
+      clicks: 2,
+      ctr: 0.25,
+      daily: [],
+      byPlacement: [],
+    });
+    expect(Array.isArray(res.body.data.analytics.byCity)).toBe(true);
+    expect(res.body.data.analytics.byCity).toEqual([]);
     expect(res.body.data.campaign).toMatchObject({
       _id: campaignId.toHexString(),
       advertiserId: advertiserId.toHexString(),
@@ -234,6 +244,8 @@ describe('adAnalyticsRoutes', () => {
       clicks: 0,
       ctr: 0,
       daily: [],
+      byPlacement: [],
+      byCity: [],
     });
     getDb.mockReturnValue(makeDb({
       adCampaigns: {

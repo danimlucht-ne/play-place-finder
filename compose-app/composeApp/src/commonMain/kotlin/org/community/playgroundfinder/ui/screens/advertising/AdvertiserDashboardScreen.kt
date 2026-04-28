@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -522,6 +523,10 @@ fun AdvertiserDashboardScreen(
                     TextButton(onClick = { openExternalUrl(MarketingLinks.advertiserLanding()) }) {
                         Text("Placements & pricing (website)", color = FormColors.PrimaryButton)
                     }
+                    Spacer(Modifier.height(4.dp))
+                    TextButton(onClick = { openExternalUrl(MarketingLinks.advertiserHub()) }) {
+                        Text("Full analytics & tools (browser)", color = FormColors.PrimaryButton)
+                    }
                     Spacer(Modifier.height(8.dp))
                     TextButton(onClick = { loadCampaigns() }) { Text("Refresh", color = FormColors.PrimaryButton) }
                 }
@@ -548,6 +553,12 @@ fun AdvertiserDashboardScreen(
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Text("Placements & pricing (website)", color = FormColors.PrimaryButton)
+                            }
+                            TextButton(
+                                onClick = { openExternalUrl(MarketingLinks.advertiserHub()) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text("Full analytics & tools (browser)", color = FormColors.PrimaryButton)
                             }
                         }
                     }
@@ -756,9 +767,9 @@ private fun CampaignCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                MetricColumn("Views", campaign.impressions.toString())
-                MetricColumn("Clicks", campaign.clicks.toString())
-                MetricColumn("Tapped", clickRateFormatted)
+                MetricColumn("Views", campaign.impressions.toString(), 21.sp, 12.sp)
+                MetricColumn("Clicks", campaign.clicks.toString(), 21.sp, 12.sp)
+                MetricColumn("Tapped", clickRateFormatted, 21.sp, 12.sp)
             }
 
             // Action buttons — withdraw-before-launch vs cancel-live are different APIs
@@ -847,6 +858,8 @@ private fun CampaignCard(
 @Composable
 private fun CampaignDetailSection(analytics: CampaignAnalyticsData) {
     var showAllDaily by remember { mutableStateOf(false) }
+    /** Collapsed by default so the card stays scannable; expand for the full table. */
+    var showDayByDayTable by remember { mutableStateOf(false) }
     var showCancellationNote by remember { mutableStateOf(false) }
     val campaign = analytics.campaign
     val daily = analytics.analytics.daily
@@ -1019,8 +1032,8 @@ private fun CampaignDetailSection(analytics: CampaignAnalyticsData) {
         Spacer(Modifier.height(8.dp))
     }
 
-    Text("Recent performance", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-    Spacer(Modifier.height(6.dp))
+    Text("Recent performance", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+    Spacer(Modifier.height(8.dp))
 
     if (sortedDaily.isNotEmpty()) {
         Card(
@@ -1028,53 +1041,72 @@ private fun CampaignDetailSection(analytics: CampaignAnalyticsData) {
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)),
         ) {
-            Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                 Text(
-                    "Last 7 days",
-                    fontSize = 11.sp,
+                    "Last 7 days (summary)",
+                    fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    MetricColumn("Views", sumImp7.toString())
-                    MetricColumn("Clicks", sumClk7.toString())
-                    MetricColumn("% tapped", "%.2f%%".format(ctr7 * 100))
+                    MetricColumn("Views", sumImp7.toString(), 22.sp, 12.sp)
+                    MetricColumn("Clicks", sumClk7.toString(), 22.sp, 12.sp)
+                    MetricColumn("Tapped", "%.1f%%".format(ctr7 * 100), 22.sp, 12.sp)
                 }
             }
         }
-        Spacer(Modifier.height(8.dp))
-
-        Text(
-            if (showAllDaily) "Day by day" else "Day by day (latest 7)",
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(4.dp))
-
-        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-            Text("Day", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1.2f))
-            Text("Views", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(0.8f))
-            Text("Clicks", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(0.8f))
-            Text("% tapped", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(0.8f))
+        val uniqueReach = analytics.analytics.uniqueReach
+        val frequency = analytics.analytics.frequency
+        if (uniqueReach > 0) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Est. unique viewers (rolling): $uniqueReach" + if (frequency > 0.0) {
+                    " — avg. ${"%.1f".format(frequency)} impressions / viewer in window"
+                } else "",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 16.sp,
+            )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
-
-        visibleDaily.forEach { day ->
-            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
-                Text(day.date.take(10), fontSize = 12.sp, modifier = Modifier.weight(1.2f))
-                Text(day.impressions.toString(), fontSize = 12.sp, modifier = Modifier.weight(0.8f))
-                Text(day.clicks.toString(), fontSize = 12.sp, modifier = Modifier.weight(0.8f))
-                Text("%.1f%%".format(day.ctr * 100), fontSize = 12.sp, modifier = Modifier.weight(0.8f))
-            }
+        Spacer(Modifier.height(10.dp))
+        TextButton(onClick = { showDayByDayTable = !showDayByDayTable }) {
+            Text(
+                if (showDayByDayTable) "Hide day-by-day table" else "Show day-by-day table",
+                fontSize = 14.sp,
+            )
         }
-
-        if (sortedDaily.size > 7) {
-            TextButton(onClick = { showAllDaily = !showAllDaily }, modifier = Modifier.padding(top = 2.dp)) {
+        AnimatedVisibility(visible = showDayByDayTable) {
+            Column {
                 Text(
-                    if (showAllDaily) "Show only latest 7 days" else "Show all ${sortedDaily.size} days",
-                    fontSize = 13.sp,
+                    if (showAllDaily) "All days" else "Latest 7 days",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Spacer(Modifier.height(6.dp))
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                    Text("Day", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1.2f))
+                    Text("Views", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(0.8f))
+                    Text("Clicks", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(0.8f))
+                    Text("Tapped", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(0.8f))
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
+                visibleDaily.forEach { day ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                        Text(day.date.take(10), fontSize = 13.sp, modifier = Modifier.weight(1.2f))
+                        Text(day.impressions.toString(), fontSize = 13.sp, modifier = Modifier.weight(0.8f))
+                        Text(day.clicks.toString(), fontSize = 13.sp, modifier = Modifier.weight(0.8f))
+                        Text("%.1f%%".format(day.ctr * 100), fontSize = 13.sp, modifier = Modifier.weight(0.8f))
+                    }
+                }
+                if (sortedDaily.size > 7) {
+                    TextButton(onClick = { showAllDaily = !showAllDaily }, modifier = Modifier.padding(top = 2.dp)) {
+                        Text(
+                            if (showAllDaily) "Show only latest 7 days" else "Show all ${sortedDaily.size} days",
+                            fontSize = 13.sp,
+                        )
+                    }
+                }
             }
         }
     } else {
@@ -1108,10 +1140,15 @@ private fun CampaignDetailSection(analytics: CampaignAnalyticsData) {
 }
 
 @Composable
-private fun MetricColumn(label: String, value: String) {
+private fun MetricColumn(
+    label: String,
+    value: String,
+    valueSp: TextUnit = 20.sp,
+    labelSp: TextUnit = 11.sp,
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-        Text(label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, fontSize = valueSp, fontWeight = FontWeight.Bold)
+        Text(label, fontSize = labelSp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
