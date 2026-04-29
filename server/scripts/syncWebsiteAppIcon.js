@@ -62,6 +62,28 @@ async function buildBrandingAppIconPngBuffer(size) {
 }
 
 async function buildWebsiteSquareIconPngBuffer(size) {
+  const siteSource = pickFaviconSourcePath() || pickFullLogoPath();
+  if (siteSource && fs.existsSync(siteSource)) {
+    const innerSize = Math.round(size * WEBSITE_SQUARE_SCALE);
+    const pipeline = path.extname(siteSource).toLowerCase() === '.svg'
+      ? sharp(siteSource)
+      : await rasterAfterTrim(siteSource);
+    return pipeline
+      .resize(innerSize, innerSize, {
+        fit: 'contain',
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .extend({
+        top: Math.floor((size - innerSize) / 2),
+        bottom: Math.ceil((size - innerSize) / 2),
+        left: Math.floor((size - innerSize) / 2),
+        right: Math.ceil((size - innerSize) / 2),
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .png()
+      .toBuffer();
+  }
+
   const appIcon = await buildBrandingAppIconPngBuffer(size);
   const innerSize = Math.round(size * WEBSITE_SQUARE_SCALE);
   return sharp(appIcon)
