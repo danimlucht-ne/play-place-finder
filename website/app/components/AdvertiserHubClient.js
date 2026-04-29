@@ -12,7 +12,7 @@ import {
   loadHubSettings,
   readJwtClaims,
   saveSharedAuthSession,
-  statusTone,
+  hubAdvertiserPillClass,
 } from './hubClientUtils';
 import HubAuthPanel from './HubAuthPanel';
 
@@ -79,6 +79,17 @@ function trackingPlacementLabel(raw) {
   if (raw === 'inline_listing') return 'Search listing';
   if (raw === 'map_sponsored_pin') return 'Map pin';
   return String(raw).replace(/_/g, ' ');
+}
+
+/** Human-readable draft title; full Mongo id shown as secondary line for support. */
+function draftCardTitle(submission, advertiser) {
+  const id = String(submission._id || '');
+  const short = id.length > 10 ? `…${id.slice(-6)}` : id;
+  const ev = typeof submission.eventName === 'string' ? submission.eventName.trim() : '';
+  if (ev) return `${ev} · ${short}`;
+  const biz = (advertiser?.businessName || '').trim();
+  if (biz) return `${biz} · ${short}`;
+  return `Ad draft ${short}`;
 }
 
 function downloadTextFile(filename, text) {
@@ -704,7 +715,7 @@ export default function AdvertiserHubClient({ embedded = false }) {
             <div className="hub-summary">
               <div><strong>Current business:</strong> {advertiser.businessName}</div>
               <div><strong>Service area:</strong> {advertiser.regionKey || 'Not set yet'}</div>
-              <div><strong>Status:</strong> <span className={`hub-pill hub-pill--${statusTone(advertiser.status)}`}>{advertiser.status || 'unknown'}</span></div>
+              <div><strong>Status:</strong> <span className={`hub-pill hub-pill--${hubAdvertiserPillClass(advertiser.status)}`}>{advertiser.status || 'unknown'}</span></div>
             </div>
           ) : null}
         </section>
@@ -874,10 +885,11 @@ export default function AdvertiserHubClient({ embedded = false }) {
               <article key={submission._id} className="hub-list-card">
                 <div className="hub-list-head">
                   <div>
-                    <h3>{submission._id}</h3>
+                    <h3>{draftCardTitle(submission, advertiser)}</h3>
                     <p>Step {submission.currentStep || 0} - Updated {formatDateTime(submission.updatedAt)}</p>
+                    <p className="hub-list-ref-id">ID {String(submission._id)}</p>
                   </div>
-                  <span className={`hub-pill hub-pill--${statusTone(submission.status)}`}>{submission.status || 'unknown'}</span>
+                  <span className={`hub-pill hub-pill--${hubAdvertiserPillClass(submission.status)}`}>{submission.status || 'unknown'}</span>
                 </div>
                 <div className="hub-actions-inline">
                   <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => setSelectedSubmission(submission._id)}>Use this draft</button>
@@ -897,14 +909,17 @@ export default function AdvertiserHubClient({ embedded = false }) {
             </div>
           </div>
           <div className="hub-list">
-            {campaigns.length === 0 ? <p className="hub-empty">No campaigns loaded yet.</p> : campaigns.map((campaign) => (
+            {campaigns.length === 0 ? <p className="hub-empty">No campaigns loaded yet.</p> : campaigns.map((campaign) => {
+              const st = String(campaign.status || '').toLowerCase();
+              const canCancel = st !== 'cancelled' && st !== 'canceled' && st !== 'completed';
+              return (
               <article key={campaign._id} className="hub-list-card">
                 <div className="hub-list-head">
                   <div>
                     <h3>{campaign.businessName || campaign.headline || campaign._id}</h3>
                     <p>{campaign.targetedCityLabels?.join(', ') || 'No areas listed'} - {formatDateOnly(campaign.startDateCalendar)} to {formatDateOnly(campaign.endDateCalendar)}</p>
                   </div>
-                  <span className={`hub-pill hub-pill--${statusTone(campaign.status)}`}>{campaign.status || 'unknown'}</span>
+                  <span className={`hub-pill hub-pill--${hubAdvertiserPillClass(campaign.status)}`}>{campaign.status || 'unknown'}</span>
                 </div>
                 <div className="hub-stats-grid">
                   <div><strong>{campaign.impressions || 0}</strong><span>Times shown</span></div>
@@ -913,10 +928,18 @@ export default function AdvertiserHubClient({ embedded = false }) {
                 </div>
                 <div className="hub-actions-inline">
                   <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => loadCampaignDetail(campaign._id)}>View results</button>
-                  <button type="button" className="btn btn-outline hub-btn-dark" onClick={() => cancelCampaign(campaign._id)}>Cancel campaign</button>
+                  <button
+                    type="button"
+                    className="btn btn-outline hub-btn-dark"
+                    disabled={!canCancel || busy}
+                    title={!canCancel ? 'This campaign is already ended or cancelled.' : undefined}
+                    onClick={() => cancelCampaign(campaign._id)}
+                  >
+                    Cancel campaign
+                  </button>
                 </div>
               </article>
-            ))}
+            );})}
           </div>
           {campaignDetail ? (
             <div className="hub-detail-card">

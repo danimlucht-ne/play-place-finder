@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">92.1% </span>
+                <span class="strong">90.12% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>70/76</span>
+                <span class='fraction'>73/81</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">71.42% </span>
+                <span class="strong">69.35% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>40/56</span>
+                <span class='fraction'>43/62</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.59% </span>
+                <span class="strong">92.4% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>70/74</span>
+                <span class='fraction'>73/79</span>
             </div>
         
             
@@ -278,7 +278,22 @@
 <a name='L213'></a><a href='#L213'>213</a>
 <a name='L214'></a><a href='#L214'>214</a>
 <a name='L215'></a><a href='#L215'>215</a>
-<a name='L216'></a><a href='#L216'>216</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L216'></a><a href='#L216'>216</a>
+<a name='L217'></a><a href='#L217'>217</a>
+<a name='L218'></a><a href='#L218'>218</a>
+<a name='L219'></a><a href='#L219'>219</a>
+<a name='L220'></a><a href='#L220'>220</a>
+<a name='L221'></a><a href='#L221'>221</a>
+<a name='L222'></a><a href='#L222'>222</a>
+<a name='L223'></a><a href='#L223'>223</a>
+<a name='L224'></a><a href='#L224'>224</a>
+<a name='L225'></a><a href='#L225'>225</a>
+<a name='L226'></a><a href='#L226'>226</a>
+<a name='L227'></a><a href='#L227'>227</a>
+<a name='L228'></a><a href='#L228'>228</a>
+<a name='L229'></a><a href='#L229'>229</a>
+<a name='L230'></a><a href='#L230'>230</a>
+<a name='L231'></a><a href='#L231'>231</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -369,6 +384,14 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
@@ -393,6 +416,13 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -585,6 +615,14 @@ async function processPhoto(photoRecordId, playgroundId, uploadedByUserId) {
         throw new Error("Failed to download original image for processing.");
     }
 &nbsp;
+    const userDoc = uploadedByUserId
+        ? await db.collection('users').findOne(
+            { _id: uploadedByUserId },
+            { projection: { forceManualReview: 1 } },
+        )
+        : <span class="branch-1 cbranch-no" title="branch not covered" >null;</span>
+    const forceManualReview = userDoc?.forceManualReview === true;
+&nbsp;
     // Perform moderation — look up playground for location context
     const playgroundRecord = await db.collection('playgrounds').findOne({ _id: playgroundId });
     const moderationResult = await moderatePhoto(
@@ -609,6 +647,13 @@ async function processPhoto(photoRecordId, playgroundId, uploadedByUserId) {
 <span class="cstat-no" title="statement not covered" >            moderationResult.status = ModerationStatus.FAILED; </span>// Mark as failed if public save fails
 <span class="cstat-no" title="statement not covered" >            moderationResult.reason = 'Failed to save processed image to public storage.';</span>
         }
+    }
+&nbsp;
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (forceManualReview &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >moderationResult.status === ModerationStatus.AUTO_APPROVED)</span> {
+<span class="cstat-no" title="statement not covered" >        moderationResult.status = ModerationStatus.NEEDS_ADMIN_REVIEW;</span>
+<span class="cstat-no" title="statement not covered" >        moderationResult.reason = [moderationResult.reason, 'Submitter is marked for mandatory admin review.']</span>
+            .filter(Boolean)
+            .join(' ');
     }
 &nbsp;
     // Update the final photo record with moderation results
@@ -715,7 +760,7 @@ module.exports = { initPhotoUpload, processPhoto };
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-22T01:33:21.572Z
+                at 2026-04-29T00:39:11.932Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

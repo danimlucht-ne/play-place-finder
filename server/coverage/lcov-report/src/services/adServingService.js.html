@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">79.41% </span>
+                <span class="strong">78.57% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>81/102</span>
+                <span class='fraction'>77/98</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">68.22% </span>
+                <span class="strong">67.96% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>73/107</span>
+                <span class='fraction'>70/103</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">84.88% </span>
+                <span class="strong">84.14% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>73/86</span>
+                <span class='fraction'>69/82</span>
             </div>
         
             
@@ -293,10 +293,7 @@
 <a name='L228'></a><a href='#L228'>228</a>
 <a name='L229'></a><a href='#L229'>229</a>
 <a name='L230'></a><a href='#L230'>230</a>
-<a name='L231'></a><a href='#L231'>231</a>
-<a name='L232'></a><a href='#L232'>232</a>
-<a name='L233'></a><a href='#L233'>233</a>
-<a name='L234'></a><a href='#L234'>234</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L231'></a><a href='#L231'>231</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -348,8 +345,6 @@
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -370,7 +365,6 @@
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -394,8 +388,6 @@
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -511,10 +503,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -581,8 +575,6 @@ async function getAd(cityId, placement) {
   const now = new Date();
 &nbsp;
   const phaseInfo = await cityPhaseService.getCityPhase(cityId);
-  const slotKey = placement === 'featured_home' ? 'featured' : 'sponsored';
-  const slotsRemaining = phaseInfo.slotsRemaining[slotKey] ?? <span class="branch-1 cbranch-no" title="branch not covered" >0;</span>
 &nbsp;
   // Do not short-circuit on `seeding`: new cities default to seeding until `cityAdSettings` exists, but paid
   // campaigns in `adTargeting` must still serve. House/demo is only the fallback when no active campaign matches.
@@ -606,16 +598,15 @@ async function getAd(cityId, placement) {
       ad: formatPaidAd(campaign, creative, placement, advertiser),
       type: 'paid',
       cityPhase: phaseInfo.phase,
-      slotsRemaining,
     };
   }
 &nbsp;
   const ctaText = 'Advertise Your Business Here';
   const citySettings = await db.collection('cityAdSettings').findOne({ cityId });
   if (citySettings &amp;&amp; citySettings.houseAd) {
-    return { ad: { id: `house_${cityId}`, campaignId: null, ...citySettings.houseAd, ctaText, placement }, type: 'house', cityPhase: phaseInfo.phase, slotsRemaining };
+    return { ad: { id: `house_${cityId}`, campaignId: null, ...citySettings.houseAd, ctaText, placement }, type: 'house', cityPhase: phaseInfo.phase };
   }
-  return { ad: houseAd(cityId, placement, ctaText), type: 'house', cityPhase: phaseInfo.phase, slotsRemaining };
+  return { ad: houseAd(cityId, placement, ctaText), type: 'house', cityPhase: phaseInfo.phase };
 }
 &nbsp;
 /**
@@ -628,8 +619,6 @@ async function getAllAds(cityId, placement) {
   const now = new Date();
 &nbsp;
   const phaseInfo = await cityPhaseService.getCityPhase(cityId);
-  const slotKey = placement === 'featured_home' ? 'featured' : 'sponsored';
-  const slotsRemaining = phaseInfo.slotsRemaining[slotKey] ?? <span class="branch-1 cbranch-no" title="branch not covered" >0;</span>
 &nbsp;
   // Same as [getAd]: serve real paid creatives whenever targeting matches, even if the city is still in
   // commercial `seeding` (no cityAdSettings row yet). Stock house ads are the fallback only when no campaigns match.
@@ -670,13 +659,13 @@ async function getAllAds(cityId, placement) {
       ads.push(ad);
     }
     if (ads.length &gt; 0) {
-      return { ads, type: 'paid', cityPhase: phaseInfo.phase, slotsRemaining };
+      return { ads, type: 'paid', cityPhase: phaseInfo.phase };
     }
     // Matched campaigns but nothing survived dedupe / payload shaping — fall back so clients never get paid+[].
   }
 &nbsp;
   const ctaText = 'Advertise Your Business Here';
-  return { ads: [houseAd(cityId, placement, ctaText)], type: 'house', cityPhase: phaseInfo.phase, slotsRemaining };
+  return { ads: [houseAd(cityId, placement, ctaText)], type: 'house', cityPhase: phaseInfo.phase };
 }
 &nbsp;
 /**
@@ -724,6 +713,7 @@ function formatPaidAd(campaign, creative, placement, advertiser) {
     headline: creative ? creative.headline : <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
     body: creative ? creative.body : <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
     imageUrl: creative ? creative.imageUrl : <span class="branch-1 cbranch-no" title="branch not covered" >null,</span>
+    imageAlignment: creative &amp;&amp; creative.imageAlignment ? <span class="branch-0 cbranch-no" title="branch not covered" >String(creative.imageAlignment) </span>: 'center',
     ctaText: creative ? creative.ctaText : <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
     ctaUrl: creative ? creative.ctaUrl : <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
     businessName: creative ? creative.businessName : <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
@@ -755,6 +745,7 @@ function houseAd(cityId, placement, ctaText) {
     businessName: '',
     body: 'Indoor play area, coffee bar &amp; snacks for the whole family. Book a birthday party today!',
     imageUrl: HOUSE_AD_STOCK_IMAGE_URL,
+    imageAlignment: 'center',
     ctaText,
     ctaUrl: '/advertise',
     placement,
@@ -769,7 +760,7 @@ module.exports = { getAd, getAllAds, getInlineAds };
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-22T01:33:21.572Z
+                at 2026-04-29T00:39:11.932Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

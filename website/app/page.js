@@ -16,7 +16,7 @@ export default function Home() {
               Find Kid-Friendly Play Places Near You
             </h1>
             <p className="hero-lead hero-lead--on-dark">
-              Plan outings faster with trusted local data: map browse, practical filters, saved lists, and real community updates.
+              Find playgrounds, indoor play, and day-out ideas near you—photos and tips from parents who’ve actually been there, not just a map pin.
             </p>
             <div className="hero-badges">
               <a href="https://play.google.com/store" className="btn btn-primary">Get it on Google Play</a>
@@ -40,9 +40,9 @@ export default function Home() {
 
       <section className="photo-strip" aria-label="Example play places">
         <div className="container photo-strip-head">
-          <h2 className="photo-strip-title">Real play places for every kind of outing</h2>
+          <h2 className="photo-strip-title">Places worth packing snacks for</h2>
           <p className="photo-strip-sub">
-            Browse indoor and outdoor spots, free neighborhood favorites, and paid destinations families can explore all year.
+            Outdoor parks, indoor play, museums, splash pads—search your area, filter what matters, and save lists for the next rainy day.
           </p>
         </div>
         <div className="photo-strip-grid">

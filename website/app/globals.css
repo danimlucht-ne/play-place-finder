@@ -156,10 +156,12 @@ a:hover { text-decoration: underline; }
 }
 .hero-badges { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
 
-/* Home feature hero — dark field + horizontal feature graphic */
+/* Home feature hero — brand “teal night” (not flat #000) + horizontal feature graphic */
 .hero--feature {
-  background: #0a0a0a;
-  background-image: radial-gradient(ellipse 80% 50% at 70% 20%, rgba(0, 206, 209, 0.12), transparent 55%);
+  background: #061a1c;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 70% 20%, rgba(0, 206, 209, 0.2), transparent 55%),
+    linear-gradient(165deg, #0c3a3d 0%, #030a0c 100%);
   text-align: left;
   padding: 40px 0 48px;
 }
@@ -959,7 +961,7 @@ a:hover { text-decoration: underline; }
 }
 .hub-list {
   display: grid;
-  gap: 14px;
+  gap: 20px;
 }
 .hub-list-card {
   border: 1px solid rgba(0, 180, 184, 0.14);
@@ -1005,6 +1007,10 @@ a:hover { text-decoration: underline; }
   background: rgba(67, 160, 71, 0.14);
   color: #236d2b;
 }
+.hub-pill--live {
+  background: rgba(0, 206, 209, 0.16);
+  color: #006064;
+}
 .hub-pill--warn {
   background: rgba(255, 143, 0, 0.14);
   color: #9a5a00;
@@ -1015,7 +1021,13 @@ a:hover { text-decoration: underline; }
 }
 .hub-pill--neutral {
   background: rgba(30, 136, 229, 0.12);
-  color: #16579a;
+  color: #0d3d6e;
+}
+.hub-list-ref-id {
+  font-size: 11px;
+  color: #6a7d80;
+  margin: 4px 0 0 0;
+  word-break: break-all;
 }
 .hub-stats-grid {
   display: grid;
@@ -1027,14 +1039,14 @@ a:hover { text-decoration: underline; }
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .hub-stats-grid div {
-  border-radius: 14px;
-  padding: 12px;
+  border-radius: 12px;
+  padding: 8px 10px;
   background: rgba(0, 180, 184, 0.08);
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 .hub-stats-grid strong {
-  font-size: 20px;
+  font-size: 18px;
   color: #153132;
 }
 .hub-stats-grid span {

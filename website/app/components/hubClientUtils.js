@@ -160,6 +160,24 @@ export function statusTone(status) {
   return 'neutral';
 }
 
+/**
+ * Pill class for the advertiser hub only — maps “active / scheduled / approved” to a teal
+ * (brand-aligned) “live” chip instead of [statusTone]’s green “good” chip, which clashed
+ * on campaign cards (see full-parity advertiser work).
+ * @returns {'live' | 'good' | 'bad' | 'warn' | 'neutral'}
+ */
+export function hubAdvertiserPillClass(status) {
+  const v = String(status || '').toLowerCase();
+  if (v === 'active' || v === 'scheduled' || v === 'approved' || v === 'paid') return 'live';
+  if (v === 'cancelled' || v === 'canceled' || v === 'rejected' || v === 'paused' || v === 'refunded') return 'bad';
+  if (v.includes('review') || v.includes('revision') || v.includes('pending_')) return 'warn';
+  if (v === 'draft' || v === 'pending' || v === 'completed' || v === 'unknown' || v === '') return 'neutral';
+  if (v.includes('cancel')) return 'bad';
+  if (v.includes('pending')) return 'warn';
+  if (v.includes('approve') || v === 'live') return 'live';
+  return statusTone(status);
+}
+
 export function readJwtClaims(token) {
   try {
     const parts = String(token || '').split('.');

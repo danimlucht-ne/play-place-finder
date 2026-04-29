@@ -1,7 +1,9 @@
 ﻿package org.community.playgroundfinder.ui.screens.advertising
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,7 +16,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -23,9 +28,16 @@ import kotlinx.coroutines.launch
 import org.community.playgroundfinder.data.CampaignAnalyticsData
 import org.community.playgroundfinder.data.PlaygroundService
 import org.community.playgroundfinder.models.AdCampaignStats
+import org.community.playgroundfinder.ui.composables.AdIndicatorPill
+import org.community.playgroundfinder.ui.composables.EventBadgePill
 import org.community.playgroundfinder.ui.composables.FormColors
+import org.community.playgroundfinder.models.CampaignCreativePreview
 import org.community.playgroundfinder.util.MarketingLinks
 import org.community.playgroundfinder.util.rememberOpenExternalUrl
+
+/** Strong outline so campaign rows and detail blocks read clearly on light backgrounds. */
+private val DashboardOutlineColor = Color(0xFF2C2C2C)
+private val DashboardOutlineWidth = 1.5.dp
 
 @Composable
 fun AdvertiserDashboardScreen(
@@ -472,19 +484,13 @@ fun AdvertiserDashboardScreen(
         )
     }
 
+    // Use [surface] (white), not [background] (app theme sets background = primary teal) — else the
+    // list looks like a giant empty teal field under the app bar and metrics feel like open ocean.
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(MaterialTheme.colorScheme.surface),
     ) {
-        // Header
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Header provided by TopAppBar
-        }
-
         Box(modifier = Modifier.fillMaxSize()) {
             when {
                 isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -532,8 +538,8 @@ fun AdvertiserDashboardScreen(
                 }
 
                 else -> LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -652,6 +658,157 @@ private fun placementDisplayLabel(placement: String): String = when (placement) 
     else -> placement.replace("_", " ").replaceFirstChar { it.uppercase() }
 }
 
+/** Placeholder CTA labels that should nudge the advertiser to fix copy in Edit. */
+private fun isWeakCtaLabel(s: String): Boolean {
+    val t = s.trim().lowercase()
+    return t == "button" || t == "button button" || t == "test" || t == "x" || t == "cta"
+}
+
+private fun howYourAdLooksBlurb(placement: String, isEvent: Boolean): String = when {
+    placement == "featured_home" && isEvent ->
+        "Layout matches the home hero: image, then text and a bottom row with Event + your button."
+    placement == "featured_home" ->
+        "Layout matches the prime home card: image, business name, message, then Ad + button in a row."
+    else ->
+        "Layout matches search & list: image on the left, headline and message on the right, and Ad (or Event) with your button in a row at the bottom—same as inline listings in the app."
+}
+
+@Composable
+private fun HowYourAdLooksBlock(
+    placement: String,
+    isEvent: Boolean,
+    preview: CampaignCreativePreview,
+) {
+    val isPrime = placement == "featured_home"
+    val titlePrimary = if (isPrime) {
+        preview.businessName.trim().ifBlank { preview.headline }
+    } else {
+        preview.headline.trim().ifBlank { preview.businessName }
+    }.ifBlank { "Your ad" }
+    val ctaLabel = preview.ctaText.trim().ifBlank { "Learn more" }
+    val showWeakHint = isWeakCtaLabel(preview.ctaText)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+            .padding(10.dp),
+    ) {
+        if (!preview.imageUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = preview.imageUrl,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (isPrime) 132.dp else 140.dp)
+                    .clip(RoundedCornerShape(8.dp)),
+                contentScale = ContentScale.Crop,
+            )
+            Spacer(Modifier.height(8.dp))
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (isPrime) 100.dp else 120.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("Portrait ad image", fontSize = 12.sp, color = FormColors.PrimaryButton, fontWeight = FontWeight.Medium)
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+
+        if (isPrime) {
+            Text(
+                titlePrimary,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+            )
+            if (preview.body.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    preview.body,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 16.sp,
+                    maxLines = 5,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                if (isEvent) EventBadgePill() else AdIndicatorPill()
+                OutlinedButton(
+                    onClick = {},
+                    enabled = false,
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    border = BorderStroke(1.dp, FormColors.PrimaryButton),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = FormColors.PrimaryButton,
+                    ),
+                ) {
+                    Text(ctaLabel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    titlePrimary,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                if (isEvent) EventBadgePill() else AdIndicatorPill()
+            }
+            if (preview.body.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    preview.body,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 16.sp,
+                    maxLines = 4,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = {},
+                enabled = false,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(vertical = 8.dp),
+                border = BorderStroke(1.dp, FormColors.PrimaryButton),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = FormColors.PrimaryButton,
+                ),
+            ) {
+                Text(ctaLabel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            }
+        }
+
+        if (showWeakHint) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Your button label is still a placeholder—use Edit to set the text people will see.",
+                fontSize = 10.sp,
+                lineHeight = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 @Composable
 private fun CampaignCard(
     campaign: AdCampaignStats,
@@ -682,9 +839,16 @@ private fun CampaignCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, FormColors.SubtleDivider, RoundedCornerShape(12.dp))
+            .clickable(onClick = onToggle),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 3.dp,
+            pressedElevation = 2.dp,
+        ),
     ) {
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
             // Campaign header row + creative preview
@@ -760,16 +924,25 @@ private fun CampaignCard(
                 Text(if (isExpanded) "Hide" else "Show", fontSize = 11.sp, color = Color.Gray)
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
 
-            // Metrics row
+            // Metrics: equal columns (no [SpaceEvenly] — that spreads three narrow items across the full width).
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
             ) {
-                MetricColumn("Views", campaign.impressions.toString(), 21.sp, 12.sp)
-                MetricColumn("Clicks", campaign.clicks.toString(), 21.sp, 12.sp)
-                MetricColumn("Tapped", clickRateFormatted, 21.sp, 12.sp)
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    MetricColumn("Views", campaign.impressions.toString(), 20.sp, 11.sp)
+                }
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    MetricColumn("Clicks", campaign.clicks.toString(), 20.sp, 11.sp)
+                }
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    MetricColumn("Tapped", clickRateFormatted, 20.sp, 11.sp)
+                }
             }
 
             // Action buttons — withdraw-before-launch vs cancel-live are different APIs
@@ -900,51 +1073,22 @@ private fun CampaignDetailSection(analytics: CampaignAnalyticsData) {
         Spacer(Modifier.height(8.dp))
     }
 
-    // Live ad preview (same creative users see)
+    // Live ad preview — layout follows [placement] (prime vs list), matching the website hub preview.
     if (preview != null && (preview.headline.isNotBlank() || !preview.imageUrl.isNullOrBlank())) {
-        Text("How your ad looks", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(4.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (!preview.imageUrl.isNullOrBlank()) {
-                    AsyncImage(
-                        model = preview.imageUrl,
-                        contentDescription = null,
-                        modifier = Modifier.size(width = 88.dp, height = 66.dp),
-                    )
-                    Spacer(Modifier.width(10.dp))
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        preview.headline.ifBlank { preview.businessName.ifBlank { "Ad" } },
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp,
-                    )
-                    if (preview.body.isNotBlank()) {
-                        Text(
-                            preview.body,
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 3,
-                        )
-                    }
-                    if (preview.ctaText.isNotBlank()) {
-                        Text(
-                            "Call to action: ${preview.ctaText}",
-                            fontSize = 11.sp,
-                            color = FormColors.PrimaryButton,
-                        )
-                    }
-                }
-            }
-        }
+        Text("How your ad looks", color = FormColors.PrimaryButton, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(2.dp))
+        Text(
+            howYourAdLooksBlurb(campaign.placement, campaign.isEvent),
+            fontSize = 11.sp,
+            lineHeight = 15.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(6.dp))
+        HowYourAdLooksBlock(
+            placement = campaign.placement,
+            isEvent = campaign.isEvent,
+            preview = preview,
+        )
         if (showPendingImagePreview && pendingPreview != null) {
             Spacer(Modifier.height(8.dp))
             Text("New image (pending review)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -985,51 +1129,70 @@ private fun CampaignDetailSection(analytics: CampaignAnalyticsData) {
         Spacer(Modifier.height(8.dp))
     }
 
-    // Campaign info
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Column {
-            Text("Status", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            StatusBadge(campaign.status)
-        }
-        Column(horizontalAlignment = Alignment.End) {
-            Text("Where it shows", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(
-                placementDisplayLabel(campaign.placement),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-            )
-        }
-    }
+    // Campaign details — single inset block so the section reads as one unit, not floating labels.
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Status", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(4.dp))
+                    StatusBadge(campaign.status)
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.End,
+                ) {
+                    Text("Where it shows", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        placementDisplayLabel(campaign.placement),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
 
-    Spacer(Modifier.height(6.dp))
+            if (areaText.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+                Spacer(Modifier.height(8.dp))
+                Text("Audience areas", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    areaText,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+                if (campaign.targetingRadiusMiles > 0) {
+                    Text(
+                        "Within about ${campaign.targetingRadiusMiles} miles of your business",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
 
-    // Targeted regions
-    if (areaText.isNotBlank()) {
-        Text("Audience areas", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
-            areaText,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-        )
-        if (campaign.targetingRadiusMiles > 0) {
-            Text(
-                "Within about ${campaign.targetingRadiusMiles} miles of your business",
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (startYmd.isNotBlank() || endYmd.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+                Spacer(Modifier.height(8.dp))
+                Text("Schedule", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "${startYmd.ifBlank { "-" }} to ${endYmd.ifBlank { "-" }}",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
         }
-        Spacer(Modifier.height(6.dp))
-    }
-
-    // Date range
-    if (startYmd.isNotBlank() || endYmd.isNotBlank()) {
-        Text("Schedule", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
-            "${startYmd.ifBlank { "-" }} to ${endYmd.ifBlank { "-" }}",
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-        )
-        Spacer(Modifier.height(8.dp))
     }
 
     Text("Recent performance", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
@@ -1047,11 +1210,23 @@ private fun CampaignDetailSection(analytics: CampaignAnalyticsData) {
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    MetricColumn("Views", sumImp7.toString(), 22.sp, 12.sp)
-                    MetricColumn("Clicks", sumClk7.toString(), 22.sp, 12.sp)
-                    MetricColumn("Tapped", "%.1f%%".format(ctr7 * 100), 22.sp, 12.sp)
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                ) {
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        MetricColumn("Views", sumImp7.toString(), 21.sp, 11.sp)
+                    }
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        MetricColumn("Clicks", sumClk7.toString(), 21.sp, 11.sp)
+                    }
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        MetricColumn("Tapped", "%.1f%%".format(ctr7 * 100), 21.sp, 11.sp)
+                    }
                 }
             }
         }
@@ -1147,15 +1322,16 @@ private fun MetricColumn(
     labelSp: TextUnit = 11.sp,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, fontSize = valueSp, fontWeight = FontWeight.Bold)
+        Text(value, fontSize = valueSp, fontWeight = FontWeight.Bold, color = FormColors.PrimaryButton)
         Text(label, fontSize = labelSp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 private fun StatusBadge(status: String) {
+    // Brand is teal; avoid mint “success” green on active (reads off-brand next to [FormColors.PrimaryButton]).
     val (bgColor, textColor) = when (status) {
-        "active" -> Color(0xFFE8F5E9) to Color(0xFF2E7D32)
+        "active" -> FormColors.InfoChipBackground to Color(0xFF006064)
         "scheduled" -> FormColors.FilterBannerBackground to FormColors.PrimaryButton
         "completed" -> Color(0xFFF5F5F5) to Color(0xFF616161)
         "paused" -> Color(0xFFFFF3E0) to Color(0xFFE65100)

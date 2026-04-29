@@ -2334,7 +2334,8 @@ fun HomeScreen(
                     userLat = userLat,
                     userLng = userLng,
                 )
-                Spacer(Modifier.height(10.dp))
+                /* Extra air above the soft promo strip so the event "Add to calendar" CTA does not read as one block with it. */
+                Spacer(Modifier.height(18.dp))
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()

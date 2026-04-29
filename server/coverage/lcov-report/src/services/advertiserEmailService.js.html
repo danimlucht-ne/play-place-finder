@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">75% </span>
+                <span class="strong">77.27% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>30/40</span>
+                <span class='fraction'>34/44</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">71.18% </span>
+                <span class="strong">73.01% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>42/59</span>
+                <span class='fraction'>46/63</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">77.77% </span>
+                <span class="strong">80% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>28/36</span>
+                <span class='fraction'>32/40</span>
             </div>
         
             
@@ -204,7 +204,11 @@
 <a name='L139'></a><a href='#L139'>139</a>
 <a name='L140'></a><a href='#L140'>140</a>
 <a name='L141'></a><a href='#L141'>141</a>
-<a name='L142'></a><a href='#L142'>142</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -221,6 +225,10 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -363,7 +371,11 @@ async function <span class="fstat-no" title="function not covered" >resolveAdDis
 }
 &nbsp;
 const BUSINESS_ENTITY = 'Lucht Applications LLC';
-const APP_NAME = 'PlayPlace Finder';
+const APP_NAME = 'Play Spotter';
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'playplacefinder@gmail.com';
+const CONTACT_LINE = `Questions? Reply to this email or contact ${SUPPORT_EMAIL}.`;
+const WEBSITE_BASE_URL = (process.env.MARKETING_SITE_BASE_URL || 'https://www.play-spotter.com').replace(/\/+$/, '');
+const ADVERTISER_DASHBOARD_URL = `${WEBSITE_BASE_URL}/account`;
 &nbsp;
 /**
  * Sends a templated email to an advertiser.
@@ -426,47 +438,47 @@ function buildEmail(templateKey, data, advertiser) {
   const templates = {
     campaign_payment_received: {
       subject: `We received your ${APP_NAME} ad payment`,
-      text: `Hi ${name},\n\nThank you — we've received your payment${amountStr ? ` of $${amountStr}` : ''} for your ad campaign.${startLine ? `\n\nYour campaign is set to start on ${startLine}.` : ''}\n\nYou can track status and performance from your advertiser dashboard.\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
+      text: `Hi ${name},\n\nThank you — we've received your payment${amountStr ? ` of $${amountStr}` : ''} for your ad campaign.${startLine ? `\n\nYour campaign is set to start on ${startLine}.` : ''}\n\nYou can track status and performance from your advertiser dashboard:\n${ADVERTISER_DASHBOARD_URL}\n\nYou can sign in on the website dashboard or in the app using the same account.\n\n${CONTACT_LINE}\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
     },
     campaign_now_live: {
       subject: `Your ${APP_NAME} ad is live!`,
-      text: `Hi ${name},\n\nGreat news — your ad campaign is now live on ${APP_NAME}!\n\nYour ad will be shown to families in your target area. You can track performance from your advertiser dashboard.\n\nThank you for advertising with us!\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
+      text: `Hi ${name},\n\nGreat news — your ad campaign is now live on ${APP_NAME}!\n\nYour ad will be shown to families in your target area. You can track performance from your advertiser dashboard.\n\nThank you for advertising with us!\n\n${CONTACT_LINE}\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
     },
     campaign_scheduled_approved: {
       subject: `Your ${APP_NAME} ad was approved`,
-      text: `Hi ${name},\n\nYour ad campaign has been approved. It will go live on ${startLine || 'your scheduled start date'}.\n\nYou can track status from your advertiser dashboard.\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
+      text: `Hi ${name},\n\nYour ad campaign has been approved. It will go live on ${startLine || 'your scheduled start date'}.\n\nYou can track status from your advertiser dashboard.\n\n${CONTACT_LINE}\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
     },
     campaign_approved_pending_charge: {
       subject: `Your ${APP_NAME} ad was approved`,
-      text: `Hi ${name},\n\nYour ad campaign has been approved. Payment will be captured when your campaign starts${startLine ? ` (${startLine})` : ''}.\n\nYou'll receive a confirmation when payment is processed and when the campaign goes live.\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
+      text: `Hi ${name},\n\nYour ad campaign has been approved. Payment will be captured when your campaign starts${startLine ? ` (${startLine})` : ''}.\n\nYou'll receive a confirmation when payment is processed and when the campaign goes live.\n\n${CONTACT_LINE}\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
     },
     campaign_approved: {
       subject: `Your ${APP_NAME} ad is live!`,
-      text: `Hi ${name},\n\nGreat news — your ad campaign has been approved and is now live on ${APP_NAME}!\n\nYour ad will be shown to families in your target area. You can track performance from your advertiser dashboard.\n\nThank you for advertising with us!\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
+      text: `Hi ${name},\n\nGreat news — your ad campaign has been approved and is now live on ${APP_NAME}!\n\nYour ad will be shown to families in your target area. You can track performance from your advertiser dashboard.\n\nThank you for advertising with us!\n\n${CONTACT_LINE}\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
     },
     campaign_rejected: {
       subject: `Your ${APP_NAME} ad submission update`,
-      text: `Hi ${name},\n\nUnfortunately, your ad submission was not approved.${data.reason ? `\n\nReason: ${data.reason}` : ''}\n\nA full refund has been issued to your original payment method. If you have questions, please reach out to our support team.\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
+      text: `Hi ${name},\n\nUnfortunately, your ad submission was not approved.${data.reason ? `\n\nReason: ${data.reason}` : ''}\n\nA full refund has been issued to your original payment method.\n\n${CONTACT_LINE}\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
     },
     campaign_revision_requested: {
       subject: `Action needed: update your ${APP_NAME} ad`,
-      text: `Hi ${name},\n\nWe reviewed your ad and need a few changes before it can go live.\n\n${data.message ? <span class="branch-0 cbranch-no" title="branch not covered" >`What to fix:\n${data.message}\n\n` </span>: ''}Any uncaptured card authorization has been released. Open the app, edit your creative, and submit again when ready.\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
+      text: `Hi ${name},\n\nWe reviewed your ad and need a few changes before it can go live.\n\n${data.message ? <span class="branch-0 cbranch-no" title="branch not covered" >`What to fix:\n${data.message}\n\n` </span>: ''}Any uncaptured card authorization has been released. Open the app, edit your creative, and submit again when ready.\n\n${CONTACT_LINE}\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
     },
     campaign_paused: {
       subject: `Your ${APP_NAME} campaign has been paused`,
-      text: `Hi ${name},\n\nYour ad campaign has been paused by an administrator. Your campaign duration will be extended by the paused time once it resumes.\n\nIf you have questions, please contact our support team.\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
+      text: `Hi ${name},\n\nYour ad campaign has been paused by an administrator. Your campaign duration will be extended by the paused time once it resumes.\n\n${CONTACT_LINE}\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
     },
     campaign_cancelled: {
       subject: `Your ${APP_NAME} campaign has been cancelled`,
-      text: `Hi ${name},\n\nYour ad campaign has been cancelled.${data.refundAmount ? `\n\nA refund of $${(data.refundAmount / 100).toFixed(2)} has been issued to your original payment method.` : '\n\nPer our advertising terms, advertiser-initiated cancellations do not include a refund for amounts already paid.'}\n\nIf you have questions, please contact our support team.\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
+      text: `Hi ${name},\n\nYour ad campaign has been cancelled.${data.refundAmount ? `\n\nA refund of $${(data.refundAmount / 100).toFixed(2)} has been issued to your original payment method.` : '\n\nPer our advertising terms, advertiser-initiated cancellations do not include a refund for amounts already paid.'}\n\n${CONTACT_LINE}\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
     },
     campaign_expiring_soon: {
       subject: `Your ${APP_NAME} campaign expires in 3 days`,
-      text: `Hi ${name},\n\nThis is a friendly reminder that your ad campaign is set to end on ${data.endDate ? <span class="branch-0 cbranch-no" title="branch not covered" >new Date(data.endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) </span>: 'soon'}.\n\nIf you'd like to continue advertising, you can submit a new campaign from your advertiser dashboard.\n\nThank you for advertising with ${APP_NAME}!\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
+      text: `Hi ${name},\n\nThis is a friendly reminder that your ad campaign is set to end on ${data.endDate ? <span class="branch-0 cbranch-no" title="branch not covered" >new Date(data.endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) </span>: 'soon'}.\n\nIf you'd like to continue advertising, you can submit a new campaign from your advertiser dashboard.\n\nThank you for advertising with ${APP_NAME}!\n\n${CONTACT_LINE}\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
     },
     campaign_completed_next_discount: {
       subject: `Thanks for advertising — 20% off your next ${APP_NAME} campaign`,
-      text: `Hi ${name},\n\nYour recent ad campaign has ended. Thank you for advertising with ${APP_NAME}!\n\nAs a thank-you, here is a one-time discount code for 20% off your next campaign (any package):\n\n  ${data.code || 'CODE'}\n\nEnter this code at checkout. It expires on ${data.endDate ? <span class="branch-0 cbranch-no" title="branch not covered" >new Date(data.endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) </span>: 'the date shown in your account'} and can be used once.\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
+      text: `Hi ${name},\n\nYour recent ad campaign has ended. Thank you for advertising with ${APP_NAME}!\n\nAs a thank-you, here is a one-time discount code for 20% off your next campaign (any package):\n\n  ${data.code || 'CODE'}\n\nEnter this code at checkout. It expires on ${data.endDate ? <span class="branch-0 cbranch-no" title="branch not covered" >new Date(data.endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) </span>: 'the date shown in your account'} and can be used once.\n\n${CONTACT_LINE}\n\n${BUSINESS_ENTITY}\n${APP_NAME}`,
     },
     campaign_midpoint_next_discount: {
       subject: `You're halfway through your ${APP_NAME} campaign — 20% off your next booking`,
@@ -477,7 +489,7 @@ function buildEmail(templateKey, data, advertiser) {
         const codeExpiry = data.endDate
           ? <span class="branch-0 cbranch-no" title="branch not covered" >new Date(data.endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })</span>
           : 'the date shown in this email';
-        return `Hi ${name},\n\nYou're about halfway through your current ad campaign${endPhrase}. If you'd like to line up your next run early, here is a one-time 20% discount code for your next campaign (any package):\n\n  ${data.code || 'CODE'}\n\nEnter this code at checkout. The code itself expires on ${codeExpiry} and can be used once.\n\n${BUSINESS_ENTITY}\n${APP_NAME}`;
+        return `Hi ${name},\n\nYou're about halfway through your current ad campaign${endPhrase}. If you'd like to line up your next run early, here is a one-time 20% discount code for your next campaign (any package):\n\n  ${data.code || 'CODE'}\n\nEnter this code at checkout. The code itself expires on ${codeExpiry} and can be used once.\n\n${CONTACT_LINE}\n\n${BUSINESS_ENTITY}\n${APP_NAME}`;
       })(),
     },
   };
@@ -493,7 +505,7 @@ module.exports = { notifyAdvertiser, buildEmail, resolveAdDisplayName };
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-22T01:33:21.572Z
+                at 2026-04-29T00:39:11.932Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

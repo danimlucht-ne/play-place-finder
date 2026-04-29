@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.5% </span>
+                <span class="strong">78.26% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>35/40</span>
+                <span class='fraction'>36/46</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">70.42% </span>
+                <span class="strong">61.17% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>50/71</span>
+                <span class='fraction'>52/85</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.5% </span>
+                <span class="strong">81.81% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>35/40</span>
+                <span class='fraction'>36/44</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -204,7 +204,12 @@
 <a name='L139'></a><a href='#L139'>139</a>
 <a name='L140'></a><a href='#L140'>140</a>
 <a name='L141'></a><a href='#L141'>141</a>
-<a name='L142'></a><a href='#L142'>142</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -279,6 +284,11 @@
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -348,7 +358,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">const express = require('express');
 const router = express.Router();
 const { getDb } = require('../database');
-const { buildTargetPlaygroundSummary } = require('../services/suggestionApprovalService');
+const { buildTargetPlaygroundSummary, parseFeatureSuggestionMessage } = require('../services/suggestionApprovalService');
 &nbsp;
 const SupportTicketType = {
     QUESTION: 'question',
@@ -417,9 +427,14 @@ router.post("/tickets", async (req, res) =&gt; {
         const isSuggestionTicket = mappedEarly === 'suggestion'
             || String(ticketType || '').toLowerCase() === 'suggestion';
 &nbsp;
-        const labelTrim = typeof suggestionLabel === 'string' ? <span class="branch-0 cbranch-no" title="branch not covered" >suggestionLabel.trim() </span>: '';
-        const catTrim = typeof suggestionCategory === 'string' ? <span class="branch-0 cbranch-no" title="branch not covered" >suggestionCategory.trim() </span>: '';
+        let labelTrim = typeof suggestionLabel === 'string' ? <span class="branch-0 cbranch-no" title="branch not covered" >suggestionLabel.trim() </span>: '';
+        let catTrim = typeof suggestionCategory === 'string' ? <span class="branch-0 cbranch-no" title="branch not covered" >suggestionCategory.trim() </span>: '';
         const messageOk = message &amp;&amp; typeof message === 'string' &amp;&amp; message.trim().length &gt; 0;
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (isSuggestionTicket &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >messageOk </span>&amp;&amp; (<span class="branch-2 cbranch-no" title="branch not covered" >!catTrim </span>|| <span class="branch-3 cbranch-no" title="branch not covered" >!labelTrim)</span>) {
+            const parsed = <span class="cstat-no" title="statement not covered" >parseFeatureSuggestionMessage(message);</span>
+<span class="cstat-no" title="statement not covered" >            if (!catTrim &amp;&amp; parsed.category) <span class="cstat-no" title="statement not covered" >catTrim = parsed.category;</span></span>
+<span class="cstat-no" title="statement not covered" >            if (!labelTrim &amp;&amp; parsed.label) <span class="cstat-no" title="statement not covered" >labelTrim = parsed.label;</span></span>
+        }
         if (!messageOk &amp;&amp; !(isSuggestionTicket &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >labelTrim </span>&amp;&amp; <span class="branch-2 cbranch-no" title="branch not covered" >catTrim)</span>) {
             return res.status(400).json({ error: "message is required (or suggestionCategory + suggestionLabel for suggestions)." });
         }
@@ -493,7 +508,7 @@ module.exports = router;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-22T01:33:21.572Z
+                at 2026-04-29T00:39:11.932Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

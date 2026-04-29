@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">64.7% </span>
+                <span class="strong">58.66% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>44/68</span>
+                <span class='fraction'>44/75</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">36.84% </span>
+                <span class="strong">26.58% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>21/57</span>
+                <span class='fraction'>21/79</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">75% </span>
+                <span class="strong">60% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>3/4</span>
+                <span class='fraction'>3/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">64.61% </span>
+                <span class="strong">59.15% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>42/65</span>
+                <span class='fraction'>42/71</span>
             </div>
         
             
@@ -263,7 +263,20 @@
 <a name='L198'></a><a href='#L198'>198</a>
 <a name='L199'></a><a href='#L199'>199</a>
 <a name='L200'></a><a href='#L200'>200</a>
-<a name='L201'></a><a href='#L201'>201</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">17x</span>
+<a name='L201'></a><a href='#L201'>201</a>
+<a name='L202'></a><a href='#L202'>202</a>
+<a name='L203'></a><a href='#L203'>203</a>
+<a name='L204'></a><a href='#L204'>204</a>
+<a name='L205'></a><a href='#L205'>205</a>
+<a name='L206'></a><a href='#L206'>206</a>
+<a name='L207'></a><a href='#L207'>207</a>
+<a name='L208'></a><a href='#L208'>208</a>
+<a name='L209'></a><a href='#L209'>209</a>
+<a name='L210'></a><a href='#L210'>210</a>
+<a name='L211'></a><a href='#L211'>211</a>
+<a name='L212'></a><a href='#L212'>212</a>
+<a name='L213'></a><a href='#L213'>213</a>
+<a name='L214'></a><a href='#L214'>214</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -316,11 +329,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -332,6 +340,20 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -339,6 +361,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -512,36 +538,49 @@ async function <span class="fstat-no" title="function not covered" >getPhasePric
   }
 &nbsp;
   let phase = <span class="cstat-no" title="statement not covered" >settings.phase || 'seeding';</span>
-<span class="cstat-no" title="statement not covered" >  if (phase === 'beta') <span class="cstat-no" title="statement not covered" >phase = 'growth';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (phase === 'beta' || phase === 'growth') <span class="cstat-no" title="statement not covered" >phase = 'growing';</span></span>
 &nbsp;
-  const priceKey = <span class="cstat-no" title="statement not covered" >PLACEMENT_TO_PRICE_KEY[placement] || placement;</span>
+  const eventKeyForLookup = <span class="cstat-no" title="statement not covered" >(placement.startsWith('event_spotlight') &amp;&amp; placement.endsWith('_home'))</span>
+    ? placement.slice(0, -5)
+    : placement;
+  const priceKey = <span class="cstat-no" title="statement not covered" >PLACEMENT_TO_PRICE_KEY[placement]</span>
+    || PLACEMENT_TO_PRICE_KEY[eventKeyForLookup]
+    || eventKeyForLookup;
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  if (phase === 'seeding') {</span>
 <span class="cstat-no" title="statement not covered" >    throw new Error(`Pricing not available for seeding-phase city: ${cityId}`);</span>
   }
 &nbsp;
-  const EVENT_DEFAULTS = <span class="cstat-no" title="statement not covered" >{ event_7d: 5000, event_14d: 9000 };</span>
+  const pp = <span class="cstat-no" title="statement not covered" >settings.phasePricing || {};</span>
+  const row = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(p</span>h) =&gt; <span class="cstat-no" title="statement not covered" >pp[ph] || (ph === 'growing' ? pp.growth : null);</span></span>
 &nbsp;
-  let currentPhasePrice = <span class="cstat-no" title="statement not covered" >settings.phasePricing[phase]?.[priceKey]</span>
-    ?? settings.phasePricing.growth?.[priceKey]
+  const EVENT_DEFAULTS = <span class="cstat-no" title="statement not covered" >{ event_7d: 2500, event_14d: 5000 };</span>
+&nbsp;
+  const activeKey = <span class="cstat-no" title="statement not covered" >phase === 'mature' ? 'mature' : 'growing';</span>
+  let currentPhasePrice = <span class="cstat-no" title="statement not covered" >row(activeKey)?.[priceKey]</span>
+    ?? row('growing')?.[priceKey]
     ?? EVENT_DEFAULTS[priceKey]
     ?? null;
 <span class="cstat-no" title="statement not covered" >  if (currentPhasePrice == null) {</span>
-<span class="cstat-no" title="statement not covered" >    throw new Error(`No ${priceKey} price configured for phase ${phase} in city ${cityId}`);</span>
+<span class="cstat-no" title="statement not covered" >    throw new Error(`No ${priceKey} price configured for phase ${activeKey} in city ${cityId}`);</span>
   }
 &nbsp;
   const isEventPackage = <span class="cstat-no" title="statement not covered" >placement.startsWith('event_spotlight');</span>
 <span class="cstat-no" title="statement not covered" >  if (isEventPackage) {</span>
-    const sponsoredMonthly = <span class="cstat-no" title="statement not covered" >settings.phasePricing[phase]?.sponsored</span>
-      ?? settings.phasePricing.growth?.sponsored
+    const sponsoredMonthly = <span class="cstat-no" title="statement not covered" >row(activeKey)?.sponsored</span>
+      ?? row('growing')?.sponsored
       ?? null;
-    const featuredMonthly = <span class="cstat-no" title="statement not covered" >settings.phasePricing[phase]?.featured</span>
-      ?? settings.phasePricing.growth?.featured
+    const featuredMonthly = <span class="cstat-no" title="statement not covered" >row(activeKey)?.featured</span>
+      ?? row('growing')?.featured
       ?? null;
-    const monthlyRef = <span class="cstat-no" title="statement not covered" >sponsoredMonthly ?? featuredMonthly ?? null;</span>
+    const isPrimeEventSurface = <span class="cstat-no" title="statement not covered" >placement.startsWith('event_spotlight') &amp;&amp; placement.endsWith('_home');</span>
+    const baseType = <span class="cstat-no" title="statement not covered" >isPrimeEventSurface ? placement.slice(0, -5) : placement;</span>
+    const monthlyRef = <span class="cstat-no" title="statement not covered" >isPrimeEventSurface</span>
+      ? (featuredMonthly ?? sponsoredMonthly)
+      : (sponsoredMonthly ?? featuredMonthly);
 <span class="cstat-no" title="statement not covered" >    if (monthlyRef != null) {</span>
-<span class="cstat-no" title="statement not covered" >      if (placement === 'event_spotlight_7d' || placement === 'event_spotlight_14d') {</span>
-<span class="cstat-no" title="statement not covered" >        currentPhasePrice = roundEventSpotlightPriceFromMonthlyCents(monthlyRef, placement);</span>
+<span class="cstat-no" title="statement not covered" >      if (baseType === 'event_spotlight_7d' || baseType === 'event_spotlight_14d') {</span>
+<span class="cstat-no" title="statement not covered" >        currentPhasePrice = roundEventSpotlightPriceFromMonthlyCents(monthlyRef, baseType);</span>
       }
     }
 <span class="cstat-no" title="statement not covered" >    return {</span>
@@ -670,7 +709,7 @@ module.exports = {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-22T01:33:21.572Z
+                at 2026-04-29T00:39:11.932Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

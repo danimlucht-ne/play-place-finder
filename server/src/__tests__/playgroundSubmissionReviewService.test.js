@@ -16,6 +16,9 @@ const {
   ruleReviewTextBundle,
 } = require('../services/playgroundSubmissionReviewService');
 
+/** Enough characters that ruleReviewTextBundle does not treat the bundle as “short and plain” (see SAFE_SHORT_TEXT_PATTERN). */
+const LONG_TO_FORCE_GEMINI = 'More detail so moderation cannot skip the model. '.padEnd(160, 'x');
+
 describe('playgroundSubmissionReviewService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -106,7 +109,10 @@ describe('playgroundSubmissionReviewService', () => {
   test('fails closed when Gemini API key is missing', async () => {
     delete process.env.GEMINI_API_KEY;
 
-    const result = await reviewPlaygroundSubmission({ name: 'Elm Park' });
+    const result = await reviewPlaygroundSubmission({
+      name: 'Elm Park',
+      description: LONG_TO_FORCE_GEMINI,
+    });
 
     expect(result.autoApprove).toBe(false);
     expect(result.text).toEqual({
@@ -141,7 +147,8 @@ describe('playgroundSubmissionReviewService', () => {
 
     const result = await reviewPlaygroundSubmission({
       name: 'Elm Park',
-      description: 'Clean slides and shaded benches',
+      // Long description so text review uses Gemini; image review is the 2nd generateContent call.
+      description: `Clean slides and shaded benches. ${LONG_TO_FORCE_GEMINI}`,
       imageUrls: [
         'https://cdn.example/one.jpg',
         'google_photo:abc',
@@ -202,7 +209,10 @@ describe('playgroundSubmissionReviewService', () => {
       }),
     });
 
-    const medium = await reviewPlaygroundSubmission({ name: 'Elm Park', description: 'Maybe promotional' });
+    const medium = await reviewPlaygroundSubmission({
+      name: 'Elm Park',
+      description: `Maybe promotional. ${LONG_TO_FORCE_GEMINI}`,
+    });
     expect(medium.autoApprove).toBe(false);
     expect(medium.text.severity).toBe('medium');
 
@@ -215,7 +225,10 @@ describe('playgroundSubmissionReviewService', () => {
         blocked: true,
       }),
     });
-    const blocked = await reviewPlaygroundSubmission({ name: 'Unsafe text' });
+    const blocked = await reviewPlaygroundSubmission({
+      name: 'Unsafe text',
+      description: LONG_TO_FORCE_GEMINI,
+    });
     expect(blocked.autoApprove).toBe(false);
     expect(blocked.text.blocked).toBe(true);
 
@@ -231,6 +244,7 @@ describe('playgroundSubmissionReviewService', () => {
     axios.get.mockRejectedValueOnce(new Error('image fetch failed'));
     const imageFailed = await reviewPlaygroundSubmission({
       name: 'Elm Park',
+      description: LONG_TO_FORCE_GEMINI,
       imageUrls: ['https://cdn.example/broken.jpg'],
     });
     expect(imageFailed.autoApprove).toBe(false);
@@ -246,7 +260,10 @@ describe('playgroundSubmissionReviewService', () => {
   test('fails closed when Gemini returns malformed JSON', async () => {
     mockGenerateContent.mockResolvedValueOnce({ text: '{not-json' });
 
-    const result = await reviewPlaygroundSubmission({ name: 'Elm Park' });
+    const result = await reviewPlaygroundSubmission({
+      name: 'Elm Park',
+      description: LONG_TO_FORCE_GEMINI,
+    });
 
     expect(result.autoApprove).toBe(false);
     expect(result.text.modelFailed).toBe(true);

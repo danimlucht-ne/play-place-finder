@@ -721,28 +721,37 @@ private fun labeledEventLine(
 }
 
 /**
- * Standardized "Add to calendar" CTA used by every event surface (inline list, prime/featured
- * slot, and the dedicated events screen). Visual: tonal pill with calendar leading icon, full
- * width below the card so it's obvious without crowding the existing CTA row.
+ * Standardized "Add to calendar" CTA on **teal** or primary-tinted surfaces. A white, bordered
+ * pill so it never matches the page background (a solid primary fill is invisible on Home’s hero).
  */
 @Composable
 internal fun AddToCalendarButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    FilledTonalButton(
-        onClick = onClick,
+    Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = Color(0xFFE0F7FA),
-            contentColor = Color(0xFF006064),
-        ),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+        color = Color.White,
+        shadowElevation = 4.dp,
     ) {
-        Icon(
-            imageVector = MaterialIcons.Filled.CalendarMonth,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-        )
-        Spacer(Modifier.width(8.dp))
-        Text("Add to calendar", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        OutlinedButton(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.5.dp, FormColors.PrimaryButton),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = Color.Transparent,
+                contentColor = FormColors.PrimaryButton,
+            ),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        ) {
+            Icon(
+                imageVector = MaterialIcons.Filled.CalendarMonth,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.width(10.dp))
+            Text("Add to calendar", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        }
     }
 }

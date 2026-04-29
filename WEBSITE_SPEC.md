@@ -1,116 +1,112 @@
-# PlayPlace Finder Website — play-place-finder.com
+# Play Spotter — website specification
+
+> **Status:** Living document. **Phase 1** marketing + core flows are largely implemented in Next.js; details of the **home page** redesign are captured in [website/docs/landing-page-spec.md](website/docs/landing-page-spec.md). **App parity** work is tracked in [website/docs/full-parity/website-full-parity-implementation-spec.md](website/docs/full-parity/website-full-parity-implementation-spec.md).
 
 ## Overview
 
-A phased website for play-place-finder.com that starts as a marketing/admin landing page and evolves into a full web mirror of the mobile app.
+A phased site that started as a marketing and legal surface and grew into a **signed-in web app** (discover, map, lists, account, advertiser hub, admin) while keeping **public** landing and policy pages.
 
-## Phase 1: Landing Page + Advertiser Portal (Launch Priority)
-
-### Pages
-
-1. **Home / Landing Page**
-   - Hero section: app name, tagline ("Find kid-friendly play places near you"), teal gradient background
-   - App screenshots carousel (3-4 mobile screenshots)
-   - Feature highlights: search by location, filter by amenities, community-verified, free to use
-   - "Download on Google Play" button (link to Play Store listing)
-   - "Coming soon to iOS" badge
-   - Footer: Lucht Applications LLC, privacy policy link, terms link, contact email
-
-2. **Advertise With Us**
-   - Overview of ad packages (Prime Placement, Inline Listing, Event Spotlight)
-   - Pricing tiers with beta founding partner callout
-   - "Get Started" button → links to the app's advertiser flow (deep link or Play Store)
-   - FAQ: how ads work, targeting radius, billing, cancellation
-   - Contact form for businesses that want to learn more before downloading
-
-3. **Privacy Policy**
-   - Required for Play Store and App Store
-   - Covers: data collected (location, email, name), how it's used, third parties (Firebase, Google Maps, Stripe, Gemini), data retention, deletion rights
-   - Must be hosted at a public URL (play-place-finder.com/privacy)
-
-4. **Terms of Service**
-   - App usage terms, advertiser agreement terms
-   - Hosted at play-place-finder.com/terms
-
-5. **Advertiser Agreement**
-   - The contract advertisers accept in-app
-   - Hosted at play-place-finder.com/advertiser-agreement
-
-### Tech Stack (Phase 1)
-
-- Static site: Next.js (React) or plain HTML/CSS/JS — deployed to GCP Cloud Storage + Cloud CDN, or Vercel/Netlify (free tier)
-- No backend needed for Phase 1 — it's just static pages
-- DNS: point play-place-finder.com to the hosting provider
-- SSL: automatic via hosting provider (Vercel/Netlify) or Let's Encrypt
-
-### Deployment
-
-- Option A (simplest): Vercel — connect GitHub repo, auto-deploys on push, free SSL, free tier handles plenty of traffic
-- Option B: GCP Cloud Storage static hosting — you're already on GCP, keeps everything in one place
-- DNS: add A record or CNAME in your domain registrar pointing to the hosting provider
+**Live branding:** *Play Spotter* (align with the Android app and public listings).  
+Older references to *PlayPlace Finder* / *play-place-finder.com* in this file refer to the same product line; use the current domain and store URLs in production configs.
 
 ---
 
-## Phase 2: Admin Hub Web Portal
+## Where things live in the repo
 
-### Purpose
-Allow admin functions from a browser without needing the Android app. Useful for managing the platform from a desktop.
-
-### Pages
-- Login (Firebase Auth web SDK)
-- Admin Dashboard (mirrors AdminHubScreen)
-- Campaign Management (mirrors AdminCampaignManagementScreen)
-- Region Switcher (mirrors AdminRegionSwitcherScreen)
-- Ad Review Queue
-- Analytics Dashboard
-- Discount Code Management
-
-### Tech Stack (Phase 2)
-- Next.js or React SPA
-- Firebase Auth (web SDK) for login
-- Calls the same server API as the mobile app
-- Deployed alongside Phase 1 site
+| Area | Path |
+|------|------|
+| Next.js `app` router pages | `website/app/` |
+| Shared layout / nav / CSS | `website/app/components/`, `website/app/globals.css` |
+| Static assets (images, favicon) | `website/public/` |
+| Landing design decisions | [website/docs/landing-page-spec.md](website/docs/landing-page-spec.md) |
+| Full app ↔ web parity matrix | [website/docs/full-parity/website-full-parity-implementation-spec.md](website/docs/full-parity/website-full-parity-implementation-spec.md) |
 
 ---
 
-## Phase 3: Full Web App (Mirror of Mobile)
+## Phase 1: Public marketing + trust (launch baseline)
 
-### Purpose
-Let users search for play places, view details, add places, and manage favorites from a browser.
+**Implementation:** Next.js app (not a separate static-only repo). Revisit individual pages for “static vs SSR”; marketing routes may still export static where appropriate.
 
-### Pages
-- Home with search + location
-- Search results with map view
-- Place detail pages (SEO-friendly — each place gets a URL like /places/omaha-ne/fun-zone)
-- User profile, favorites, lists
-- Advertiser dashboard (create/manage ads from web)
+### 1. Home / landing page (`/`)
 
-### Tech Stack (Phase 3)
-- Next.js with SSR for SEO (place pages need to be indexable by Google)
-- Google Maps JavaScript API (replaces Android Maps SDK)
-- Stripe.js for web payments (replaces Android PaymentSheet)
-- Firebase Auth web SDK
-- Same server API — no backend changes needed
+**Original 1.x spec:** Teal gradient hero, app **screenshot carousel** (3–4), feature bullets, Play download, iOS “coming soon,” footer.
 
-### SEO Benefits
-- Each seeded place becomes a crawlable page
-- "playground near [city]" search traffic
-- Structured data (schema.org/Place) for rich Google results
+**As implemented:** See [landing-page-spec.md](website/docs/landing-page-spec.md). The home page uses a **feature hero** (`hero--feature`: dark field + line-art graphic + left-aligned value prop) and a **photo strip** (stock scenes), not yet a device screenshot carousel. The **/advertise** page uses a **warmer, family-first** treatment (`advertise-hero`); the landing doc records aligning `/` with that *when* art and copy are ready.
+
+**Checklist**
+
+- [x] Clear hero: name, tagline, primary CTA
+- [x] Secondary CTA to web app (`/discover`)
+- [x] iOS “coming soon”
+- [x] Feature section + bottom CTA + footer (privacy, terms, contact, advertise)
+- [ ] Optional: **screenshot / device frame strip** (original Phase 1)
+- [ ] Optional: **warm hero** variant matching `advertise-hero` (needs art or card-framed mock)
+
+### 2. Advertise (`/advertise`)
+
+- Packages overview (Prime, Inline, Event), FAQ, CTA to app / advertiser flow  
+- [x] Implemented (see `website/app/advertise/page.js`)
+
+### 3. Legal and policies
+
+- [x] Privacy — `/privacy`  
+- [x] Terms — `/terms`  
+- [x] Advertiser agreement — `/advertiser-agreement`  
+- [x] Delete account — `/delete-account` (per store / account policy needs)
+
+### 4. Support contact surface
+
+- [x] Support — `/support` (or equivalent; confirm copy matches app)
+
+### 5. Tech and hosting
+
+- **Framework:** Next.js in `website/` (not plain static HTML)  
+- **API:** When pages need auth or data, they use the same backend as the mobile app (see server routes) — not “no backend” for Phase 1 in the strict 2023 sense, but **marketing pages** can still be prerendered.  
+- **Env:** `NEXT_PUBLIC_*` for public API/Stripe keys where applicable  
+- **Deploy:** Vercel / Netlify / GCP or equivalent; DNS + SSL per provider
 
 ---
 
-## DNS Setup
+## Phase 2: Admin and operator web tools
 
-1. Log into your domain registrar (wherever you bought play-place-finder.com)
-2. For Vercel: add CNAME record `www` → `cname.vercel-dns.com`, and configure the apex domain in Vercel
-3. For Netlify: similar CNAME setup
-4. For GCP: create a Cloud DNS zone, add A records pointing to your load balancer or storage bucket
-5. SSL is automatic with Vercel/Netlify; for GCP you'd use a managed certificate
+**Direction:** Browser access to admin workflows (moderation, campaigns, regions, etc.) with Firebase/JWT auth.
+
+See parity matrix: [website-full-parity-implementation-spec.md](website/docs/full-parity/website-full-parity-implementation-spec.md) (Admin section).
+
+- [ ] Complete coverage per matrix (ongoing)
 
 ---
 
-## Timeline Recommendation
+## Phase 3: Consumer web app (mirror of mobile)
 
-- Phase 1: Build alongside Android beta launch (1-2 days of work for a static site)
-- Phase 2: After Android is stable and you want desktop admin access (1-2 weeks)
-- Phase 3: After iOS launch, when you want web traffic and SEO (2-4 weeks)
+**Direction:** Search, place detail, favorites, lists, events, contribute — SEO-friendly where it matters.
+
+See the same full-parity doc for route list and API mapping.
+
+- [ ] Complete coverage per matrix (ongoing)
+
+---
+
+## DNS and domains
+
+1. Point the active domain (e.g. `play-spotter.com` or your chosen host) at the deployment target (CNAME / A per provider).  
+2. Enforce HTTPS (hosting default or managed certificate).  
+3. Keep **privacy** and **terms** URLs stable for store listings and in-app WebViews.
+
+---
+
+## Timeline (rough)
+
+Historical estimates from the first draft of this file; treat as order-of-magnitude only:
+
+| Phase | Note |
+|-------|------|
+| 1 | Marketing + legal + advertise surface |
+| 2 | Admin / ops web |
+| 3 | Full consumer mirror + SEO for places |
+
+---
+
+## Changelog (this file)
+
+- **2026-04:** Rewrote to match current product name, linked landing-page and full-parity docs, updated Phase 1 to reflect Next.js and the **feature hero** home. Original Phase 1 “static only / play-place-finder.com only” text retired.
