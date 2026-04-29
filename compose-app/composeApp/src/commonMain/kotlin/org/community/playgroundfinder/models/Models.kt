@@ -230,6 +230,12 @@ data class CampaignCreativePreview(
     val ctaText: String = "",
     val ctaUrl: String = "",
     val businessName: String = "",
+    val eventName: String? = null,
+    val eventDate: String? = null,
+    val eventTime: String? = null,
+    val eventLocation: String? = null,
+    val isRecurring: Boolean = false,
+    val imageAlignment: String? = null,
 )
 
 @Serializable

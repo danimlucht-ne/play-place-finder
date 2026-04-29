@@ -19,7 +19,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,6 +39,9 @@ import org.community.playgroundfinder.ui.composables.FormColors
 import org.community.playgroundfinder.models.CampaignCreativePreview
 import org.community.playgroundfinder.util.MarketingLinks
 import org.community.playgroundfinder.util.rememberOpenExternalUrl
+import org.community.playgroundfinder.ui.composables.eventBodyTextForDisplay
+import org.community.playgroundfinder.ui.composables.formatEventDateReadableLine
+import org.community.playgroundfinder.ui.composables.HomeDiscoverFeaturedAdSplitMinRowHeight
 
 /** Strong outline so campaign rows and detail blocks read clearly on light backgrounds. */
 private val DashboardOutlineColor = Color(0xFF2C2C2C)
@@ -666,11 +674,23 @@ private fun isWeakCtaLabel(s: String): Boolean {
 
 private fun howYourAdLooksBlurb(placement: String, isEvent: Boolean): String = when {
     placement == "featured_home" && isEvent ->
-        "Layout matches the home hero: image, then text and a bottom row with Event + your button."
+        "Same as the home screen: split row with the image on the left, then title, When/Where, your message, and Event + your button."
     placement == "featured_home" ->
-        "Layout matches the prime home card: image, business name, message, then Ad + button in a row."
+        "Same as the prime home card: split row—image on the left, your business name and message on the right, then Ad + your button below."
     else ->
-        "Layout matches search & list: image on the left, headline and message on the right, and Ad (or Event) with your button in a row at the bottom—same as inline listings in the app."
+        "Same as search and list: image on the left, headline and message on the right, and Ad (or Event) with your button in a row at the bottom."
+}
+
+private fun previewLabeledEventLine(label: String, value: String) = buildAnnotatedString {
+    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF263238))) { append(label) }
+    append(" ")
+    withStyle(SpanStyle(color = Color(0xFF37474F))) { append(value) }
+}
+
+private fun previewFeaturedImageAlignment(s: String?): Alignment = when (s?.lowercase()) {
+    "top" -> Alignment.TopCenter
+    "bottom" -> Alignment.BottomCenter
+    else -> Alignment.Center
 }
 
 @Composable
@@ -680,120 +700,308 @@ private fun HowYourAdLooksBlock(
     preview: CampaignCreativePreview,
 ) {
     val isPrime = placement == "featured_home"
-    val titlePrimary = if (isPrime) {
-        preview.businessName.trim().ifBlank { preview.headline }
-    } else {
-        preview.headline.trim().ifBlank { preview.businessName }
+    val displayTitle = when {
+        isPrime && isEvent && !preview.eventName.isNullOrBlank() -> preview.eventName!!.trim()
+        isPrime && preview.businessName.trim().isNotBlank() -> preview.businessName.trim()
+        isPrime -> preview.headline.trim().ifBlank { preview.businessName.trim() }
+        else -> preview.headline.trim().ifBlank { preview.businessName.trim() }
     }.ifBlank { "Your ad" }
+    val eventNameForDedup = if (isEvent) {
+        preview.eventName?.trim()?.takeIf { it.isNotEmpty() } ?: displayTitle
+    } else {
+        null
+    }
+    val bodyDisplayed = eventBodyTextForDisplay(
+        preview.body,
+        isEvent,
+        eventName = eventNameForDedup,
+        eventDate = preview.eventDate,
+        eventTime = preview.eventTime,
+        eventLocation = preview.eventLocation,
+    )
     val ctaLabel = preview.ctaText.trim().ifBlank { "Learn more" }
     val showWeakHint = isWeakCtaLabel(preview.ctaText)
+    val listingStroke = BorderStroke(1.5.dp, if (isEvent) Color(0xFFFF8F00) else Color(0xFF00CED1))
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+            .border(DashboardOutlineWidth, DashboardOutlineColor, RoundedCornerShape(10.dp))
+            .background(Color(0xFFFAFAFA))
             .padding(10.dp),
     ) {
-        if (!preview.imageUrl.isNullOrBlank()) {
-            AsyncImage(
-                model = preview.imageUrl,
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(if (isPrime) 132.dp else 140.dp)
-                    .clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop,
-            )
-            Spacer(Modifier.height(8.dp))
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(if (isPrime) 100.dp else 120.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("Portrait ad image", fontSize = 12.sp, color = FormColors.PrimaryButton, fontWeight = FontWeight.Medium)
-            }
-            Spacer(Modifier.height(8.dp))
-        }
-
         if (isPrime) {
-            Text(
-                titlePrimary,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
-            )
-            if (preview.body.isNotBlank()) {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    preview.body,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 16.sp,
-                    maxLines = 5,
-                )
+            // Matches [FeaturedAdCard] / AdCardContent: always a horizontal split (not stacked).
+            val layoutDir = LocalLayoutDirection.current
+            val corner = 20.dp
+            val imageHalfShape = if (layoutDir == LayoutDirection.Rtl) {
+                RoundedCornerShape(topStart = 0.dp, bottomStart = 0.dp, topEnd = corner, bottomEnd = corner)
+            } else {
+                RoundedCornerShape(topStart = corner, bottomStart = corner, topEnd = 0.dp, bottomEnd = 0.dp)
             }
-            Spacer(Modifier.height(8.dp))
-            Row(
+            val dateReadable = if (isEvent) formatEventDateReadableLine(preview.eventDate, preview.isRecurring) else null
+            val whenLine = if (isEvent) {
+                listOfNotNull(
+                    dateReadable?.trim()?.takeIf { it.isNotEmpty() },
+                    preview.eventTime?.trim()?.takeIf { it.isNotEmpty() },
+                ).joinToString(" at ").ifBlank { null }
+            } else {
+                null
+            }
+            val whereLine = if (isEvent) preview.eventLocation?.trim()?.takeIf { it.isNotEmpty() } else null
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                shape = RoundedCornerShape(corner),
+                border = BorderStroke(1.dp, Color(0xFF00CED1).copy(alpha = 0.4f)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFFFF)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
-                if (isEvent) EventBadgePill() else AdIndicatorPill()
-                OutlinedButton(
-                    onClick = {},
-                    enabled = false,
-                    shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    border = BorderStroke(1.dp, FormColors.PrimaryButton),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = FormColors.PrimaryButton,
-                    ),
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = HomeDiscoverFeaturedAdSplitMinRowHeight)
+                        .height(IntrinsicSize.Min),
+                    verticalAlignment = Alignment.Top,
                 ) {
-                    Text(ctaLabel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(imageHalfShape)
+                            .background(
+                                if (!preview.imageUrl.isNullOrBlank()) {
+                                    Color(0xFFEEEEEE)
+                                } else {
+                                    Color(0xFFB2EBF2).copy(alpha = 0.5f)
+                                },
+                            ),
+                    ) {
+                        if (!preview.imageUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = preview.imageUrl,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit,
+                                alignment = previewFeaturedImageAlignment(preview.imageAlignment),
+                            )
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(1.dp)
+                            .background(Color(0xFFE8E8E8)),
+                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .padding(start = 8.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
+                        verticalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                displayTitle,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                lineHeight = 17.sp,
+                                color = Color(0xFF212121),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            if (!whenLine.isNullOrBlank()) {
+                                Text(
+                                    text = previewLabeledEventLine("When:", whenLine),
+                                    fontSize = 12.sp,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    lineHeight = 16.sp,
+                                )
+                            }
+                            if (!whereLine.isNullOrBlank()) {
+                                Text(
+                                    text = previewLabeledEventLine("Where:", whereLine),
+                                    fontSize = 12.sp,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    lineHeight = 16.sp,
+                                )
+                            }
+                            if (bodyDisplayed.isNotBlank()) {
+                                Text(
+                                    bodyDisplayed,
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF424242),
+                                    lineHeight = 14.sp,
+                                    maxLines = 8,
+                                    overflow = TextOverflow.Clip,
+                                )
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            if (isEvent) EventBadgePill() else AdIndicatorPill()
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .border(BorderStroke(1.dp, Color(0xFF00CED1)), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    ctaLabel,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF00CED1),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    titlePrimary,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp,
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(8.dp))
-                if (isEvent) EventBadgePill() else AdIndicatorPill()
+            // Inline / list: same split as [SponsoredListingCard] (image left, copy + CTA right).
+            val layoutDir = LocalLayoutDirection.current
+            val corner = 10.dp
+            val imageHalfShape = if (layoutDir == LayoutDirection.Rtl) {
+                RoundedCornerShape(topEnd = corner, bottomEnd = corner)
+            } else {
+                RoundedCornerShape(topStart = corner, bottomStart = corner)
             }
-            if (preview.body.isNotBlank()) {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    preview.body,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 16.sp,
-                    maxLines = 4,
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = {},
-                enabled = false,
+            val splitHeight = if (isEvent) 188.dp else 132.dp
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                contentPadding = PaddingValues(vertical = 8.dp),
-                border = BorderStroke(1.dp, FormColors.PrimaryButton),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = FormColors.PrimaryButton,
-                ),
+                shape = RoundedCornerShape(corner),
+                border = listingStroke,
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFFFF)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
-                Text(ctaLabel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(splitHeight),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(imageHalfShape)
+                            .background(Color(0xFFEEEEEE)),
+                    ) {
+                        if (!preview.imageUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = preview.imageUrl,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    "Ad image",
+                                    fontSize = 11.sp,
+                                    color = FormColors.PrimaryButton,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(1.dp)
+                            .background(Color(0xFFE8E8E8)),
+                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                    ) {
+                        val whenIn = if (isEvent) {
+                            listOfNotNull(
+                                formatEventDateReadableLine(preview.eventDate, preview.isRecurring),
+                                preview.eventTime?.trim()?.takeIf { it.isNotEmpty() },
+                            ).joinToString(" at ").ifBlank { null }
+                        } else {
+                            null
+                        }
+                        val whereIn = if (isEvent) preview.eventLocation?.trim()?.takeIf { it.isNotEmpty() } else null
+                        Text(
+                            displayTitle,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = Color(0xFF212121),
+                            maxLines = 2,
+                        )
+                        if (!whenIn.isNullOrBlank()) {
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = previewLabeledEventLine("When:", whenIn),
+                                fontSize = 11.sp,
+                                maxLines = 2,
+                                lineHeight = 15.sp,
+                            )
+                        }
+                        if (!whereIn.isNullOrBlank()) {
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = previewLabeledEventLine("Where:", whereIn),
+                                fontSize = 11.sp,
+                                maxLines = 2,
+                                lineHeight = 15.sp,
+                            )
+                        }
+                        if (bodyDisplayed.isNotBlank()) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                bodyDisplayed,
+                                fontSize = 11.sp,
+                                color = Color(0xFF424242),
+                                lineHeight = 15.sp,
+                                maxLines = 3,
+                            )
+                        }
+                        Spacer(Modifier.weight(1f, fill = true))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            if (isEvent) EventBadgePill() else AdIndicatorPill()
+                            OutlinedButton(
+                                onClick = {},
+                                enabled = false,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                border = BorderStroke(1.dp, Color(0xFF00CED1)),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color(0xFF00CED1),
+                                ),
+                            ) {
+                                Text(
+                                    ctaLabel,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -841,7 +1049,7 @@ private fun CampaignCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, FormColors.SubtleDivider, RoundedCornerShape(12.dp))
+            .border(DashboardOutlineWidth, DashboardOutlineColor, RoundedCornerShape(12.dp))
             .clickable(onClick = onToggle),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -1060,7 +1268,9 @@ private fun CampaignDetailSection(analytics: CampaignAnalyticsData) {
         Surface(
             shape = RoundedCornerShape(10.dp),
             color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(DashboardOutlineWidth, DashboardOutlineColor, RoundedCornerShape(10.dp)),
         ) {
             Text(
                 "Demo campaign — stats may reflect testing and placeholders, not a live paid run.",
@@ -1094,7 +1304,9 @@ private fun CampaignDetailSection(analytics: CampaignAnalyticsData) {
             Text("New image (pending review)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(4.dp))
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(DashboardOutlineWidth, DashboardOutlineColor, RoundedCornerShape(10.dp)),
                 shape = RoundedCornerShape(10.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.35f)),
             ) {
@@ -1133,7 +1345,9 @@ private fun CampaignDetailSection(analytics: CampaignAnalyticsData) {
     Surface(
         shape = RoundedCornerShape(10.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(DashboardOutlineWidth, DashboardOutlineColor, RoundedCornerShape(10.dp)),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
@@ -1200,7 +1414,9 @@ private fun CampaignDetailSection(analytics: CampaignAnalyticsData) {
 
     if (sortedDaily.isNotEmpty()) {
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(DashboardOutlineWidth, DashboardOutlineColor, RoundedCornerShape(12.dp)),
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)),
         ) {

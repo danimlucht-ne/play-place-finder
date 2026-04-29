@@ -378,14 +378,24 @@ private fun AdCardContent(
                     }
 
                     if (ad.body.isNotBlank()) {
-                        Text(
+                        val bodyForCard = eventBodyTextForDisplay(
                             ad.body,
-                            fontSize = 11.sp,
-                            maxLines = 18,
-                            overflow = TextOverflow.Clip,
-                            color = Color(0xFF424242),
-                            lineHeight = 14.sp,
+                            ad.isEvent,
+                            eventName = displayTitle.takeIf { ad.isEvent },
+                            eventDate = ad.eventDate,
+                            eventTime = ad.eventTime,
+                            eventLocation = ad.eventLocation,
                         )
+                        if (bodyForCard.isNotBlank()) {
+                            Text(
+                                bodyForCard,
+                                fontSize = 11.sp,
+                                maxLines = 18,
+                                overflow = TextOverflow.Clip,
+                                color = Color(0xFF424242),
+                                lineHeight = 14.sp,
+                            )
+                        }
                     }
                 }
 

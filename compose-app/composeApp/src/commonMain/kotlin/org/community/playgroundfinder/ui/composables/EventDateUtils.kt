@@ -88,3 +88,51 @@ fun getEventCountdown(eventDate: String?): String? {
         else -> null
     }
 }
+
+/**
+ * Strips event metadata from the stored [body] when the UI already shows **When** / **Where** lines
+ * and structured event fields, so the paragraph is not a duplicate of those rows (mirrors
+ * [FeaturedAdCard] and listing split cards).
+ */
+fun eventBodyTextForDisplay(
+    body: String,
+    isEvent: Boolean,
+    eventName: String? = null,
+    eventDate: String? = null,
+    eventTime: String? = null,
+    eventLocation: String? = null,
+): String {
+    if (!isEvent) return body.trim()
+    var t = body.trim()
+    if (t.isEmpty()) return t
+    t = t.split("\n").map { it.trim() }.filter { line ->
+        !line.matches(Regex("(?i)Date:\\s*.+")) &&
+            !line.matches(Regex("(?i)Time:\\s*.+")) &&
+            !line.matches(Regex("(?i)Location:\\s*.+"))
+    }.joinToString("\n").trim()
+    t = t.replace(Regex("(?i)\\bDate:\\s*[^.!\\n]+[.!?]?\\s*"), " ")
+    t = t.replace(Regex("(?i)\\bTime:\\s*[^.!\\n]+[.!?]?\\s*"), " ")
+    t = t.replace(Regex("(?i)\\bLocation:\\s*[^.!\\n]+[.!?]?\\s*"), " ")
+    val en = eventName?.trim()
+    if (!en.isNullOrEmpty() && en.length >= 2) {
+        t = t.replace(Regex("(?i)Join us for\\s*" + Regex.escape(en) + "\\s*[.!?]?\\s*"), " ")
+    }
+    val ymd = eventDate?.trim()?.take(10)
+    if (!ymd.isNullOrEmpty() && ymd.length >= 8) {
+        t = t.replace(Regex("\\b" + Regex.escape(ymd) + "\\b"), " ")
+    }
+    val time = eventTime?.trim()
+    if (!time.isNullOrEmpty() && time.length >= 3) {
+        t = t.replace(time, " ")
+    }
+    val loc = eventLocation?.trim()
+    if (!loc.isNullOrEmpty() && loc.length >= 3) {
+        t = t.replace(loc, " ")
+    }
+    return t
+        .replace(Regex("\\s+"), " ")
+        .replace(Regex("\\s+\\."), ".")
+        .trim()
+        .trim('.')
+        .trim()
+}

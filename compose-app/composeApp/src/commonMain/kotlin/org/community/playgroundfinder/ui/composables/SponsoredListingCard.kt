@@ -138,6 +138,18 @@ fun SponsoredListingCard(
     }
 
     val useFlexibleCarouselHeight = compactCarouselHero && matchCarouselMinHeight && minTotalHeight > 0.dp
+    val bodyForStack = if (isEvent) {
+        eventBodyTextForDisplay(
+            description.orEmpty(),
+            true,
+            eventName = businessName,
+            eventDate = eventDate,
+            eventTime = eventTime,
+            eventLocation = eventLocation,
+        )
+    } else {
+        description?.trim()
+    }
     val cardModifier = Modifier
         .fillMaxWidth()
         .clip(RoundedCornerShape(16.dp))
@@ -301,9 +313,9 @@ fun SponsoredListingCard(
                             Text(countdown, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF8F00))
                         }
                     }
-                    description?.let {
+                    if (!bodyForStack.isNullOrBlank()) {
                         Text(
-                            it,
+                            bodyForStack,
                             fontSize = 13.sp,
                             color = Color(0xFF424242),
                             maxLines = 24,
@@ -470,6 +482,18 @@ private fun SponsoredListingCardSplit(
         Modifier.height(200.dp)
     }
     val titleToShow = businessName.ifBlank { if (isSample) "Sample" else "Sponsored" }
+    val bodyForSplit = if (isEvent) {
+        eventBodyTextForDisplay(
+            description.orEmpty(),
+            true,
+            eventName = titleToShow,
+            eventDate = eventDate,
+            eventTime = eventTime,
+            eventLocation = eventLocation,
+        )
+    } else {
+        description?.trim()
+    }
     val bodyMaxLines = if (matchCarouselMinHeight) 24 else 3
 
     Card(
@@ -585,9 +609,9 @@ private fun SponsoredListingCardSplit(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    description?.let { body ->
+                    if (!bodyForSplit.isNullOrBlank()) {
                         Text(
-                            body,
+                            bodyForSplit,
                             fontSize = 12.sp,
                             color = Color(0xFF424242),
                             maxLines = bodyMaxLines,

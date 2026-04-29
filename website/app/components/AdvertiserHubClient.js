@@ -114,6 +114,55 @@ function buildAnalyticsCsv(daily) {
   return lines.join('\n');
 }
 
+/** Match app: hide date/time/location duplicates in body when When/Where rows exist. */
+function eventBodyTextForDisplay(body, isEvent, opts = {}) {
+  if (!isEvent) return (body || '').trim();
+  let t = (body || '').trim();
+  if (!t) return t;
+  t = t
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((line) => !/^(date|time|location):/i.test(line))
+    .join('\n')
+    .trim();
+  t = t.replace(/\bDate:\s*[^.!\n]+[.!?]?\s*/gi, ' ');
+  t = t.replace(/\bTime:\s*[^.!\n]+[.!?]?\s*/gi, ' ');
+  t = t.replace(/\bLocation:\s*[^.!\n]+[.!?]?\s*/gi, ' ');
+  const en = (opts.eventName || '').trim();
+  if (en.length >= 2) {
+    const re = new RegExp(
+      `Join us for\\s*${en.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[.!?]?\\s*`,
+      'i',
+    );
+    t = t.replace(re, ' ');
+  }
+  const ymd = (opts.eventDate || '').trim().slice(0, 10);
+  if (ymd.length >= 8) {
+    t = t.replace(new RegExp(`\\b${ymd.replace(/-/g, '\\-')}\\b`, 'g'), ' ');
+  }
+  const time = (opts.eventTime || '').trim();
+  if (time.length >= 3) t = t.split(time).join(' ');
+  const loc = (opts.eventLocation || '').trim();
+  if (loc.length >= 3) t = t.split(loc).join(' ');
+  return t
+    .replace(/\s+/g, ' ')
+    .replace(/\s+\./, '.')
+    .trim()
+    .replace(/\.+$/g, '')
+    .trim();
+}
+
+function formatEventDateReadableLineYmd(ymd, isRecurring) {
+  if (!ymd || String(ymd).trim().length < 10) return null;
+  const d = new Date(`${String(ymd).trim().slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  if (isRecurring) {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return `Every ${days[d.getDay()]}`;
+  }
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 function DailyImpressionsChart({ daily }) {
   const days = useMemo(() => {
     const list = [...(daily || [])].filter((d) => d && (d.date || d.ymd));
@@ -158,18 +207,53 @@ function AdPreviewCard({
   body,
   ctaText,
   imageUrl,
+  eventName,
+  eventDate,
+  eventTime,
+  eventLocation,
+  isRecurring,
   title = 'In-app preview',
   description,
   tone = 'draft',
 }) {
   const isPrime = placement === 'featured_home';
-  const displayBusinessName = businessName?.trim() || 'Your business';
-  const displayHeadline = headline?.trim() || 'Your headline will appear here';
-  const displayBody = body?.trim() || 'Your description will appear here once you add it.';
+  const displayTitlePrime = (() => {
+    if (isPrime && isEvent && eventName && String(eventName).trim()) return String(eventName).trim();
+    if (isPrime && businessName && String(businessName).trim()) return String(businessName).trim();
+    if (isPrime) return (headline || '').trim() || (businessName || '').trim() || 'Your business';
+    return '';
+  })();
+  const displayHeadline = (headline || '').trim() || 'Your headline will appear here';
+  const displayTitleInline = (() => {
+    if (isEvent && eventName && String(eventName).trim()) return String(eventName).trim();
+    return displayHeadline;
+  })();
+  const whenLine = isEvent
+    ? [formatEventDateReadableLineYmd(eventDate, !!isRecurring), (eventTime || '').trim()]
+        .filter((x) => x)
+        .join(' at ') || null
+    : null;
+  const whereLine = isEvent && (eventLocation || '').trim() ? (eventLocation || '').trim() : null;
+  const eventNameForDedup = isEvent
+    ? (eventName && String(eventName).trim() ? String(eventName).trim() : displayTitleInline)
+    : null;
+  const bodyRaw = (body || '').trim();
+  const displayBodyProcessed = isEvent
+    ? eventBodyTextForDisplay(bodyRaw, true, {
+        eventName: eventNameForDedup,
+        eventDate,
+        eventTime,
+        eventLocation: whereLine || eventLocation,
+      })
+    : bodyRaw;
+  const bodyParagraph = (isEvent ? displayBodyProcessed : bodyRaw) || null;
+  const bodyPlaceholder = 'Your description will appear here once you add it.';
   const displayCta = ctaText?.trim() || 'Learn more';
-  const previewLabel = description || (isPrime
-    ? 'Prime placement preview: portrait image with message and button.'
-    : 'Inline listing preview: portrait image on top, then the message and button underneath.');
+  const previewLabel =
+    description ||
+    (isPrime
+      ? 'Prime: split layout (image and copy side by side), matching the app home card.'
+      : 'Inline: split layout with image on the left, matching search and list ads.');
 
   return (
     <div className="hub-draft-preview">
@@ -186,35 +270,59 @@ function AdPreviewCard({
       {isPrime ? (
         <article className="hub-ad-preview hub-ad-preview--prime" aria-label="Prime placement preview">
           <div className="hub-ad-preview__image hub-ad-preview__image--prime">
-            {imageUrl ? <img src={imageUrl} alt="" /> : <span>Portrait ad image</span>}
+            {imageUrl ? <img src={imageUrl} alt="" /> : <span>Ad image</span>}
           </div>
           <div className="hub-ad-preview__content hub-ad-preview__content--prime">
             <div className="hub-ad-preview__copy">
-              <h4>{displayBusinessName}</h4>
-              <p>{displayBody}</p>
+              <h4>{displayTitlePrime || displayHeadline || 'Your business'}</h4>
+              {whenLine ? (
+                <p className="hub-ad-preview__meta">
+                  <strong>When:</strong> {whenLine}
+                </p>
+              ) : null}
+              {whereLine ? (
+                <p className="hub-ad-preview__meta">
+                  <strong>Where:</strong> {whereLine}
+                </p>
+              ) : null}
+              {bodyParagraph ? <p>{bodyParagraph}</p> : <p className="hub-ad-preview__meta">{bodyPlaceholder}</p>}
             </div>
             <div className="hub-ad-preview__footer">
               <span className={`hub-ad-preview__badge${isEvent ? ' hub-ad-preview__badge--event' : ''}`}>
                 {isEvent ? 'Event' : 'Ad'}
               </span>
-              <button type="button" className="hub-ad-preview__cta" disabled>{displayCta}</button>
+              <button type="button" className="hub-ad-preview__cta" disabled>
+                {displayCta}
+              </button>
             </div>
           </div>
         </article>
       ) : (
         <article className="hub-ad-preview hub-ad-preview--inline" aria-label="Inline listing preview">
           <div className="hub-ad-preview__image hub-ad-preview__image--inline">
-            {imageUrl ? <img src={imageUrl} alt="" /> : <span>Portrait ad image</span>}
+            {imageUrl ? <img src={imageUrl} alt="" /> : <span>Ad image</span>}
           </div>
           <div className="hub-ad-preview__content hub-ad-preview__content--inline">
-            <div className="hub-ad-preview__title-row">
-              <h4>{displayHeadline}</h4>
+            <h4>{displayTitleInline}</h4>
+            {whenLine ? (
+              <p className="hub-ad-preview__meta">
+                <strong>When:</strong> {whenLine}
+              </p>
+            ) : null}
+            {whereLine ? (
+              <p className="hub-ad-preview__meta">
+                <strong>Where:</strong> {whereLine}
+              </p>
+            ) : null}
+            {bodyParagraph ? <p>{bodyParagraph}</p> : <p className="hub-ad-preview__meta">{bodyPlaceholder}</p>}
+            <div className="hub-ad-preview__footer hub-ad-preview__footer--inline">
               <span className={`hub-ad-preview__badge${isEvent ? ' hub-ad-preview__badge--event' : ''}`}>
                 {isEvent ? 'Event' : 'Ad'}
               </span>
+              <button type="button" className="hub-ad-preview__cta" disabled>
+                {displayCta}
+              </button>
             </div>
-            <p>{displayBody}</p>
-            <button type="button" className="hub-ad-preview__cta hub-ad-preview__cta--full" disabled>{displayCta}</button>
           </div>
         </article>
       )}
@@ -958,6 +1066,11 @@ export default function AdvertiserHubClient({ embedded = false }) {
                   body={campaignDetail.campaign?.creativePreview?.body}
                   ctaText={campaignDetail.campaign?.creativePreview?.ctaText}
                   imageUrl={campaignDetail.campaign?.creativePreview?.imageUrl}
+                  eventName={campaignDetail.campaign?.creativePreview?.eventName}
+                  eventDate={campaignDetail.campaign?.creativePreview?.eventDate}
+                  eventTime={campaignDetail.campaign?.creativePreview?.eventTime}
+                  eventLocation={campaignDetail.campaign?.creativePreview?.eventLocation}
+                  isRecurring={Boolean(campaignDetail.campaign?.creativePreview?.isRecurring)}
                 />
               ) : null}
               {campaignDetail.campaign?.pendingCreativePreview ? (
@@ -971,6 +1084,11 @@ export default function AdvertiserHubClient({ embedded = false }) {
                   body={campaignDetail.campaign?.pendingCreativePreview?.body}
                   ctaText={campaignDetail.campaign?.pendingCreativePreview?.ctaText}
                   imageUrl={campaignDetail.campaign?.pendingCreativePreview?.imageUrl}
+                  eventName={campaignDetail.campaign?.pendingCreativePreview?.eventName}
+                  eventDate={campaignDetail.campaign?.pendingCreativePreview?.eventDate}
+                  eventTime={campaignDetail.campaign?.pendingCreativePreview?.eventTime}
+                  eventLocation={campaignDetail.campaign?.pendingCreativePreview?.eventLocation}
+                  isRecurring={Boolean(campaignDetail.campaign?.pendingCreativePreview?.isRecurring)}
                   tone="pending"
                 />
               ) : null}

@@ -8,6 +8,12 @@ const { inferDemoCampaign } = require('../utils/inferDemoCreative');
 
 function creativeToPreview(creative) {
   if (!creative) return null;
+  const rawDate = creative.eventDate;
+  let eventDateOut = null;
+  if (rawDate != null && String(rawDate).trim() !== '') {
+    const d = rawDate instanceof Date ? rawDate : new Date(rawDate);
+    eventDateOut = Number.isNaN(d.getTime()) ? String(rawDate).trim().slice(0, 10) : d.toISOString().slice(0, 10);
+  }
   return {
     headline: creative.headline || '',
     body: creative.body || '',
@@ -15,6 +21,12 @@ function creativeToPreview(creative) {
     ctaText: creative.ctaText || '',
     ctaUrl: creative.ctaUrl || '',
     businessName: creative.businessName || '',
+    eventName: creative.eventName != null && String(creative.eventName).trim() !== '' ? String(creative.eventName).trim() : null,
+    eventDate: eventDateOut,
+    eventTime: creative.eventTime != null && String(creative.eventTime).trim() !== '' ? String(creative.eventTime).trim() : null,
+    eventLocation: creative.eventLocation != null && String(creative.eventLocation).trim() !== '' ? String(creative.eventLocation).trim() : null,
+    isRecurring: Boolean(creative.isRecurring),
+    imageAlignment: creative.imageAlignment && String(creative.imageAlignment).trim() !== '' ? String(creative.imageAlignment).trim() : 'center',
   };
 }
 
