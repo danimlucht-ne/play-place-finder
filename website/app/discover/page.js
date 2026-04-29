@@ -61,9 +61,12 @@ export default function DiscoverPage() {
   const [sortBy, setSortBy] = useState(() =>
     typeof window !== 'undefined' && readCachedLatLng() ? 'distance' : 'newest',
   );
-  const [coords, setCoords] = useState(null);
-  /** idle | locating | ok | denied — ok includes cached coordinates; no auto GPS prompt on load */
-  const [locationPhase, setLocationPhase] = useState('idle');
+  const [coords, setCoords] = useState(() => (typeof window === 'undefined' ? null : readCachedLatLng()));
+  /** idle | locating | ok | denied — no global “random state” list until we have coordinates (new visit or “Find near me”). */
+  const [locationPhase, setLocationPhase] = useState(() => {
+    const c = typeof window === 'undefined' ? null : readCachedLatLng();
+    return c && Number.isFinite(c.lat) && Number.isFinite(c.lng) ? 'ok' : 'idle';
+  });
   const [usingSearchEndpoint, setUsingSearchEndpoint] = useState(false);
   /** false | hybrid (POST search/hybrid) | recent (global newest list) */
   const [proximityFallback, setProximityFallback] = useState(false);
@@ -118,52 +121,48 @@ export default function DiscoverPage() {
     setProximityFallback(false);
     try {
       const hasCoords = coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng);
+      if (!hasCoords) {
+        setUsingSearchEndpoint(false);
+        setPlaces([]);
+        setCursor('');
+        setHasMore(false);
+        await loadFavoritesInto(setFavoriteIds);
+        return;
+      }
+
       const textActive = debouncedNameQuery.trim().length > 0;
       const radius = textActive ? WIDE_TEXT_SEARCH_RADIUS_MILES : radiusMiles;
-      const needsFilterSearch =
-        playgroundType !== 'all' || hasBathrooms || isToddlerFriendly;
-
-      if (hasCoords || needsFilterSearch) {
-        setUsingSearchEndpoint(true);
-        const params = new URLSearchParams();
-        if (hasCoords) {
-          params.set('lat', String(coords.lat));
-          params.set('lng', String(coords.lng));
-          params.set('radius', String(radius));
-        }
-        if (playgroundType !== 'all') params.set('playgroundType', playgroundType);
-        if (hasBathrooms) params.set('hasBathrooms', 'true');
-        if (isToddlerFriendly) params.set('isToddlerFriendly', 'true');
-        const response = await webFetch(`/api/playgrounds/search?${params.toString()}`);
-        let rows = response.data || [];
-        rows = rows.filter((p) => matchesNameQuery(p, debouncedNameQuery));
-        if (hasCoords && rows.length === 0) {
-          const canHybrid = Boolean(getAuthToken());
-          if (canHybrid) {
-            let hybridPlaces = [];
-            try {
-              const ctrl = new AbortController();
-              const timer = setTimeout(() => ctrl.abort(), 120000);
-              const hybridRes = await webFetch('/api/search/hybrid', {
-                method: 'POST',
-                body: JSON.stringify({ lat: coords.lat, lng: coords.lng }),
-                signal: ctrl.signal,
-              }).finally(() => clearTimeout(timer));
-              const rawPlaces = hybridRes?.places ?? hybridRes?.data?.places;
-              hybridPlaces = Array.isArray(rawPlaces) ? rawPlaces : [];
-            } catch {
-              hybridPlaces = [];
-            }
-            if (hybridPlaces.length > 0) {
-              rows = hybridPlaces.filter((p) => matchesNameQuery(p, debouncedNameQuery));
-              setProximityFallback('hybrid');
-            } else {
-              const fb = await webFetch('/api/playgrounds?limit=40');
-              rows = (fb.data || [])
-                .filter((p) => matchesNameQuery(p, debouncedNameQuery))
-                .filter((p) => matchesPlaygroundFilters(p, playgroundType, hasBathrooms, isToddlerFriendly));
-              setProximityFallback('recent');
-            }
+      setUsingSearchEndpoint(true);
+      const params = new URLSearchParams();
+      params.set('lat', String(coords.lat));
+      params.set('lng', String(coords.lng));
+      params.set('radius', String(radius));
+      if (playgroundType !== 'all') params.set('playgroundType', playgroundType);
+      if (hasBathrooms) params.set('hasBathrooms', 'true');
+      if (isToddlerFriendly) params.set('isToddlerFriendly', 'true');
+      const response = await webFetch(`/api/playgrounds/search?${params.toString()}`);
+      let rows = response.data || [];
+      rows = rows.filter((p) => matchesNameQuery(p, debouncedNameQuery));
+      if (rows.length === 0) {
+        const canHybrid = Boolean(getAuthToken());
+        if (canHybrid) {
+          let hybridPlaces = [];
+          try {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), 120000);
+            const hybridRes = await webFetch('/api/search/hybrid', {
+              method: 'POST',
+              body: JSON.stringify({ lat: coords.lat, lng: coords.lng }),
+              signal: ctrl.signal,
+            }).finally(() => clearTimeout(timer));
+            const rawPlaces = hybridRes?.places ?? hybridRes?.data?.places;
+            hybridPlaces = Array.isArray(rawPlaces) ? rawPlaces : [];
+          } catch {
+            hybridPlaces = [];
+          }
+          if (hybridPlaces.length > 0) {
+            rows = hybridPlaces.filter((p) => matchesNameQuery(p, debouncedNameQuery));
+            setProximityFallback('hybrid');
           } else {
             const fb = await webFetch('/api/playgrounds?limit=40');
             rows = (fb.data || [])
@@ -171,19 +170,17 @@ export default function DiscoverPage() {
               .filter((p) => matchesPlaygroundFilters(p, playgroundType, hasBathrooms, isToddlerFriendly));
             setProximityFallback('recent');
           }
+        } else {
+          const fb = await webFetch('/api/playgrounds?limit=40');
+          rows = (fb.data || [])
+            .filter((p) => matchesNameQuery(p, debouncedNameQuery))
+            .filter((p) => matchesPlaygroundFilters(p, playgroundType, hasBathrooms, isToddlerFriendly));
+          setProximityFallback('recent');
         }
-        setPlaces(applySort(rows));
-        setCursor('');
-        setHasMore(false);
-      } else {
-        setUsingSearchEndpoint(false);
-        const response = await webFetch('/api/playgrounds?limit=40');
-        let rows = response.data || [];
-        rows = rows.filter((p) => matchesNameQuery(p, debouncedNameQuery));
-        setPlaces(applySort(rows));
-        setCursor(response.nextCursor || '');
-        setHasMore(Boolean(response.nextCursor));
       }
+      setPlaces(applySort(rows));
+      setCursor('');
+      setHasMore(false);
       await loadFavoritesInto(setFavoriteIds);
     } catch (err) {
       setError(err.message || 'Could not load places.');
@@ -266,6 +263,7 @@ export default function DiscoverPage() {
   }
 
   async function requestUserLocation() {
+    setBusy(true);
     setLocationPhase('locating');
     const fresh = await requestBrowserLatLng();
     if (fresh) {
@@ -292,12 +290,12 @@ export default function DiscoverPage() {
     || isToddlerFriendly
     || debouncedNameQuery.trim().length > 0;
   const locationHint = (() => {
-    if (locationPhase === 'locating') return 'Requesting location…';
+    if (locationPhase === 'locating') return 'Requesting your location from the browser…';
     if (hasCoords) {
       const mi = debouncedNameQuery.trim() ? WIDE_TEXT_SEARCH_RADIUS_MILES : radiusMiles;
       return `Places within ~${mi} mi (same proximity search as the app).`;
     }
-    return 'Location not shared — showing the latest listings. Tap “Use my location” to search nearby.';
+    return 'We do not show a random list from other states. Tap “Find near me” so we can search near you (or a saved point from a past visit).';
   })();
 
   return (
@@ -309,18 +307,18 @@ export default function DiscoverPage() {
       <section className="hub-card">
         <div className="hub-card-head">
           <div>
-            <h2>{hasCoords ? 'Near you' : 'All sites'}</h2>
+            <h2>{hasCoords ? 'Near you' : 'Find a place near you'}</h2>
             <p>{locationHint}</p>
           </div>
           <div className="hub-actions-inline">
             {(locationPhase === 'idle' || locationPhase === 'denied') ? (
               <button type="button" className="btn btn-teal" onClick={requestUserLocation}>
-                Use my location
+                Find near me
               </button>
             ) : null}
             {locationPhase === 'ok' && hasCoords ? (
               <button type="button" className="btn btn-outline hub-btn-dark" onClick={requestUserLocation}>
-                Refresh location
+                Update location
               </button>
             ) : null}
             <Link href="/map" className="btn btn-outline hub-btn-dark">Map view</Link>
@@ -455,7 +453,20 @@ export default function DiscoverPage() {
                 </div>
               )
             ) : (
-              <p className="hub-empty">No places returned yet. Set your location or try again in a moment.</p>
+              <div className="hub-empty hub-empty--location">
+                <p>
+                  <strong>No list yet</strong> — we need a point near you to load nearby play places. Tap{' '}
+                  <strong>Find near me</strong> above, or if you have already allowed location on this site, try again
+                  in a moment.
+                </p>
+                {(locationPhase === 'idle' || locationPhase === 'denied') ? (
+                  <div className="hub-actions-inline" style={{ marginTop: 12 }}>
+                    <button type="button" className="btn btn-teal" onClick={requestUserLocation}>
+                      Find near me
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             )
           ) : null}
         </div>

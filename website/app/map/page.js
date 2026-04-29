@@ -23,8 +23,11 @@ export default function MapPage() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [cityFilter, setCityFilter] = useState('all');
   const [selectedPlaceId, setSelectedPlaceId] = useState('');
-  const [coords, setCoords] = useState(null);
-  const [locationPhase, setLocationPhase] = useState('idle');
+  const [coords, setCoords] = useState(() => (typeof window === 'undefined' ? null : readCachedLatLng()));
+  const [locationPhase, setLocationPhase] = useState(() => {
+    const c = typeof window === 'undefined' ? null : readCachedLatLng();
+    return c && Number.isFinite(c.lat) && Number.isFinite(c.lng) ? 'ok' : 'idle';
+  });
   const mapBlockRef = useRef(null);
 
   useEffect(() => {
@@ -41,18 +44,17 @@ export default function MapPage() {
     setError('');
     try {
       const hasCoords = coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng);
-      if (hasCoords) {
-        const params = new URLSearchParams({
-          lat: String(coords.lat),
-          lng: String(coords.lng),
-          radius: String(DEFAULT_SEARCH_RADIUS_MILES),
-        });
-        const response = await webFetch(`/api/playgrounds/search?${params.toString()}`);
-        setPlaces(response.data || []);
-      } else {
-        const response = await webFetch('/api/playgrounds?limit=100');
-        setPlaces(response.data || []);
+      if (!hasCoords) {
+        setPlaces([]);
+        return;
       }
+      const params = new URLSearchParams({
+        lat: String(coords.lat),
+        lng: String(coords.lng),
+        radius: String(DEFAULT_SEARCH_RADIUS_MILES),
+      });
+      const response = await webFetch(`/api/playgrounds/search?${params.toString()}`);
+      setPlaces(response.data || []);
     } catch (err) {
       setError(err.message || 'Could not load map data.');
     } finally {
@@ -65,6 +67,7 @@ export default function MapPage() {
   }, [loadPlaces]);
 
   async function requestUserLocation() {
+    setBusy(true);
     setLocationPhase('locating');
     const fresh = await requestBrowserLatLng();
     if (fresh) {
@@ -134,17 +137,17 @@ export default function MapPage() {
   };
 
   const mapHint = (() => {
-    if (locationPhase === 'locating') return 'Requesting location…';
+    if (locationPhase === 'locating') return 'Requesting your location from the browser…';
     if (hasCoords) {
       return `Places within ~${DEFAULT_SEARCH_RADIUS_MILES} mi (same proximity query as the app). Sorted by distance.`;
     }
-    return 'Location not shared — showing up to 100 recent listings. Tap “Use my location” for nearby pins.';
+    return 'The map stays empty until we have a point near you—no random pins in other states. Tap “Find near me.”';
   })();
 
   return (
     <ConsumerPageFrame
       title="Map"
-      subtitle="OpenStreetMap with pins from the same directory as the app; tap “Use my location” (or a saved visit) for proximity results."
+      subtitle="OpenStreetMap with pins from the app directory. Find near me when you are ready—cached location from a past visit also works."
       heroVariant="tall"
     >
       <section className="hub-card">
@@ -155,12 +158,12 @@ export default function MapPage() {
           </div>
           {(locationPhase === 'idle' || locationPhase === 'denied') ? (
             <button type="button" className="btn btn-teal" onClick={requestUserLocation}>
-              Use my location
+              Find near me
             </button>
           ) : null}
           {locationPhase === 'ok' && hasCoords ? (
             <button type="button" className="btn btn-outline hub-btn-dark" onClick={requestUserLocation}>
-              Refresh location
+              Update location
             </button>
           ) : null}
         </div>
@@ -184,10 +187,14 @@ export default function MapPage() {
           </select>
         </div>
         <p className="hub-muted-copy">
-          {busy ? 'Loading map points…' : `${mappable.length} places match current filters.`}
+          {busy
+            ? 'Loading map points…'
+            : hasCoords
+              ? `${mappable.length} places match current filters.`
+              : 'No pins until we have your location.'}
         </p>
         {error ? <p className="hub-feedback hub-feedback--bad">{error}</p> : null}
-        {!busy && mappable.length > 0 ? (
+        {!busy && hasCoords && mappable.length > 0 ? (
           <div ref={mapBlockRef} style={{ marginBottom: 16 }}>
             <PlacesMap
               places={mappable}
@@ -200,6 +207,22 @@ export default function MapPage() {
             </p>
           </div>
         ) : null}
+        {!busy && !hasCoords ? (
+          <div className="hub-empty hub-empty--location" style={{ marginBottom: 16 }}>
+            <p>
+              <strong>Map is empty on purpose</strong> — we need a location to show nearby places. Tap{' '}
+              <strong>Find near me</strong> in the header, or use a saved point from a past visit on this browser.
+            </p>
+            {(locationPhase === 'idle' || locationPhase === 'denied') ? (
+              <div className="hub-actions-inline" style={{ marginTop: 12 }}>
+                <button type="button" className="btn btn-teal" onClick={requestUserLocation}>
+                  Find near me
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {hasCoords ? (
         <div className="hub-table-wrap">
           <table className="hub-table">
             <thead>
@@ -207,7 +230,7 @@ export default function MapPage() {
                 <th>Name</th>
                 <th>City</th>
                 <th>Type</th>
-                {hasCoords ? <th>Mi</th> : null}
+                <th>Mi</th>
                 <th>Latitude</th>
                 <th>Longitude</th>
                 <th>Actions</th>
@@ -225,18 +248,16 @@ export default function MapPage() {
                     <td>{place.name || place._id}</td>
                     <td>{place.city || '—'}</td>
                     <td>{place.playgroundType || '—'}</td>
-                    {hasCoords ? (
-                      <td>
-                        {Number.isFinite(Number(place.latitude)) && Number.isFinite(Number(place.longitude))
-                          ? haversineMiles(
-                            coords.lat,
-                            coords.lng,
-                            Number(place.latitude),
-                            Number(place.longitude),
-                          ).toFixed(1)
-                          : '—'}
-                      </td>
-                    ) : null}
+                    <td>
+                      {Number.isFinite(Number(place.latitude)) && Number.isFinite(Number(place.longitude))
+                        ? haversineMiles(
+                          coords.lat,
+                          coords.lng,
+                          Number(place.latitude),
+                          Number(place.longitude),
+                        ).toFixed(1)
+                        : '—'}
+                    </td>
                     <td>{place.latitude}</td>
                     <td>{place.longitude}</td>
                     <td onClick={(e) => e.stopPropagation()}>
@@ -255,7 +276,8 @@ export default function MapPage() {
             </tbody>
           </table>
         </div>
-        {selectedPlace ? (
+        ) : null}
+        {selectedPlace && hasCoords ? (
           <div className="hub-detail-card" style={{ marginTop: '12px' }}>
             <h3>{selectedPlace.name || 'Selected place'}</h3>
             <p>{[selectedPlace.address, selectedPlace.city, selectedPlace.state].filter(Boolean).join(', ')}</p>

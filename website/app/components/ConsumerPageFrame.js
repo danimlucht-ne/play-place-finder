@@ -8,7 +8,9 @@ export default function ConsumerPageFrame({ title, subtitle, children, heroVaria
       <section className={heroClass}>
         <div className="container">
           <h1>{title}</h1>
-          <p>{subtitle}</p>
+          {subtitle != null && subtitle !== '' && (
+            <p className="hero-subtitle">{subtitle}</p>
+          )}
         </div>
       </section>
       <div className="container hub-page">{children}</div>
