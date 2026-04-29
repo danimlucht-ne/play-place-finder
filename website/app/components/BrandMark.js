@@ -1,9 +1,9 @@
-/** Dedicated website header lockup; favicon stays separate. */
+/** Website header uses the square app icon; favicon stays separate. */
 export default function BrandMark({ className = 'nav-logo-mark' }) {
   return (
     <img
       className={className}
-      src="/play-spotter-nav-logo.png"
+      src="/playplace-app-icon.png"
       alt="Play Spotter"
       decoding="async"
     />
