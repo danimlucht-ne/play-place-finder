@@ -30,7 +30,7 @@ const LUCHT_PLAY_PLACE_FINDER = path.join(REPO_ROOT, '..', '..', 'lucht-applicat
 const BG = { r: 0, g: 206, b: 209 };
 const TRIM_THRESHOLD = 14;
 const BRANDING_FOREGROUND_ZOOM = 3.2;
-const WEBSITE_SQUARE_SCALE = 0.78;
+const WEBSITE_SQUARE_SCALE = 0.92;
 
 function hasBranding1024() {
   return fs.existsSync(FG1024) && fs.existsSync(BG1024);
@@ -68,36 +68,42 @@ async function buildWebsiteSquareIconPngBuffer(size) {
     const pipeline = path.extname(siteSource).toLowerCase() === '.svg'
       ? sharp(siteSource)
       : await rasterAfterTrim(siteSource);
-    return pipeline
+    const inner = await pipeline
       .resize(innerSize, innerSize, {
         fit: 'contain',
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
+        background: BG,
       })
-      .extend({
-        top: Math.floor((size - innerSize) / 2),
-        bottom: Math.ceil((size - innerSize) / 2),
+      .png()
+      .toBuffer();
+    return sharp({
+      create: { width: size, height: size, channels: 3, background: BG },
+    })
+      .composite([{
+        input: inner,
         left: Math.floor((size - innerSize) / 2),
-        right: Math.ceil((size - innerSize) / 2),
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
-      })
+        top: Math.floor((size - innerSize) / 2),
+      }])
       .png()
       .toBuffer();
   }
 
   const appIcon = await buildBrandingAppIconPngBuffer(size);
   const innerSize = Math.round(size * WEBSITE_SQUARE_SCALE);
-  return sharp(appIcon)
+  const inner = await sharp(appIcon)
     .resize(innerSize, innerSize, {
       fit: 'contain',
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
+      background: BG,
     })
-    .extend({
+    .png()
+    .toBuffer();
+  return sharp({
+    create: { width: size, height: size, channels: 3, background: BG },
+  })
+    .composite([{
+      input: inner,
       top: Math.floor((size - innerSize) / 2),
-      bottom: Math.ceil((size - innerSize) / 2),
       left: Math.floor((size - innerSize) / 2),
-      right: Math.ceil((size - innerSize) / 2),
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    })
+    }])
     .png()
     .toBuffer();
 }
