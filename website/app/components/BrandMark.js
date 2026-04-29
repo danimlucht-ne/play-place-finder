@@ -3,7 +3,7 @@ export default function BrandMark({ className = 'nav-logo-mark' }) {
   return (
     <img
       className={className}
-      src="/playplace-app-icon.png"
+      src="/play-spotter-site-icon.png"
       alt="Play Spotter"
       decoding="async"
     />

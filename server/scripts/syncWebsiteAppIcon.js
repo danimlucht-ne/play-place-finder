@@ -5,6 +5,7 @@
  *
  * Outputs:
  * - `playplace-app-icon.png`: square app-style icon for marketing surfaces
+ * - `play-spotter-site-icon.png`: padded square icon for the website header
  * - `play-spotter-favicon.png`: transparent foreground mark for favicon usage
  * - `play-spotter-nav-logo.png`: header lockup for website nav usage
  *
@@ -18,6 +19,7 @@ const sharp = require('sharp');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const OUT_FULL = path.join(REPO_ROOT, 'website', 'public', 'playplace-app-icon.png');
+const OUT_SITE_SQUARE = path.join(REPO_ROOT, 'website', 'public', 'play-spotter-site-icon.png');
 const OUT_FAVICON = path.join(REPO_ROOT, 'website', 'public', 'play-spotter-favicon.png');
 const OUT_NAV_LOGO = path.join(REPO_ROOT, 'website', 'public', 'play-spotter-nav-logo.png');
 const RES = path.join(REPO_ROOT, 'compose-app', 'composeApp', 'src', 'androidMain', 'res', 'mipmap-xxxhdpi');
@@ -28,6 +30,7 @@ const LUCHT_PLAY_PLACE_FINDER = path.join(REPO_ROOT, '..', '..', 'lucht-applicat
 const BG = { r: 0, g: 206, b: 209 };
 const TRIM_THRESHOLD = 14;
 const BRANDING_FOREGROUND_ZOOM = 3.2;
+const WEBSITE_SQUARE_SCALE = 0.78;
 
 function hasBranding1024() {
   return fs.existsSync(FG1024) && fs.existsSync(BG1024);
@@ -56,6 +59,25 @@ async function buildBrandingAppIconPngBuffer(size) {
     .toBuffer();
 
   return sharp(body).resize(size, size, { fit: 'fill' }).png().toBuffer();
+}
+
+async function buildWebsiteSquareIconPngBuffer(size) {
+  const appIcon = await buildBrandingAppIconPngBuffer(size);
+  const innerSize = Math.round(size * WEBSITE_SQUARE_SCALE);
+  return sharp(appIcon)
+    .resize(innerSize, innerSize, {
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .extend({
+      top: Math.floor((size - innerSize) / 2),
+      bottom: Math.ceil((size - innerSize) / 2),
+      left: Math.floor((size - innerSize) / 2),
+      right: Math.ceil((size - innerSize) / 2),
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
 }
 
 async function buildBrandingForegroundMarkBuffer(size) {
@@ -210,8 +232,10 @@ async function main() {
 
   if (hasBranding1024()) {
     const appIconBuf = await buildBrandingAppIconPngBuffer(size);
+    const siteSquareBuf = await buildWebsiteSquareIconPngBuffer(size);
     const markBuf = await buildBrandingForegroundMarkBuffer(size);
     await fs.promises.writeFile(OUT_FULL, appIconBuf);
+    await fs.promises.writeFile(OUT_SITE_SQUARE, siteSquareBuf);
     await fs.promises.writeFile(OUT_FAVICON, markBuf);
     const navLogoPath = pickNavLogoPath();
     if (navLogoPath) {
@@ -221,10 +245,12 @@ async function main() {
       'syncWebsiteAppIcon: wrote',
       path.relative(REPO_ROOT, OUT_FULL),
       ',',
+      path.relative(REPO_ROOT, OUT_SITE_SQUARE),
+      ',',
       path.relative(REPO_ROOT, OUT_FAVICON),
       'and',
       path.relative(REPO_ROOT, OUT_NAV_LOGO),
-      'from branding/android-launcher-res (adaptive icon + transparent mark + nav logo)',
+      'from branding/android-launcher-res (adaptive icon + padded website icon + transparent mark + nav logo)',
     );
     copyPlayIconToLuchtMarketing();
     return;
@@ -244,6 +270,21 @@ async function main() {
   } else {
     await writeFullLockupSquare(OUT_FULL, fullPath, size);
     console.log('syncWebsiteAppIcon: wrote', OUT_FULL, 'from', path.relative(REPO_ROOT, fullPath));
+    await sharp(OUT_FULL)
+      .resize(Math.round(size * WEBSITE_SQUARE_SCALE), Math.round(size * WEBSITE_SQUARE_SCALE), {
+        fit: 'contain',
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .extend({
+        top: Math.floor((size - Math.round(size * WEBSITE_SQUARE_SCALE)) / 2),
+        bottom: Math.ceil((size - Math.round(size * WEBSITE_SQUARE_SCALE)) / 2),
+        left: Math.floor((size - Math.round(size * WEBSITE_SQUARE_SCALE)) / 2),
+        right: Math.ceil((size - Math.round(size * WEBSITE_SQUARE_SCALE)) / 2),
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .png()
+      .toFile(OUT_SITE_SQUARE);
+    console.log('syncWebsiteAppIcon: wrote', OUT_SITE_SQUARE, 'from', path.relative(REPO_ROOT, fullPath));
   }
 
   const favPath = pickFaviconSourcePath();
@@ -272,9 +313,11 @@ module.exports = {
   pickNavLogoPath,
   REPO_ROOT,
   OUT_FULL,
+  OUT_SITE_SQUARE,
   rasterAfterTrim,
   hasBranding1024,
   buildBrandingAppIconPngBuffer,
+  buildWebsiteSquareIconPngBuffer,
   buildBrandingForegroundMarkBuffer,
   BRANDING_RES,
   FG1024,
