@@ -88,6 +88,7 @@ export async function webFetch(path, options = {}) {
       method: options.method || 'GET',
       headers,
       body: options.body,
+      signal: options.signal,
     });
   } catch (_) {
     throw new Error(`Could not reach the Play Spotter server at ${apiBase}.`);

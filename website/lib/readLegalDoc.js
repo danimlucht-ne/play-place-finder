@@ -23,7 +23,7 @@ export function getLegalMetadata(slug) {
   const { data } = readLegalDoc(slug);
   const title = data.title || slug;
   return {
-    title: `${title} — PlayPlace Finder`,
+    title: `${title} — Play Spotter`,
     description: data.description || '',
   };
 }

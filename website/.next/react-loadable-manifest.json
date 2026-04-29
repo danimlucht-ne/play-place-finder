@@ -1,1 +1,10 @@
-{}
+{
+  "app\\map\\page.js -> ../components/PlacesMap": {
+    "id": 3652,
+    "files": [
+      "static/css/d3e383b9ef67ddcb.css",
+      "static/chunks/d0deef33.bd75b11a952a2d3d.js",
+      "static/chunks/652.bad22891919a300a.js"
+    ]
+  }
+}

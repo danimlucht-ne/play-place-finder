@@ -68,32 +68,32 @@ export default function Home() {
           <h2>Why Families Love Play Spotter</h2>
           <div className="features-grid">
             <div className="feature-card">
-              <div className="emoji">📍</div>
+              <div className="feature-card__mark" aria-hidden="true">1</div>
               <h3>Search by Location</h3>
               <p>Find play places within miles of you. Parks, indoor play, museums, splash pads, and more — all in one app.</p>
             </div>
             <div className="feature-card">
-              <div className="emoji">🎯</div>
+              <div className="feature-card__mark feature-card__mark--alt" aria-hidden="true">2</div>
               <h3>Filter by What Matters</h3>
               <p>Bathrooms? Shade? Fenced? Toddler-friendly? Filter by amenities, equipment, cost, and location type.</p>
             </div>
             <div className="feature-card">
-              <div className="emoji">✅</div>
+              <div className="feature-card__mark" aria-hidden="true">3</div>
               <h3>Community Verified</h3>
               <p>Real parents verify and rate places. See what's actually there — not just what Google says.</p>
             </div>
             <div className="feature-card">
-              <div className="emoji">🗺️</div>
+              <div className="feature-card__mark feature-card__mark--alt" aria-hidden="true">4</div>
               <h3>Interactive Map</h3>
               <p>See all play places on a map. Tap a pin to get details, directions, and photos.</p>
             </div>
             <div className="feature-card">
-              <div className="emoji">📸</div>
+              <div className="feature-card__mark" aria-hidden="true">5</div>
               <h3>Real Photos</h3>
               <p>AI-validated photos from the community. See what the playground actually looks like before you go.</p>
             </div>
             <div className="feature-card">
-              <div className="emoji">❤️</div>
+              <div className="feature-card__mark feature-card__mark--alt" aria-hidden="true">6</div>
               <h3>Saved places & lists</h3>
               <p>Heart your go-to spots and build lists for trips—rainy days, birthdays, and weeknight runs to the park.</p>
             </div>

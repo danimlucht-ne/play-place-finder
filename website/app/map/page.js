@@ -1,9 +1,19 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import ConsumerPageFrame from '../components/ConsumerPageFrame';
 import { webFetch } from '../components/webAuthClient';
+import {
+  DEFAULT_SEARCH_RADIUS_MILES,
+  haversineMiles,
+  readCachedLatLng,
+  requestBrowserLatLng,
+  sortPlacesByDistance,
+} from '../lib/geoSearch';
+
+const PlacesMap = dynamic(() => import('../components/PlacesMap'), { ssr: false });
 
 export default function MapPage() {
   const [busy, setBusy] = useState(true);
@@ -13,22 +23,68 @@ export default function MapPage() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [cityFilter, setCityFilter] = useState('all');
   const [selectedPlaceId, setSelectedPlaceId] = useState('');
+  const [coords, setCoords] = useState(null);
+  const [locationPhase, setLocationPhase] = useState('idle');
+  const mapBlockRef = useRef(null);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const response = await webFetch('/api/playgrounds?limit=100');
-        setPlaces(response.data || []);
-      } catch (err) {
-        setError(err.message || 'Could not load map data.');
-      } finally {
-        setBusy(false);
-      }
+    const cached = readCachedLatLng();
+    if (cached) {
+      setCoords(cached);
+      setLocationPhase('ok');
     }
-    load();
   }, []);
 
-  const mappable = useMemo(() => {
+  const loadPlaces = useCallback(async () => {
+    if (locationPhase === 'locating') return;
+    setBusy(true);
+    setError('');
+    try {
+      const hasCoords = coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng);
+      if (hasCoords) {
+        const params = new URLSearchParams({
+          lat: String(coords.lat),
+          lng: String(coords.lng),
+          radius: String(DEFAULT_SEARCH_RADIUS_MILES),
+        });
+        const response = await webFetch(`/api/playgrounds/search?${params.toString()}`);
+        setPlaces(response.data || []);
+      } else {
+        const response = await webFetch('/api/playgrounds?limit=100');
+        setPlaces(response.data || []);
+      }
+    } catch (err) {
+      setError(err.message || 'Could not load map data.');
+    } finally {
+      setBusy(false);
+    }
+  }, [locationPhase, coords]);
+
+  useEffect(() => {
+    loadPlaces();
+  }, [loadPlaces]);
+
+  async function requestUserLocation() {
+    setLocationPhase('locating');
+    const fresh = await requestBrowserLatLng();
+    if (fresh) {
+      setCoords(fresh);
+      setLocationPhase('ok');
+    } else {
+      const c = readCachedLatLng();
+      if (c) {
+        setCoords(c);
+        setLocationPhase('ok');
+      } else {
+        setCoords(null);
+        setLocationPhase('denied');
+      }
+    }
+  }
+
+  const hasCoords = coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng);
+
+  const mappableBase = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return places
       .filter((p) => Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude)))
@@ -41,6 +97,13 @@ export default function MapPage() {
           .some((value) => String(value).toLowerCase().includes(normalizedQuery));
       });
   }, [places, query, typeFilter, cityFilter]);
+
+  const mappable = useMemo(() => {
+    if (hasCoords) {
+      return sortPlacesByDistance(mappableBase, coords.lat, coords.lng).slice(0, 150);
+    }
+    return mappableBase.slice(0, 150);
+  }, [mappableBase, hasCoords, coords]);
 
   const cityOptions = useMemo(() => {
     const cities = [...new Set(places.map((p) => p.city).filter(Boolean))];
@@ -57,14 +120,50 @@ export default function MapPage() {
     [mappable, selectedPlaceId],
   );
 
+  useEffect(() => {
+    if (selectedPlaceId && !mappable.some((p) => String(p._id) === String(selectedPlaceId))) {
+      setSelectedPlaceId('');
+    }
+  }, [mappable, selectedPlaceId]);
+
+  const selectFromList = (id) => {
+    setSelectedPlaceId(String(id));
+    requestAnimationFrame(() => {
+      mapBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
+  const mapHint = (() => {
+    if (locationPhase === 'locating') return 'Requesting location…';
+    if (hasCoords) {
+      return `Places within ~${DEFAULT_SEARCH_RADIUS_MILES} mi (same proximity query as the app). Sorted by distance.`;
+    }
+    return 'Location not shared — showing up to 100 recent listings. Tap “Use my location” for nearby pins.';
+  })();
+
   return (
     <ConsumerPageFrame
       title="Map"
-      subtitle="Every place with coordinates from our directory—filter, pick a row, and preview the location on a map. Same data the app uses for map views."
+      subtitle="OpenStreetMap with pins from the same directory as the app; tap “Use my location” (or a saved visit) for proximity results."
       heroVariant="tall"
     >
       <section className="hub-card">
-        <h2>Places on the map</h2>
+        <div className="hub-card-head" style={{ alignItems: 'flex-start' }}>
+          <div>
+            <h2>Places on the map</h2>
+            <p className="hub-muted-copy">{mapHint}</p>
+          </div>
+          {(locationPhase === 'idle' || locationPhase === 'denied') ? (
+            <button type="button" className="btn btn-teal" onClick={requestUserLocation}>
+              Use my location
+            </button>
+          ) : null}
+          {locationPhase === 'ok' && hasCoords ? (
+            <button type="button" className="btn btn-outline hub-btn-dark" onClick={requestUserLocation}>
+              Refresh location
+            </button>
+          ) : null}
+        </div>
         <div className="hub-actions-inline" style={{ margin: '12px 0', flexWrap: 'wrap' }}>
           <input
             value={query}
@@ -88,6 +187,19 @@ export default function MapPage() {
           {busy ? 'Loading map points…' : `${mappable.length} places match current filters.`}
         </p>
         {error ? <p className="hub-feedback hub-feedback--bad">{error}</p> : null}
+        {!busy && mappable.length > 0 ? (
+          <div ref={mapBlockRef} style={{ marginBottom: 16 }}>
+            <PlacesMap
+              places={mappable}
+              height={440}
+              selectedId={selectedPlaceId}
+              onMarkerClick={(id) => setSelectedPlaceId(String(id))}
+            />
+            <p className="hub-muted-copy" style={{ marginTop: 10, marginBottom: 0 }}>
+              Click a row below or a map pin to sync the table and the map. Selected rows are highlighted.
+            </p>
+          </div>
+        ) : null}
         <div className="hub-table-wrap">
           <table className="hub-table">
             <thead>
@@ -95,27 +207,51 @@ export default function MapPage() {
                 <th>Name</th>
                 <th>City</th>
                 <th>Type</th>
+                {hasCoords ? <th>Mi</th> : null}
                 <th>Latitude</th>
                 <th>Longitude</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {mappable.slice(0, 150).map((place) => (
-                <tr key={place._id}>
-                  <td>{place.name || place._id}</td>
-                  <td>{place.city || '—'}</td>
-                  <td>{place.playgroundType || '—'}</td>
-                  <td>{place.latitude}</td>
-                  <td>{place.longitude}</td>
-                  <td>
-                    <div className="hub-actions-inline">
-                      <button type="button" onClick={() => setSelectedPlaceId(place._id)}>Preview</button>
-                      <Link href={`/playground/${encodeURIComponent(place._id)}`}>Details</Link>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {mappable.map((place) => {
+                const isRowSelected = String(selectedPlaceId) === String(place._id);
+                return (
+                  <tr
+                    key={place._id}
+                    className={isRowSelected ? 'is-selected' : undefined}
+                    onClick={() => selectFromList(place._id)}
+                  >
+                    <td>{place.name || place._id}</td>
+                    <td>{place.city || '—'}</td>
+                    <td>{place.playgroundType || '—'}</td>
+                    {hasCoords ? (
+                      <td>
+                        {Number.isFinite(Number(place.latitude)) && Number.isFinite(Number(place.longitude))
+                          ? haversineMiles(
+                            coords.lat,
+                            coords.lng,
+                            Number(place.latitude),
+                            Number(place.longitude),
+                          ).toFixed(1)
+                          : '—'}
+                      </td>
+                    ) : null}
+                    <td>{place.latitude}</td>
+                    <td>{place.longitude}</td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <div className="hub-actions-inline">
+                        <Link
+                          href={`/playground/${encodeURIComponent(place._id)}/`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Details
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
