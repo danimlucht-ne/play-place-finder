@@ -185,17 +185,57 @@ function sanitizePlaygroundUpdateBody(raw) {
     return cleaned;
 }
 
+function normalizeSubmissionReviewConcern(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    const lower = raw.toLowerCase();
+    if (lower.startsWith('rule_blocked:')) {
+        const key = raw.split(':')[1] || 'content';
+        const labels = {
+            url: 'Contains a URL or external link.',
+            email: 'Contains an email address.',
+            phone: 'Contains a phone number.',
+            off_app_contact: 'Requests off-app contact.',
+            spam: 'Looks like spam or promotion.',
+            sexual_content: 'Contains inappropriate sexual content.',
+            hate_or_slur: 'Contains hate speech or slurs.',
+        };
+        return labels[key] || 'Rule-based moderation flagged this content.';
+    }
+    if (
+        lower.includes('automated text review unavailable') ||
+        lower.includes('automated image review unavailable') ||
+        lower.includes('automated text review failed') ||
+        lower.includes('automated image review failed') ||
+        lower.includes('generativelanguage.googleapis.com') ||
+        lower.includes('permission_denied') ||
+        lower.includes('service_disabled')
+    ) {
+        return 'Automated review was unavailable; manual moderator review is required.';
+    }
+    if (
+        lower.includes('submitted image could not be processed automatically') ||
+        lower.startsWith('fetch_or_process_failed:')
+    ) {
+        return 'One or more submitted images could not be processed automatically.';
+    }
+    if (raw.length > 220) {
+        return `${raw.slice(0, 217)}...`;
+    }
+    return raw;
+}
+
 function moderationReasonFromSubmissionReview(submissionReview, forcedByUserPolicy = false) {
     const parts = [];
     if (forcedByUserPolicy) {
         parts.push('Submitter is marked for mandatory admin review.');
     }
     const textConcerns = Array.isArray(submissionReview?.text?.concerns)
-        ? submissionReview.text.concerns.map((v) => String(v).trim()).filter(Boolean)
+        ? submissionReview.text.concerns.map(normalizeSubmissionReviewConcern).filter(Boolean)
         : [];
     const imageConcerns = Array.isArray(submissionReview?.images)
         ? submissionReview.images.flatMap((img) =>
-            Array.isArray(img?.concerns) ? img.concerns.map((v) => String(v).trim()).filter(Boolean) : []
+            Array.isArray(img?.concerns) ? img.concerns.map(normalizeSubmissionReviewConcern).filter(Boolean) : []
         )
         : [];
     const combined = [...new Set([...textConcerns, ...imageConcerns])];

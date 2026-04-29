@@ -31,6 +31,7 @@ export default function MySubmissionsPage() {
     <ConsumerPageFrame
       title="My submissions"
       subtitle="Track status for places and edits you have submitted."
+      heroVariant="tall"
     >
       <AuthGate>
         <section className="hub-card">

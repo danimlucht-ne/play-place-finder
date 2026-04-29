@@ -1,10 +1,11 @@
 import SiteNav from './SiteNav';
 
-export default function ConsumerPageFrame({ title, subtitle, children }) {
+export default function ConsumerPageFrame({ title, subtitle, children, heroVariant = 'compact' }) {
+  const heroClass = heroVariant === 'tall' ? 'hero hero--tall' : 'hero hero--compact';
   return (
     <>
       <SiteNav />
-      <section className="hero hero--compact">
+      <section className={heroClass}>
         <div className="container">
           <h1>{title}</h1>
           <p>{subtitle}</p>

@@ -16,14 +16,40 @@ const SubmissionType = {
 };
 
 function moderationReasonForUser(doc) {
+    const normalizeModerationConcern = (value) => {
+        const raw = String(value || '').trim();
+        if (!raw) return null;
+        const lower = raw.toLowerCase();
+        if (
+            lower.includes('automated text review unavailable') ||
+            lower.includes('automated image review unavailable') ||
+            lower.includes('automated text review failed') ||
+            lower.includes('automated image review failed') ||
+            lower.includes('generativelanguage.googleapis.com') ||
+            lower.includes('permission_denied') ||
+            lower.includes('service_disabled')
+        ) {
+            return 'Automated review was unavailable; your submission was sent for manual review.';
+        }
+        if (
+            lower.includes('submitted image could not be processed automatically') ||
+            lower.startsWith('fetch_or_process_failed:')
+        ) {
+            return 'One or more submitted images could not be processed automatically.';
+        }
+        if (raw.length > 220) {
+            return `${raw.slice(0, 217)}...`;
+        }
+        return raw;
+    };
     const explicit = doc?.reason || doc?.decisionReason || null;
     if (explicit && String(explicit).trim()) return String(explicit).trim();
     const textConcerns = Array.isArray(doc?.geminiSubmissionReview?.text?.concerns)
-        ? doc.geminiSubmissionReview.text.concerns.map((v) => String(v).trim()).filter(Boolean)
+        ? doc.geminiSubmissionReview.text.concerns.map(normalizeModerationConcern).filter(Boolean)
         : [];
     const imageConcerns = Array.isArray(doc?.geminiSubmissionReview?.images)
         ? doc.geminiSubmissionReview.images.flatMap((img) =>
-            Array.isArray(img?.concerns) ? img.concerns.map((v) => String(v).trim()).filter(Boolean) : []
+            Array.isArray(img?.concerns) ? img.concerns.map(normalizeModerationConcern).filter(Boolean) : []
         )
         : [];
     const moderationFlags = Array.isArray(doc?.moderationFlags)

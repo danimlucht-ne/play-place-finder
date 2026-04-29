@@ -60,10 +60,11 @@ export default function MapPage() {
   return (
     <ConsumerPageFrame
       title="Map"
-      subtitle="Map parity scaffold using shared place coordinates. Google Maps rendering can layer on this data source."
+      subtitle="Every place with coordinates from our directory—filter, pick a row, and preview the location on a map. Same data the app uses for map views."
+      heroVariant="tall"
     >
       <section className="hub-card">
-        <h2>Coordinate feed</h2>
+        <h2>Places on the map</h2>
         <div className="hub-actions-inline" style={{ margin: '12px 0', flexWrap: 'wrap' }}>
           <input
             value={query}
@@ -110,7 +111,7 @@ export default function MapPage() {
                   <td>
                     <div className="hub-actions-inline">
                       <button type="button" onClick={() => setSelectedPlaceId(place._id)}>Preview</button>
-                      <Link href={`/playground?id=${encodeURIComponent(place._id)}`}>Details</Link>
+                      <Link href={`/playground/${encodeURIComponent(place._id)}`}>Details</Link>
                     </div>
                   </td>
                 </tr>
@@ -141,7 +142,7 @@ export default function MapPage() {
               >
                 Open directions
               </a>
-              <Link href={`/playground?id=${encodeURIComponent(selectedPlace._id)}`} className="btn btn-outline hub-btn-dark">
+              <Link href={`/playground/${encodeURIComponent(selectedPlace._id)}`} className="btn btn-outline hub-btn-dark">
                 Open place details
               </Link>
             </div>

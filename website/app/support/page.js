@@ -51,7 +51,8 @@ export default function SupportPage() {
   return (
     <ConsumerPageFrame
       title="Support"
-      subtitle="Send issues, suggestions, and support tickets to the same backend queue used by the app."
+      subtitle="Send issues, suggestions, and support tickets to the same queue we use in the app."
+      heroVariant="tall"
     >
       <section className="hub-card">
         <form className="hub-form-grid" onSubmit={submit}>

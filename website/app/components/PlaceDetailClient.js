@@ -154,7 +154,8 @@ export default function PlaceDetailClient({ placeId }) {
   return (
     <ConsumerPageFrame
       title="Place details"
-      subtitle="Detail view parity scaffold for ratings, amenities, photos, and reports."
+      subtitle="Ratings, amenities, photos, and community reports for this play place—aligned with the mobile app when you’re signed in."
+      heroVariant="tall"
     >
       <section className="hub-card">
         {!placeId ? <p className="hub-muted-copy">Select a place from Discover to view details.</p> : null}

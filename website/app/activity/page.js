@@ -53,6 +53,7 @@ export default function ActivityPage() {
     <ConsumerPageFrame
       title="My activity"
       subtitle="Track your submissions and account notifications across app and web."
+      heroVariant="tall"
     >
       <AuthGate>
         <section className="hub-card">

@@ -45,7 +45,8 @@ export default function EventsPage() {
   return (
     <ConsumerPageFrame
       title="Events"
-      subtitle="Event Spotlight feed parity for dated business events promoted in app and calendar views."
+      subtitle="Promoted event campaigns from businesses—what you see in the app’s event and calendar experiences."
+      heroVariant="tall"
     >
       <section className="hub-card">
         <h2>Upcoming promoted events</h2>
@@ -88,7 +89,7 @@ export default function EventsPage() {
                   </a>
                 ) : null}
                 {eventRow.placeId ? (
-                  <Link className="btn btn-teal" href={`/playground?id=${encodeURIComponent(eventRow.placeId)}`}>
+                  <Link className="btn btn-teal" href={`/playground/${encodeURIComponent(eventRow.placeId)}`}>
                     Open related place
                   </Link>
                 ) : null}

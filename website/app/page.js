@@ -63,7 +63,7 @@ export default function Home() {
       </section>
 
       {/* Features */}
-      <section className="features">
+      <section className="features features--warm">
         <div className="container">
           <h2>Why Families Love Play Spotter</h2>
           <div className="features-grid">
@@ -94,8 +94,8 @@ export default function Home() {
             </div>
             <div className="feature-card">
               <div className="emoji">❤️</div>
-              <h3>Favorites & Lists</h3>
-              <p>Save your go-to spots. Create custom lists like "Rainy Day Indoor" or "Birthday Party Venues."</p>
+              <h3>Saved places & lists</h3>
+              <p>Heart your go-to spots and build lists for trips—rainy days, birthdays, and weeknight runs to the park.</p>
             </div>
           </div>
         </div>
@@ -124,7 +124,7 @@ function Footer() {
           <Link href="/discover">Discover</Link>
           <Link href="/map">Map</Link>
           <Link href="/events">Events</Link>
-          <Link href="/lists">Lists</Link>
+          <Link href="/lists">Saved</Link>
           <Link href="/support">Support</Link>
           <Link href="/privacy">Privacy Policy</Link>
           <Link href="/terms">Terms of Service</Link>

@@ -252,7 +252,7 @@ describe('playgroundSubmissionReviewService', () => {
       url: 'https://cdn.example/broken.jpg',
       appropriate: false,
       confidence: 0,
-      concerns: ['fetch_or_process_failed: image fetch failed'],
+      concerns: ['Submitted image could not be processed automatically'],
       modelFailed: true,
     }]);
   });
@@ -267,6 +267,6 @@ describe('playgroundSubmissionReviewService', () => {
 
     expect(result.autoApprove).toBe(false);
     expect(result.text.modelFailed).toBe(true);
-    expect(result.text.concerns[0]).toMatch(/^text_review_error:/);
+    expect(result.text.concerns[0]).toBe('Automated text review failed');
   });
 });

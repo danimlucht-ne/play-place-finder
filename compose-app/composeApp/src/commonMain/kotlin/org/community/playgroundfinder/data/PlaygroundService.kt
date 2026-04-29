@@ -27,6 +27,7 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import org.community.playgroundfinder.AppConfig
+import org.community.playgroundfinder.util.detectImageContentTypeAndExtension
 import org.community.playgroundfinder.models.CityPrediction
 import org.community.playgroundfinder.models.AutocompleteResponse
 import org.community.playgroundfinder.models.HybridSearchResponse
@@ -826,12 +827,15 @@ class PlaygroundService(
     }
     
     suspend fun uploadImage(imageData: ByteArray, filename: String): String {
+        val (mime, ext) = detectImageContentTypeAndExtension(imageData)
+        val base = filename.substringBeforeLast('.', filename).ifBlank { "photo" }
+        val safeFilename = "$base.$ext"
         val response = client.post("upload-image") {
             withAuth()
             setBody(MultiPartFormDataContent(formData {
                 append("image", imageData, Headers.build {
-                    append(HttpHeaders.ContentType, "image/jpeg")
-                    append(HttpHeaders.ContentDisposition, "filename=\"$filename\"")
+                    append(HttpHeaders.ContentType, mime)
+                    append(HttpHeaders.ContentDisposition, "filename=\"$safeFilename\"")
                 })
             }))
         }

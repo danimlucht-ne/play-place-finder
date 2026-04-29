@@ -114,7 +114,7 @@ export default function DiscoverPage() {
 
   async function toggleFavorite(placeId) {
     if (!getAuthToken()) {
-      setError('Sign in from Account to save favorites.');
+      setError('Sign in from Account to save places to your favorites.');
       return;
     }
     setFavBusyId(placeId);
@@ -145,7 +145,8 @@ export default function DiscoverPage() {
   return (
     <ConsumerPageFrame
       title="Discover play places"
-      subtitle="Browse the same community-powered places your app users see in discovery and list search."
+      subtitle="Browse the same community-powered places you see in the app—search, filter, and open a place for full details."
+      heroVariant="tall"
     >
       <section className="hub-card">
         <div className="hub-card-head">
@@ -197,7 +198,7 @@ export default function DiscoverPage() {
               </div>
               <p>{place.description || 'No description yet.'}</p>
               <div className="hub-actions-inline">
-                <Link href={`/playground?id=${encodeURIComponent(place._id)}`} className="btn btn-teal">View details</Link>
+                <Link href={`/playground/${encodeURIComponent(place._id)}`} className="btn btn-teal">View details</Link>
                 <button
                   type="button"
                   className="btn btn-outline hub-btn-dark"

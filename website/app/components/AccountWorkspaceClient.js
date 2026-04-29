@@ -44,7 +44,7 @@ export default function AccountWorkspaceClient() {
   async function deleteAccount() {
     if (
       !window.confirm(
-        'Delete your account permanently? This removes favorites, lists, and associated personal data. This cannot be undone.',
+        'Delete your account permanently? This removes saved places, lists, and associated personal data. This cannot be undone.',
       )
     ) {
       return;
@@ -100,7 +100,7 @@ export default function AccountWorkspaceClient() {
           <ul>
             <li>Manage sign-in, registration, and password reset</li>
             <li>See your account details and delete your account</li>
-            <li>Open favorites, lists, and contribution tools on web</li>
+            <li>Open Saved (lists and favorite places) and contribution tools on web</li>
             <li>Jump to the advertiser dashboard or admin workspace</li>
           </ul>
         </div>
@@ -146,11 +146,11 @@ export default function AccountWorkspaceClient() {
                 {verifyBusy ? 'Sending verification…' : 'Resend verification email'}
               </button>
             ) : null}
-            <Link href="/favorites/" className="btn btn-outline hub-btn-dark">
-              Open favorites
-            </Link>
             <Link href="/lists/" className="btn btn-outline hub-btn-dark">
-              Open saved lists
+              Open Saved
+            </Link>
+            <Link href="/lists?tab=favorites" className="btn btn-outline hub-btn-dark">
+              Open favorite places
             </Link>
             <Link href="/add-playground/" className="btn btn-outline hub-btn-dark">
               Suggest a place

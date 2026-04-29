@@ -19,7 +19,7 @@ export default function ListDetailClient({ listId }) {
     setBusy(true);
     setError('');
     try {
-      const response = await webFetch(`/api/lists/detail?id=detail/${encodeURIComponent(listId)}`);
+      const response = await webFetch(`/api/lists/detail/${encodeURIComponent(listId)}`);
       const next = response.data || null;
       setList(next);
       setRenameValue(next?.name || '');
@@ -40,7 +40,7 @@ export default function ListDetailClient({ listId }) {
     setError('');
     setMessage('');
     try {
-      await webFetch(`/api/lists/detail?id=${encodeURIComponent(listId)}/rename`, {
+      await webFetch(`/api/lists/${encodeURIComponent(listId)}/rename`, {
         method: 'PUT',
         body: JSON.stringify({ name: renameValue.trim() }),
       });
@@ -59,7 +59,7 @@ export default function ListDetailClient({ listId }) {
     setError('');
     setMessage('');
     try {
-      await webFetch(`/api/lists/detail?id=${encodeURIComponent(listId)}/remove`, {
+      await webFetch(`/api/lists/${encodeURIComponent(listId)}/remove`, {
         method: 'PUT',
         body: JSON.stringify({ placeId }),
       });
@@ -78,8 +78,8 @@ export default function ListDetailClient({ listId }) {
     setError('');
     setMessage('');
     try {
-      await webFetch(`/api/lists/detail?id=${encodeURIComponent(listId)}`, { method: 'DELETE' });
-      setMessage('List deleted. Return to lists to continue.');
+      await webFetch(`/api/lists/${encodeURIComponent(listId)}`, { method: 'DELETE' });
+      setMessage('List deleted. Open Saved to continue.');
       setList(null);
     } catch (err) {
       setError(err.message || 'Could not delete list.');
@@ -92,11 +92,12 @@ export default function ListDetailClient({ listId }) {
     <ConsumerPageFrame
       title="List details"
       subtitle="Manage one saved list: rename, review places, and remove items."
+      heroVariant="tall"
     >
       <AuthGate>
         <section className="hub-card">
           <div className="hub-actions-inline" style={{ marginBottom: '12px' }}>
-            <Link href="/lists" className="btn btn-outline hub-btn-dark">Back to all lists</Link>
+            <Link href="/lists" className="btn btn-outline hub-btn-dark">Back to Saved</Link>
             {list ? (
               <button type="button" className="btn btn-outline hub-btn-dark" disabled={saveBusy} onClick={deleteList}>
                 Delete this list
@@ -122,7 +123,7 @@ export default function ListDetailClient({ listId }) {
                     <h4>{place.name || 'Unnamed place'}</h4>
                     <p>{[place.city, place.state].filter(Boolean).join(', ') || 'Location unavailable'}</p>
                     <div className="hub-actions-inline">
-                      <Link className="btn btn-teal" href={`/playground?id=${encodeURIComponent(place._id)}`}>View place</Link>
+                      <Link className="btn btn-teal" href={`/playground/${encodeURIComponent(place._id)}`}>View place</Link>
                       <button
                         type="button"
                         className="btn btn-outline hub-btn-dark"

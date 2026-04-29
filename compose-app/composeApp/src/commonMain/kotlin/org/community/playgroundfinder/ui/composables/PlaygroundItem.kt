@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -27,6 +28,8 @@ import kotlin.math.roundToInt
 private val FREE_TYPES = setOf(
     "public", "neighborhood", "elementary school", "school", "nature trail"
 )
+
+private val ListRowImagePlaceholder = ColorPainter(Color(0xFFECEFF1))
 
 /**
  * Returns a display string for cost.
@@ -169,8 +172,8 @@ fun PlaygroundItem(
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
-                        placeholder = typePh,
-                        error = typePh,
+                        placeholder = ListRowImagePlaceholder,
+                        error = ListRowImagePlaceholder,
                     )
                 }
             } else {

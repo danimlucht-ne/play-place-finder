@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -75,6 +76,9 @@ import org.community.playgroundfinder.models.AllAdsResponse
 import org.community.playgroundfinder.models.HybridSearchResponse
 
 private const val DEFAULT_FILTER_RADIUS_MILES = 50
+
+/** Neutral tile while remote images load — avoids a misleading type placeholder before the real photo arrives. */
+private val HomeCarouselImagePlaceholder = ColorPainter(Color(0xFFECEFF1))
 private val HOME_AD_PROMO_VARIANTS = listOf(
     "Advertise your business here" to "Reach local families searching nearby",
     "Your ad can appear right here" to "Get discovered while parents browse parks",
@@ -2216,7 +2220,6 @@ fun HomeScreen(
                                 // Match [PlaygroundItem]: skip raw google_photo: (unexpanded); on load failure show placeholder.
                                 val firstUrl = firstDisplayablePlaygroundImageUrl(place.imageUrls)
                                 if (firstUrl != null) {
-                                    val ph = playgroundPlaceholderPainter(place.playgroundType)
                                     // White backing so Coil loading/transparent frames do not show the home teal through.
                                     Box(
                                         modifier = Modifier
@@ -2231,8 +2234,8 @@ fun HomeScreen(
                                             contentDescription = null,
                                             modifier = Modifier.fillMaxSize(),
                                             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                            placeholder = ph,
-                                            error = ph,
+                                            placeholder = HomeCarouselImagePlaceholder,
+                                            error = HomeCarouselImagePlaceholder,
                                         )
                                     }
                                 } else {

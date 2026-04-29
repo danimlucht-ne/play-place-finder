@@ -104,7 +104,9 @@ fun AdminQueueScreen(
 
                         Card(
                             modifier = Modifier.fillMaxWidth().clickable { onItemClick(id) },
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                         ) {
                             Row(
                                 modifier = Modifier.padding(16.dp),
@@ -124,12 +126,12 @@ fun AdminQueueScreen(
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(name, fontWeight = FontWeight.SemiBold)
+                                    Text(name, fontWeight = FontWeight.SemiBold, color = FormColors.BodyText)
                                     Text(
                                         type.replace("_", " ").lowercase()
                                             .replaceFirstChar { it.uppercase() },
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = Color.Gray
+                                        color = Color(0xFF37474F),
                                     )
                                     if (confidence != null) {
                                         val confColor = when {

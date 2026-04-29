@@ -1,9 +1,10 @@
 package org.community.playgroundfinder.ui.screens.events
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons as MaterialIcons
@@ -87,6 +88,7 @@ fun NearbyEventsCalendarScreen(
     var sortMode by remember { mutableStateOf(EventsCalendarSort.ByDate) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showSavedOnly by remember { mutableStateOf(false) }
+    var openFilterMenu by remember { mutableStateOf<String?>(null) }
     var savedEventIds by remember {
         mutableStateOf(parseCsvSet(settings.getString(SAVED_EVENT_IDS_KEY, "")))
     }
@@ -282,12 +284,22 @@ fun NearbyEventsCalendarScreen(
                     }
                 }
                 else -> {
-                    // Group all three filter strips into one rounded white card so they read as a
-                    // single "controls panel" instead of three independent stacks of chips. Same
-                    // chip behavior; just unified visual chrome.
+                    val sortLabel = when (sortMode) {
+                        EventsCalendarSort.ByDate -> "Date"
+                        EventsCalendarSort.ByDistance -> "Distance"
+                        EventsCalendarSort.ByBusinessName -> "Business"
+                    }
+                    val dateFilterLabel = when {
+                        dateKeys.isEmpty() -> null
+                        selectedDate == null -> "All dates"
+                        else -> formatEventDateDisplay(selectedDate!!, false) ?: selectedDate!!.trim().take(10)
+                    }
                     val filterChipColors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = Color(0xFFE0F7FA),
-                        selectedLabelColor = Color(0xFF006064),
+                        selectedContainerColor = Color(0xFFFFE0B2),
+                        selectedLabelColor = Color(0xFFE65100),
+                        containerColor = Color(0xFFF5F5F5),
+                        labelColor = Color(0xFF37474F),
+                        iconColor = Color(0xFF37474F),
                     )
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -296,111 +308,123 @@ fun NearbyEventsCalendarScreen(
                         tonalElevation = 1.dp,
                     ) {
                         Column(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            FilterStripLabel("Sort by")
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                item {
-                                    FilterChip(
-                                        selected = sortMode == EventsCalendarSort.ByDate,
-                                        onClick = { sortMode = EventsCalendarSort.ByDate },
-                                        label = { Text("Date") },
-                                        colors = filterChipColors,
-                                    )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Box {
+                                    OutlinedButton(
+                                        onClick = { openFilterMenu = "sort" },
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                                    ) {
+                                        Text("Sort · $sortLabel", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                    }
+                                    DropdownMenu(
+                                        expanded = openFilterMenu == "sort",
+                                        onDismissRequest = { openFilterMenu = null },
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("By date") },
+                                            onClick = {
+                                                sortMode = EventsCalendarSort.ByDate
+                                                openFilterMenu = null
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("By distance") },
+                                            onClick = {
+                                                sortMode = EventsCalendarSort.ByDistance
+                                                openFilterMenu = null
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("By business name") },
+                                            onClick = {
+                                                sortMode = EventsCalendarSort.ByBusinessName
+                                                openFilterMenu = null
+                                            },
+                                        )
+                                    }
                                 }
-                                item {
-                                    FilterChip(
-                                        selected = sortMode == EventsCalendarSort.ByDistance,
-                                        onClick = { sortMode = EventsCalendarSort.ByDistance },
-                                        label = { Text("Distance") },
-                                        colors = filterChipColors,
-                                    )
+                                if (dateKeys.isNotEmpty() && dateFilterLabel != null) {
+                                    Box {
+                                        OutlinedButton(
+                                            onClick = { openFilterMenu = "date" },
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                                        ) {
+                                            Text("When · $dateFilterLabel", fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                                        }
+                                        DropdownMenu(
+                                            expanded = openFilterMenu == "date",
+                                            onDismissRequest = { openFilterMenu = null },
+                                        ) {
+                                            DropdownMenuItem(
+                                                text = { Text("All dates") },
+                                                onClick = {
+                                                    selectedDate = null
+                                                    openFilterMenu = null
+                                                },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Pick from calendar…") },
+                                                onClick = {
+                                                    showDatePicker = true
+                                                    openFilterMenu = null
+                                                },
+                                            )
+                                            dateKeys.forEach { d ->
+                                                val chipLabel = formatEventDateDisplay(d, isRecurring = false)
+                                                    ?: d.trim().take(10)
+                                                DropdownMenuItem(
+                                                    text = { Text(chipLabel) },
+                                                    onClick = {
+                                                        selectedDate = d
+                                                        openFilterMenu = null
+                                                    },
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
-                                item {
-                                    FilterChip(
-                                        selected = sortMode == EventsCalendarSort.ByBusinessName,
-                                        onClick = { sortMode = EventsCalendarSort.ByBusinessName },
-                                        label = { Text("Business") },
-                                        colors = filterChipColors,
-                                    )
-                                }
+                                FilterChip(
+                                    selected = showSavedOnly,
+                                    onClick = { showSavedOnly = !showSavedOnly },
+                                    label = {
+                                        Text(
+                                            when {
+                                                showSavedOnly -> "Saved (${savedEventIds.size})"
+                                                else -> "All events"
+                                            },
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium,
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = if (showSavedOnly) MaterialIcons.Filled.Favorite else MaterialIcons.Filled.FavoriteBorder,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    },
+                                    colors = filterChipColors,
+                                )
                             }
                             if (sortMode == EventsCalendarSort.ByDistance && (userLat == null || userLng == null)) {
                                 Text(
-                                    "Turn on location to sort by distance; list is in date order until then.",
+                                    "Turn on location to sort by distance; list stays in date order until then.",
                                     fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = Color(0xFF37474F),
                                 )
-                            }
-                            if (dateKeys.isNotEmpty()) {
-                                FilterStripLabel("Filter by date")
-                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    item {
-                                        FilterChip(
-                                            selected = selectedDate == null,
-                                            onClick = { selectedDate = null },
-                                            label = { Text("All") },
-                                            colors = filterChipColors,
-                                        )
-                                    }
-                                    item {
-                                        FilterChip(
-                                            selected = selectedDate != null,
-                                            onClick = { showDatePicker = true },
-                                            label = {
-                                                Text(
-                                                    selectedDate?.let { formatEventDateDisplay(it, false) ?: it.take(10) }
-                                                        ?: "Pick date",
-                                                )
-                                            },
-                                            colors = FilterChipDefaults.filterChipColors(
-                                                selectedContainerColor = Color(0xFFB2EBF2),
-                                                selectedLabelColor = Color(0xFF004D40),
-                                            ),
-                                        )
-                                    }
-                                    items(dateKeys) { d ->
-                                        val chipLabel = formatEventDateDisplay(d, isRecurring = false)
-                                            ?: d.trim().take(10)
-                                        FilterChip(
-                                            selected = selectedDate == d,
-                                            onClick = { selectedDate = if (selectedDate == d) null else d },
-                                            label = { Text(chipLabel) },
-                                            colors = filterChipColors,
-                                        )
-                                    }
-                                }
-                            }
-                            FilterStripLabel("Show")
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                item {
-                                    FilterChip(
-                                        selected = !showSavedOnly,
-                                        onClick = { showSavedOnly = false },
-                                        label = { Text("All events") },
-                                        colors = filterChipColors,
-                                    )
-                                }
-                                item {
-                                    FilterChip(
-                                        selected = showSavedOnly,
-                                        onClick = { showSavedOnly = true },
-                                        label = { Text("Saved only (${savedVisible.size})") },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = if (savedVisible.isEmpty()) MaterialIcons.Filled.FavoriteBorder else MaterialIcons.Filled.Favorite,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(16.dp),
-                                            )
-                                        },
-                                        colors = filterChipColors,
-                                    )
-                                }
                             }
                             if (!showSavedOnly && savedVisible.isNotEmpty()) {
                                 Text(
-                                    "Saved events appear first so you can find them quickly.",
+                                    "Saved events appear at the top of the list.",
                                     fontSize = 11.sp,
                                     color = Color(0xFF546E7A),
                                 )
@@ -503,17 +527,6 @@ fun NearbyEventsCalendarScreen(
     }
 }
 
-@Composable
-private fun FilterStripLabel(text: String) {
-    Text(
-        text,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.SemiBold,
-        color = Color(0xFF006064),
-        letterSpacing = 0.5.sp,
-    )
-}
-
 /**
  * One event row: card (with the in-card "Add to calendar" button) plus a full-width Save toggle
  * underneath. Splitting this out keeps the LazyColumn body readable and ensures the unsaved /
@@ -564,8 +577,8 @@ private fun EventCalendarRow(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = if (isSaved) Color(0xFFFFE0B2) else Color(0xFFF1F3F4),
-            contentColor = if (isSaved) Color(0xFFE65100) else Color(0xFF455A64),
+            containerColor = if (isSaved) Color(0xFFFFE0B2) else Color(0xFFE8EAF0),
+            contentColor = if (isSaved) Color(0xFFE65100) else Color(0xFF263238),
         ),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
     ) {

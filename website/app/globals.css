@@ -68,14 +68,13 @@ a:hover { text-decoration: underline; }
   display: inline-flex;
   align-items: center;
   text-decoration: none !important;
-  min-width: 0;
 }
 .nav-logo:hover { text-decoration: none !important; }
-/* Dedicated header lockup; favicon uses a separate icon-only asset. */
+/* Increased icon visibility without crowding header */
 .nav-logo-mark {
-  height: 54px;
+  height: 64px;
   width: auto;
-  max-width: min(240px, 42vw);
+  max-width: 64px;
   object-fit: contain;
   flex-shrink: 0;
   filter: drop-shadow(0 2px 10px rgba(0, 80, 90, 0.12));
@@ -129,6 +128,52 @@ a:hover { text-decoration: underline; }
   text-align: center;
 }
 .hero--compact { padding: 52px 0 36px; }
+/* Taller band for signed-in / consumer app–style pages (Discover, Map, Saved, etc.) */
+.hero--tall {
+  min-height: 140px;
+  padding: 64px 0 48px;
+  text-align: left;
+}
+.hero--tall h1,
+.hero--tall p {
+  max-width: 44rem;
+  margin-left: 0;
+  margin-right: auto;
+}
+
+/* Saved: lists / favorites tab strip */
+.saved-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+.saved-tabs__btn {
+  display: inline-block;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  color: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.saved-tabs__btn:hover {
+  border-color: rgba(5, 180, 198, 0.5);
+  color: var(--teal-dark, #0a4c52);
+}
+.saved-tabs__btn--active {
+  background: var(--launcher-teal, #05b4c6);
+  border-color: var(--launcher-teal-deep, #0396a5);
+  color: #fff;
+}
+.saved-tabs__btn--active:hover {
+  color: #fff;
+  border-color: var(--launcher-teal-deep, #0396a5);
+}
 .hero-eyebrow {
   font-size: 12px;
   font-weight: 800;
@@ -517,6 +562,9 @@ a:hover { text-decoration: underline; }
 .features {
   padding: 80px 0;
   background: linear-gradient(180deg, #f0f0f0 0%, var(--app-screen) 45%, #e8e8e8 100%);
+}
+.features--warm {
+  background: linear-gradient(180deg, #faf6f0 0%, #f2efe8 40%, #ebe6dc 100%);
 }
 .features h2 { text-align: center; font-size: 32px; margin-bottom: 48px; color: var(--surface-ink); }
 .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 28px; }
@@ -1502,8 +1550,12 @@ a:hover { text-decoration: underline; }
   .nav-links { gap: 16px; }
   .nav-links a { font-size: 13px; }
   .nav-logo-mark {
-    height: 46px;
-    max-width: min(220px, 52vw);
+    height: 68px;
+    max-width: 68px;
+  }
+  .nav-logo-text {
+    font-size: 18px;
+    margin-left: 10px;
   }
   .advertise-hero__grid,
   .advertise-marquee__grid,

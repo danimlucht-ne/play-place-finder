@@ -35,8 +35,81 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 private val mongoObjectIdInString = Regex("[a-fA-F0-9]{24}")
+
+/** Parses `imageUrls` whether the API stored a list, a JSON string array, or comma-separated URLs. */
+private fun parseModerationImageUrlList(value: Any?): List<String> {
+    when (value) {
+        is List<*> -> return value.mapNotNull { it?.toString()?.trim()?.takeIf { u -> u.startsWith("http") } }
+        is String -> {
+            val t = value.trim()
+            if (t.startsWith("[")) {
+                val parsed = runCatching {
+                    val el = moderationJson.parseToJsonElement(t)
+                    if (el is JsonArray) {
+                        el.mapNotNull { elem ->
+                            runCatching { elem.jsonPrimitive.content }.getOrNull()?.trim()
+                                ?.takeIf { it.startsWith("http") }
+                        }
+                    } else {
+                        emptyList()
+                    }
+                }.getOrNull()
+                if (!parsed.isNullOrEmpty()) return parsed
+                return t.removePrefix("[").removeSuffix("]")
+                    .split("\",\"", ",")
+                    .map { it.trim().trim('"', ' ', '\n', '\r') }
+                    .filter { it.startsWith("http") }
+            }
+            return t.split(",").map { it.trim().trim('"') }.filter { it.startsWith("http") }
+        }
+        else -> return emptyList()
+    }
+}
+
+private fun isAutomatedReviewFailureBlob(line: String): Boolean {
+    val s = line.trim()
+    if (s.contains("Automated text review unavailable", ignoreCase = true)) return true
+    if (s.contains("Automated image review unavailable", ignoreCase = true)) return true
+    if (s.contains("Automated text review failed", ignoreCase = true)) return true
+    if (s.contains("Automated image review failed", ignoreCase = true)) return true
+    if (s.contains("Submitted image could not be processed automatically", ignoreCase = true)) return true
+    if (s.length < 50) return false
+    if (s.contains("generativelanguage.googleapis.com", ignoreCase = true)) return true
+    if (s.contains("SERVICE_DISABLED", ignoreCase = true)) return true
+    if (s.contains("text_review_error", ignoreCase = true)) return true
+    if (s.contains("image_review_error", ignoreCase = true)) return true
+    if (s.contains("fetch_or_process_failed", ignoreCase = true)) return true
+    if (s.contains("PERMISSION_DENIED", ignoreCase = true) && s.contains("Gemini", ignoreCase = true)) return true
+    if (s.startsWith("{") && s.contains("\"error\"")) return true
+    return false
+}
+
+/** Replaces raw Gemini/API JSON dumps with a short moderator-facing note. */
+private fun distillReviewBulletsForDisplay(raw: List<String>): List<String> {
+    var scrubbedAutomatedFailure = false
+    val kept = mutableListOf<String>()
+    for (line in raw) {
+        val t = line.trim()
+        if (t.isEmpty()) continue
+        if (isAutomatedReviewFailureBlob(t) || (t.length > 400 && t.startsWith("{"))) {
+            scrubbedAutomatedFailure = true
+            continue
+        }
+        kept.add(t)
+    }
+    val out = kept.distinct().toMutableList()
+    if (scrubbedAutomatedFailure) {
+        out.add(
+            0,
+            "Automated review did not complete cleanly (Gemini / Generative Language API is disabled or misconfigured on the server). " +
+                "Use the submitted photos and fields below for a manual decision.",
+        )
+    }
+    return out
+}
 
 private val moderationJson = Json {
     encodeDefaults = true
@@ -140,6 +213,7 @@ fun AdminDetailScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showRollbackDialog by remember { mutableStateOf(false) }
     var showAllProposedFields by remember { mutableStateOf(false) }
+    var adminToolsMenuExpanded by remember { mutableStateOf(false) }
     var latestAudit by remember { mutableStateOf<Map<String, Any?>?>(null) }
     var auditLoading by remember { mutableStateOf(false) }
     var playgroundPreview by remember { mutableStateOf<Playground?>(null) }
@@ -317,7 +391,8 @@ fun AdminDetailScreen(
                                     fontWeight = FontWeight.SemiBold,
                                     color = FormColors.BodyText,
                                 )
-                                if (reviewBullets.isEmpty()) {
+                                val displayReviewBullets = distillReviewBulletsForDisplay(reviewBullets)
+                                if (displayReviewBullets.isEmpty()) {
                                     Text(
                                         "No automated explanation was attached. Decide from the changed fields below.",
                                         style = MaterialTheme.typography.bodySmall,
@@ -325,7 +400,7 @@ fun AdminDetailScreen(
                                         lineHeight = 18.sp,
                                     )
                                 } else {
-                                    reviewBullets.take(10).forEach { line ->
+                                    displayReviewBullets.take(10).forEach { line ->
                                         Text(
                                             "• $line",
                                             style = MaterialTheme.typography.bodySmall,
@@ -564,8 +639,8 @@ fun AdminDetailScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontWeight = FontWeight.SemiBold,
                                     )
-                                    if (key == "imageUrls" && value is List<*>) {
-                                        val urls = value.mapNotNull { it?.toString()?.trim()?.takeIf { u -> u.isNotEmpty() } }
+                                    if (key.equals("imageUrls", ignoreCase = true)) {
+                                        val urls = parseModerationImageUrlList(value)
                                         Text("${urls.size} image(s)", style = MaterialTheme.typography.bodySmall, color = FormColors.BodyText)
                                         urls.take(3).forEach { u ->
                                             Row(
@@ -654,32 +729,63 @@ fun AdminDetailScreen(
                         Text(
                             "Submitter ID · $uid",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
+                    }
+                    Box(Modifier.fillMaxWidth()) {
                         OutlinedButton(
-                            onClick = { successMsg = null; showBlockDialog = true },
-                            enabled = !actionInProgress,
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("Block submitter", color = FormColors.ErrorText) }
-                        OutlinedButton(
-                            onClick = { successMsg = null; showForceReviewDialog = true },
+                            onClick = { adminToolsMenuExpanded = true },
                             enabled = !actionInProgress,
                             modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Require manual review for submitter") }
-                    }
-                    if (!isNewPlayground && !isDeleteRequest) {
-                        playgroundIdStr?.let {
-                            OutlinedButton(
-                                onClick = { successMsg = null; showDeleteDialog = true },
-                                enabled = !actionInProgress,
-                                modifier = Modifier.fillMaxWidth()
-                            ) { Text("Archive playground") }
-                            OutlinedButton(
-                                onClick = { successMsg = null; showRollbackDialog = true },
-                                enabled = !actionInProgress && latestAudit != null && !auditLoading,
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Text(if (auditLoading) "Loading latest change…" else "Rollback latest change")
+                        ) {
+                            Text("Choose admin action…", fontWeight = FontWeight.Medium)
+                        }
+                        DropdownMenu(
+                            expanded = adminToolsMenuExpanded,
+                            onDismissRequest = { adminToolsMenuExpanded = false },
+                            modifier = Modifier.fillMaxWidth(0.92f),
+                        ) {
+                            if (submitterId != null) {
+                                DropdownMenuItem(
+                                    text = { Text("Block submitter", color = FormColors.ErrorText) },
+                                    onClick = {
+                                        adminToolsMenuExpanded = false
+                                        successMsg = null
+                                        showBlockDialog = true
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Require manual review for submitter") },
+                                    onClick = {
+                                        adminToolsMenuExpanded = false
+                                        successMsg = null
+                                        showForceReviewDialog = true
+                                    },
+                                )
+                            }
+                            if (!isNewPlayground && !isDeleteRequest && playgroundIdStr != null) {
+                                DropdownMenuItem(
+                                    text = { Text("Archive playground") },
+                                    onClick = {
+                                        adminToolsMenuExpanded = false
+                                        successMsg = null
+                                        showDeleteDialog = true
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (auditLoading) "Rollback latest change (loading…)"
+                                            else "Rollback latest change",
+                                        )
+                                    },
+                                    onClick = {
+                                        adminToolsMenuExpanded = false
+                                        successMsg = null
+                                        if (!auditLoading && latestAudit != null) showRollbackDialog = true
+                                    },
+                                    enabled = !auditLoading && latestAudit != null,
+                                )
                             }
                         }
                     }

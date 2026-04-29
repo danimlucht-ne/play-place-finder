@@ -36,7 +36,7 @@ export default function DeleteAccountPage() {
             </li>
           </ol>
           <p className="hub-muted-copy" style={{ marginTop: '1rem' }}>
-            This removes your account, favorites, lists, and associated personal data handled by our servers, subject to any limited retention described in our{' '}
+            This removes your account, saved places, lists, and associated personal data handled by our servers, subject to any limited retention described in our{' '}
             <Link href="/privacy">Privacy Policy</Link>.
           </p>
         </section>

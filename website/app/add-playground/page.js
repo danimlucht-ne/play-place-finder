@@ -41,7 +41,8 @@ export default function AddPlaygroundPage() {
   return (
     <ConsumerPageFrame
       title="Suggest a new place"
-      subtitle="Contribute a new playground/site submission from web with the same moderation flow as the app."
+      subtitle="Contribute a new playground or site from the web with the same moderation flow as the app."
+      heroVariant="tall"
     >
       <AuthGate>
         <section className="hub-card">

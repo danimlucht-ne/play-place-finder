@@ -38,6 +38,27 @@ function getMultimodalModel() {
   return process.env.GEMINI_MODEL_MULTIMODAL || process.env.GEMINI_MODEL_PRIMARY || 'gemini-2.5-flash';
 }
 
+function automatedReviewFailureConcern(scope, err) {
+  const message = String(err?.message || '').trim();
+  const normalized = message.toLowerCase();
+  const disabledOrUnavailable =
+    normalized.includes('generativelanguage.googleapis.com') ||
+    normalized.includes('permission_denied') ||
+    normalized.includes('service_disabled') ||
+    normalized.includes('api has not been used') ||
+    normalized.includes('api key not valid') ||
+    normalized.includes('forbidden') ||
+    normalized.includes('403');
+  if (scope === 'image') {
+    return disabledOrUnavailable
+      ? 'Automated image review unavailable'
+      : 'Automated image review failed';
+  }
+  return disabledOrUnavailable
+    ? 'Automated text review unavailable'
+    : 'Automated text review failed';
+}
+
 const TEXT_BLOCK_PATTERNS = [
   { label: 'url', pattern: /https?:\/\//i },
   { label: 'email', pattern: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i },
@@ -212,7 +233,7 @@ ${textBundle}
       appropriate: false,
       confidence: 0,
       severity: 'high',
-      concerns: [`text_review_error: ${err.message}`],
+      concerns: [automatedReviewFailureConcern('text', err)],
       blocked: true,
       modelFailed: true,
     };
@@ -299,7 +320,7 @@ appropriate=true only if the image is safe for a family app (no sexual content, 
     return {
       appropriate: false,
       confidence: 0,
-      concerns: [`image_review_error: ${err.message}`],
+      concerns: [automatedReviewFailureConcern('image', err)],
       modelFailed: true,
     };
   }
@@ -358,7 +379,7 @@ async function reviewPlaygroundSubmission(fields) {
         url,
         appropriate: false,
         confidence: 0,
-        concerns: [`fetch_or_process_failed: ${e.message}`],
+        concerns: ['Submitted image could not be processed automatically'],
         modelFailed: true,
       });
     }

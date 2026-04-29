@@ -32,9 +32,10 @@ actual fun rememberLocationService(): suspend () -> LatLng? {
                 } else {
                     // lastLocation is null (fresh boot / no cached fix) — request a fresh one
                     val cts = CancellationTokenSource()
+                    // Prefer a slightly older cached fix so first open paints faster; refine on later refresh.
                     val request = CurrentLocationRequest.Builder()
                         .setPriority(Priority.PRIORITY_BALANCED_POWER_ACCURACY)
-                        .setMaxUpdateAgeMillis(30_000L)
+                        .setMaxUpdateAgeMillis(300_000L)
                         .build()
 
                     val loc = suspendCancellableCoroutine<android.location.Location?> { cont ->
