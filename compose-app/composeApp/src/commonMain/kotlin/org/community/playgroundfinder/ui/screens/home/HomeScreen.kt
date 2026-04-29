@@ -2334,14 +2334,15 @@ fun HomeScreen(
                     userLat = userLat,
                     userLng = userLng,
                 )
-                /* Extra air above the soft promo strip so the event "Add to calendar" CTA does not read as one block with it. */
+                /* Extra air above the promo strip so the event "Add to calendar" CTA does not read as one block with it. */
                 Spacer(Modifier.height(18.dp))
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { onNavigateToAdvertise() },
                     shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFE8F8FA),
+                    color = Color(0xFF424242),
+                    shadowElevation = 2.dp,
                 ) {
                     Row(
                         modifier = Modifier
@@ -2353,19 +2354,19 @@ fun HomeScreen(
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
                                 adPromoVariant.first,
-                                color = Color(0xFF006064),
+                                color = Color.White,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Text(
                                 adPromoVariant.second,
-                                color = Color(0xFF455A64),
+                                color = Color.White.copy(alpha = 0.88f),
                                 fontSize = 12.sp,
                             )
                         }
                         Text(
                             "Learn more",
-                            color = FormColors.PrimaryButton,
+                            color = Color.White,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(start = 10.dp),

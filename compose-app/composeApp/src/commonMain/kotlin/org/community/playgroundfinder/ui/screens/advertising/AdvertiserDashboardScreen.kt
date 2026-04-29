@@ -236,6 +236,22 @@ fun AdvertiserDashboardScreen(
 
     LaunchedEffect(Unit) { loadCampaigns() }
 
+    // Deep link from the menu: open with this campaign expanded (analytics load when expanded).
+    LaunchedEffect(soloCampaignId, campaigns) {
+        val want = soloCampaignId?.trim()?.takeIf { it.isNotEmpty() }
+        if (want == null) {
+            expandedCampaignId = null
+            return@LaunchedEffect
+        }
+        if (campaigns.isEmpty()) return@LaunchedEffect
+        if (campaigns.any { it._id == want }) {
+            expandedCampaignId = want
+            if (!analyticsData.containsKey(want) && want !in analyticsLoading) {
+                loadAnalytics(want)
+            }
+        }
+    }
+
     LaunchedEffect(externalReloadNonce) {
         if (externalReloadNonce <= 0) return@LaunchedEffect
         loadCampaigns()
@@ -534,12 +550,16 @@ fun AdvertiserDashboardScreen(
                         Text("+ Create New Ad", fontWeight = FontWeight.SemiBold)
                     }
                     Spacer(Modifier.height(8.dp))
-                    TextButton(onClick = { openExternalUrl(MarketingLinks.advertiserLanding()) }) {
-                        Text("Placements & pricing (website)", color = FormColors.PrimaryButton)
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    TextButton(onClick = { openExternalUrl(MarketingLinks.advertiserHub()) }) {
-                        Text("Full analytics & tools (browser)", color = FormColors.PrimaryButton)
+                    Button(
+                        onClick = { openExternalUrl(MarketingLinks.advertiserHub()) },
+                        modifier = Modifier.fillMaxWidth(0.7f).height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF424242),
+                            contentColor = Color.White,
+                        ),
+                    ) {
+                        Text("Website — pricing & full analytics", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                     }
                     Spacer(Modifier.height(8.dp))
                     TextButton(onClick = { loadCampaigns() }) { Text("Refresh", color = FormColors.PrimaryButton) }
@@ -562,17 +582,22 @@ fun AdvertiserDashboardScreen(
                             ) {
                                 Text("+ Create New Ad", fontWeight = FontWeight.SemiBold)
                             }
-                            TextButton(
-                                onClick = { openExternalUrl(MarketingLinks.advertiserLanding()) },
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Text("Placements & pricing (website)", color = FormColors.PrimaryButton)
-                            }
-                            TextButton(
+                            Button(
                                 onClick = { openExternalUrl(MarketingLinks.advertiserHub()) },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(44.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF424242),
+                                    contentColor = Color.White,
+                                ),
                             ) {
-                                Text("Full analytics & tools (browser)", color = FormColors.PrimaryButton)
+                                Text(
+                                    "Website — pricing & full analytics",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.sp,
+                                )
                             }
                         }
                     }

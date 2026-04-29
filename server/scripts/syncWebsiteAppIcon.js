@@ -1,12 +1,14 @@
 /**
  * Syncs web brand assets under `website/public/` from:
- * 1) **`branding/android-launcher-res/drawable/*_1024.png`** (preferred) — composites foreground
- *    over background, then exports 512×512 — matches the shipped Android icon pack.
- * 2) Fallback: legacy `playSpotterLogo.png` / `playPlaceIcon.svg` / mipmap, etc.
+ * 1) `branding/android-launcher-res/drawable/*_1024.png` (preferred)
+ * 2) fallback legacy Play Spotter logo files
  *
- * After changing `branding/android-launcher-res/`, run `npm run apply:android-branding` (from `server/`).
+ * Outputs:
+ * - `playplace-app-icon.png`: square app-style icon for marketing surfaces
+ * - `play-spotter-favicon.png`: transparent foreground mark for favicon/nav usage
  *
- * Run: npm run sync:web-brand-icon  (from `server/`)
+ * After changing `branding/android-launcher-res/`, run:
+ *   npm run apply:android-branding
  */
 
 const fs = require('fs');
@@ -20,10 +22,8 @@ const RES = path.join(REPO_ROOT, 'compose-app', 'composeApp', 'src', 'androidMai
 const BRANDING_RES = path.join(REPO_ROOT, 'branding', 'android-launcher-res');
 const FG1024 = path.join(BRANDING_RES, 'drawable', 'ic_launcher_foreground_1024.png');
 const BG1024 = path.join(BRANDING_RES, 'drawable', 'ic_launcher_background_1024.png');
-/** Lucht company site `products.html` — must match composited `playplace-app-icon.png` (not a separate export). */
 const LUCHT_PLAY_PLACE_FINDER = path.join(REPO_ROOT, '..', '..', 'lucht-applications', 'icons', 'play-place-finder.png');
-/** Single brand plate for fallbacks; aligned with `values/colors.xml` ic_launcher_background (#00CED1). */
-const BG = { r: 0, g: 206, b: 209 }; // #00CED1
+const BG = { r: 0, g: 206, b: 209 };
 const TRIM_THRESHOLD = 14;
 const BRANDING_FOREGROUND_ZOOM = 3.2;
 
@@ -31,27 +31,50 @@ function hasBranding1024() {
   return fs.existsSync(FG1024) && fs.existsSync(BG1024);
 }
 
-/**
- * Pixels of the in-app / store icon (adaptive layers combined), at `size`×`size`.
- */
-async function buildBrandingAppIconPngBuffer(size) {
+function getBrandingCrop() {
   const cropSide = Math.max(64, Math.round(1024 / BRANDING_FOREGROUND_ZOOM));
   const left = Math.max(0, Math.round((1024 - cropSide) / 2));
   const top = Math.max(0, Math.round((1024 - cropSide) / 2));
+  return { left, top, cropSide };
+}
+
+async function buildBrandingAppIconPngBuffer(size) {
+  const { left, top, cropSide } = getBrandingCrop();
   const fgBuf = await sharp(FG1024)
     .ensureAlpha()
     .extract({ left, top, width: cropSide, height: cropSide })
     .resize(1024, 1024, { fit: 'fill' })
     .png()
     .toBuffer();
+
   const body = await sharp(BG1024)
     .ensureAlpha()
-    .composite([
-      { input: fgBuf, left: 0, top: 0 },
-    ])
+    .composite([{ input: fgBuf, left: 0, top: 0 }])
     .png()
     .toBuffer();
+
   return sharp(body).resize(size, size, { fit: 'fill' }).png().toBuffer();
+}
+
+async function buildBrandingForegroundMarkBuffer(size) {
+  const { left, top, cropSide } = getBrandingCrop();
+  const innerSize = Math.round(size * 0.82);
+  return sharp(FG1024)
+    .ensureAlpha()
+    .extract({ left, top, width: cropSide, height: cropSide })
+    .resize(innerSize, innerSize, {
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .extend({
+      top: Math.floor((size - innerSize) / 2),
+      bottom: Math.ceil((size - innerSize) / 2),
+      left: Math.floor((size - innerSize) / 2),
+      right: Math.ceil((size - innerSize) / 2),
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
 }
 
 function pickFullLogoPath() {
@@ -63,9 +86,11 @@ function pickFullLogoPath() {
     path.join(REPO_ROOT, 'playPlaceIcon.jpg'),
     path.join(RES, 'ic_launcher.png'),
   ];
-  for (const p of candidates) {
-    if (fs.existsSync(p)) return p;
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
   }
+
   return null;
 }
 
@@ -77,25 +102,25 @@ function pickFaviconSourcePath() {
     path.join(REPO_ROOT, 'playSpotterLogo.png'),
     path.join(RES, 'ic_launcher.png'),
   ];
-  for (const p of candidates) {
-    if (fs.existsSync(p)) return p;
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
   }
+
   return null;
 }
 
-/** Exported for `generateAppIcon.js` — strips uniform border so art can scale up on brand plate. */
 async function rasterAfterTrim(sourcePath) {
   try {
     const buf = await sharp(sourcePath).trim({ threshold: TRIM_THRESHOLD }).png().toBuffer();
-    const m = await sharp(buf).metadata();
-    if ((m.width || 0) < 12 || (m.height || 0) < 12) return sharp(sourcePath);
+    const meta = await sharp(buf).metadata();
+    if ((meta.width || 0) < 12 || (meta.height || 0) < 12) return sharp(sourcePath);
     return sharp(buf);
   } catch {
     return sharp(sourcePath);
   }
 }
 
-/** Full lockup: letterbox on brand teal (no crop of wordmark). */
 async function writeFullLockupSquare(outPath, sourcePath, size) {
   const isVectorSource = path.extname(sourcePath).toLowerCase() === '.svg';
   if (isVectorSource) {
@@ -106,15 +131,13 @@ async function writeFullLockupSquare(outPath, sourcePath, size) {
     await sharp(plate).composite([{ input: inner, gravity: 'centre' }]).png().toFile(outPath);
     return;
   }
+
   await sharp(sourcePath)
     .resize(size, size, { fit: 'contain', background: BG })
     .png()
     .toFile(outPath);
 }
 
-/**
- * Icon-only / favicon: trim flat border color, then scale art up on brand plate.
- */
 async function writeLauncherStyleSquare(outPath, sourcePath, size) {
   const isVectorSource = path.extname(sourcePath).toLowerCase() === '.svg';
   const zoomSide = Math.ceil(size * 1.14);
@@ -126,6 +149,7 @@ async function writeLauncherStyleSquare(outPath, sourcePath, size) {
       .toFile(outPath);
     return;
   }
+
   const body = await rasterAfterTrim(sourcePath);
   await body
     .resize(zoomSide, zoomSide, { fit: 'inside', background: BG })
@@ -141,7 +165,7 @@ function copyPlayIconToLuchtMarketing() {
     if (!fs.existsSync(dir)) return;
     fs.copyFileSync(OUT_FULL, LUCHT_PLAY_PLACE_FINDER);
     console.log(
-      'syncWebsiteAppIcon: copied composited icon →',
+      'syncWebsiteAppIcon: copied composited icon ->',
       path.relative(REPO_ROOT, LUCHT_PLAY_PLACE_FINDER),
     );
   } catch (err) {
@@ -153,16 +177,16 @@ async function main() {
   const size = 512;
 
   if (hasBranding1024()) {
-    const iconBuf = await buildBrandingAppIconPngBuffer(size);
-    await fs.promises.writeFile(OUT_FULL, iconBuf);
-    await fs.promises.writeFile(OUT_FAVICON, iconBuf);
+    const appIconBuf = await buildBrandingAppIconPngBuffer(size);
+    const markBuf = await buildBrandingForegroundMarkBuffer(size);
+    await fs.promises.writeFile(OUT_FULL, appIconBuf);
+    await fs.promises.writeFile(OUT_FAVICON, markBuf);
     console.log(
       'syncWebsiteAppIcon: wrote',
       path.relative(REPO_ROOT, OUT_FULL),
       'and',
       path.relative(REPO_ROOT, OUT_FAVICON),
-      'from',
-      'branding/android-launcher-res (1024×1024 layers)',
+      'from branding/android-launcher-res (adaptive icon + transparent mark)',
     );
     copyPlayIconToLuchtMarketing();
     return;
@@ -204,6 +228,7 @@ module.exports = {
   rasterAfterTrim,
   hasBranding1024,
   buildBrandingAppIconPngBuffer,
+  buildBrandingForegroundMarkBuffer,
   BRANDING_RES,
   FG1024,
   BG1024,
