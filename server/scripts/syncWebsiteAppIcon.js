@@ -5,7 +5,8 @@
  *
  * Outputs:
  * - `playplace-app-icon.png`: square app-style icon for marketing surfaces
- * - `play-spotter-favicon.png`: transparent foreground mark for favicon/nav usage
+ * - `play-spotter-favicon.png`: transparent foreground mark for favicon usage
+ * - `play-spotter-nav-logo.png`: header lockup for website nav usage
  *
  * After changing `branding/android-launcher-res/`, run:
  *   npm run apply:android-branding
@@ -18,6 +19,7 @@ const sharp = require('sharp');
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const OUT_FULL = path.join(REPO_ROOT, 'website', 'public', 'playplace-app-icon.png');
 const OUT_FAVICON = path.join(REPO_ROOT, 'website', 'public', 'play-spotter-favicon.png');
+const OUT_NAV_LOGO = path.join(REPO_ROOT, 'website', 'public', 'play-spotter-nav-logo.png');
 const RES = path.join(REPO_ROOT, 'compose-app', 'composeApp', 'src', 'androidMain', 'res', 'mipmap-xxxhdpi');
 const BRANDING_RES = path.join(REPO_ROOT, 'branding', 'android-launcher-res');
 const FG1024 = path.join(BRANDING_RES, 'drawable', 'ic_launcher_foreground_1024.png');
@@ -110,6 +112,23 @@ function pickFaviconSourcePath() {
   return null;
 }
 
+function pickNavLogoPath() {
+  const candidates = [
+    path.join(REPO_ROOT, 'playSpotterLogo.png'),
+    path.join(REPO_ROOT, 'playSpotterLogo.jpg'),
+    path.join(REPO_ROOT, 'playSpotterLauncher.png'),
+    path.join(REPO_ROOT, 'playPlaceIcon.svg'),
+    path.join(REPO_ROOT, 'playPlaceIcon.jpg'),
+    path.join(RES, 'ic_launcher.png'),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  return null;
+}
+
 async function rasterAfterTrim(sourcePath) {
   try {
     const buf = await sharp(sourcePath).trim({ threshold: TRIM_THRESHOLD }).png().toBuffer();
@@ -158,6 +177,19 @@ async function writeLauncherStyleSquare(outPath, sourcePath, size) {
     .toFile(outPath);
 }
 
+async function writeNavLogo(outPath, sourcePath) {
+  const isVectorSource = path.extname(sourcePath).toLowerCase() === '.svg';
+  const pipeline = isVectorSource ? sharp(sourcePath) : await rasterAfterTrim(sourcePath);
+
+  await pipeline
+    .resize(1024, 420, {
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toFile(outPath);
+}
+
 function copyPlayIconToLuchtMarketing() {
   try {
     if (!fs.existsSync(OUT_FULL)) return;
@@ -181,12 +213,18 @@ async function main() {
     const markBuf = await buildBrandingForegroundMarkBuffer(size);
     await fs.promises.writeFile(OUT_FULL, appIconBuf);
     await fs.promises.writeFile(OUT_FAVICON, markBuf);
+    const navLogoPath = pickNavLogoPath();
+    if (navLogoPath) {
+      await writeNavLogo(OUT_NAV_LOGO, navLogoPath);
+    }
     console.log(
       'syncWebsiteAppIcon: wrote',
       path.relative(REPO_ROOT, OUT_FULL),
-      'and',
+      ',',
       path.relative(REPO_ROOT, OUT_FAVICON),
-      'from branding/android-launcher-res (adaptive icon + transparent mark)',
+      'and',
+      path.relative(REPO_ROOT, OUT_NAV_LOGO),
+      'from branding/android-launcher-res (adaptive icon + transparent mark + nav logo)',
     );
     copyPlayIconToLuchtMarketing();
     return;
@@ -216,6 +254,14 @@ async function main() {
     console.log('syncWebsiteAppIcon: wrote', OUT_FAVICON, 'from', path.relative(REPO_ROOT, favPath));
   }
 
+  const navLogoPath = pickNavLogoPath();
+  if (!navLogoPath) {
+    console.warn('syncWebsiteAppIcon: no nav logo source; skipping', OUT_NAV_LOGO);
+  } else {
+    await writeNavLogo(OUT_NAV_LOGO, navLogoPath);
+    console.log('syncWebsiteAppIcon: wrote', OUT_NAV_LOGO, 'from', path.relative(REPO_ROOT, navLogoPath));
+  }
+
   copyPlayIconToLuchtMarketing();
 }
 
@@ -223,6 +269,7 @@ module.exports = {
   main,
   pickFullLogoPath,
   pickFaviconSourcePath,
+  pickNavLogoPath,
   REPO_ROOT,
   OUT_FULL,
   rasterAfterTrim,

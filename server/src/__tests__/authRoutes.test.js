@@ -4,6 +4,7 @@
   generateEmailVerificationLink: jest.fn(),
   createCustomToken: jest.fn(),
   generatePasswordResetLink: jest.fn(),
+  verifyIdToken: jest.fn(),
 };
 
 jest.mock('firebase-admin', () => ({ auth: jest.fn(() => mockAuth) }));
@@ -182,6 +183,30 @@ describe('authRoutes', () => {
     expect(blocked.body.error).toContain('temporarily blocked');
     expect(ok.body).toEqual({ message: 'success', token: 'id-token', userId: 'uid-1' });
     expect(updateOne).toHaveBeenCalledTimes(3);
+  });
+
+  test('google-signin requires idToken, verifies Firebase token, and upserts user', async () => {
+    const updateOne = jest.fn();
+    const findOne = jest.fn().mockResolvedValue({ _id: 'google-uid' });
+    getDb.mockReturnValue(makeDb({ users: { updateOne, findOne } }));
+    mockAuth.verifyIdToken.mockResolvedValue({ uid: 'google-uid', email: 'g@example.com' });
+
+    const missing = await request(buildApp()).post('/google-signin').send({}).expect(400);
+    expect(missing.body.error).toMatch(/idToken/i);
+
+    const res = await request(buildApp()).post('/google-signin').send({ idToken: 'valid.jwt.here' }).expect(200);
+
+    expect(mockAuth.verifyIdToken).toHaveBeenCalledWith('valid.jwt.here');
+    expect(res.body).toEqual({ message: 'success', token: 'valid.jwt.here', userId: 'google-uid' });
+    expect(updateOne).toHaveBeenCalled();
+  });
+
+  test('google-signin returns 401 when token verification fails', async () => {
+    mockAuth.verifyIdToken.mockRejectedValue({ code: 'auth/invalid-id-token', message: 'bad' });
+
+    const res = await request(buildApp()).post('/google-signin').send({ idToken: 'bad' }).expect(401);
+
+    expect(res.body.error).toMatch(/invalid|expired/i);
   });
 
   test('resend verification sends a verification email', async () => {

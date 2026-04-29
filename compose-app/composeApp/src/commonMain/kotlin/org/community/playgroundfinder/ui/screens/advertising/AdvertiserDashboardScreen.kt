@@ -246,9 +246,7 @@ fun AdvertiserDashboardScreen(
         if (campaigns.isEmpty()) return@LaunchedEffect
         if (campaigns.any { it._id == want }) {
             expandedCampaignId = want
-            if (!analyticsData.containsKey(want) && want !in analyticsLoading) {
-                loadAnalytics(want)
-            }
+            loadAnalytics(want)
         }
     }
 

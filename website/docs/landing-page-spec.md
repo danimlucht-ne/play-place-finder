@@ -78,4 +78,5 @@ The home page was moved to a **feature-led hero** so it didn’t look like a fla
 ## Related
 
 - Product phases and history: [WEBSITE_SPEC.md](../../WEBSITE_SPEC.md)
+- **Full UX/UI alignment (home, web shell, location, dashboards):** [ux-ui-web-app-alignment-spec.md](./ux-ui-web-app-alignment-spec.md)
 - App feature parity and routes: [full-parity/website-full-parity-implementation-spec.md](./full-parity/website-full-parity-implementation-spec.md)

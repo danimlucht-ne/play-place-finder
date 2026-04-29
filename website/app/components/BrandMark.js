@@ -1,9 +1,9 @@
-/** Icon-only brand mark for nav/hero to remain visible on small screens. */
+/** Dedicated website header lockup; favicon stays separate. */
 export default function BrandMark({ className = 'nav-logo-mark' }) {
   return (
     <img
       className={className}
-      src="/play-spotter-favicon.png"
+      src="/play-spotter-nav-logo.png"
       alt="Play Spotter"
       decoding="async"
     />

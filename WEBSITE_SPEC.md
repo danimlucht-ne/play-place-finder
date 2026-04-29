@@ -19,6 +19,7 @@ Older references to *PlayPlace Finder* / *play-place-finder.com* in this file re
 | Shared layout / nav / CSS | `website/app/components/`, `website/app/globals.css` |
 | Static assets (images, favicon) | `website/public/` |
 | Landing design decisions | [website/docs/landing-page-spec.md](website/docs/landing-page-spec.md) |
+| Web↔app UX/UI + home + permissions (master alignment) | [website/docs/ux-ui-web-app-alignment-spec.md](website/docs/ux-ui-web-app-alignment-spec.md) |
 | Full app ↔ web parity matrix | [website/docs/full-parity/website-full-parity-implementation-spec.md](website/docs/full-parity/website-full-parity-implementation-spec.md) |
 
 ---

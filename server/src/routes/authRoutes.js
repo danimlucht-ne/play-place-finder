@@ -141,6 +141,40 @@ router.post('/login', async (req, res) => {
     }
 });
 
+// POST /api/users/google-signin — Firebase ID token from Google provider (see Android LoginScreen, GoogleSignInHelper)
+router.post('/google-signin', async (req, res) => {
+    const { idToken } = req.body || {};
+    if (!idToken || typeof idToken !== 'string' || !idToken.trim()) {
+        return res.status(400).json({ error: 'idToken is required.' });
+    }
+    try {
+        const decoded = await admin.auth().verifyIdToken(idToken);
+        const uid = decoded.uid;
+        const email = (decoded.email && String(decoded.email)) || '';
+        const db = getDb();
+        await db.collection('users').updateOne(
+            { _id: uid },
+            { $setOnInsert: { _id: uid, email, createdAt: new Date(), score: 0, level: 'Newcomer', contributions: { total: 0, newPlaygrounds: 0, edits: 0, photos: 0, reports: 0 } } },
+            { upsert: true }
+        );
+        const userDoc = await db.collection('users').findOne({ _id: uid });
+        if (userDoc?.bannedAt) {
+            return res.status(403).json({ error: 'Your account has been permanently banned. Reason: ' + (userDoc.bannedReason || 'Policy violation') });
+        }
+        if (userDoc?.blockedAt) {
+            return res.status(403).json({ error: 'Your account is temporarily blocked. Reason: ' + (userDoc.blockedReason || 'Policy violation') });
+        }
+        res.json({ message: 'success', token: idToken, userId: uid });
+    } catch (err) {
+        console.error('Google sign-in error:', err.message);
+        const code = err.code || err.errorInfo?.code;
+        if (typeof code === 'string' && code.startsWith('auth/')) {
+            return res.status(401).json({ error: 'Invalid or expired sign-in. Please try again.' });
+        }
+        res.status(500).json({ error: 'Sign-in failed.' });
+    }
+});
+
 // POST /api/users/resend-verification  (4.5.2)
 router.post('/resend-verification', async (req, res) => {
     const { email } = req.body || {};

@@ -68,13 +68,14 @@ a:hover { text-decoration: underline; }
   display: inline-flex;
   align-items: center;
   text-decoration: none !important;
+  min-width: 0;
 }
 .nav-logo:hover { text-decoration: none !important; }
-/* Increased icon visibility without crowding header */
+/* Dedicated header lockup; favicon uses a separate icon-only asset. */
 .nav-logo-mark {
-  height: 64px;
+  height: 54px;
   width: auto;
-  max-width: 64px;
+  max-width: min(240px, 42vw);
   object-fit: contain;
   flex-shrink: 0;
   filter: drop-shadow(0 2px 10px rgba(0, 80, 90, 0.12));
@@ -1501,12 +1502,8 @@ a:hover { text-decoration: underline; }
   .nav-links { gap: 16px; }
   .nav-links a { font-size: 13px; }
   .nav-logo-mark {
-    height: 68px;
-    max-width: 68px;
-  }
-  .nav-logo-text {
-    font-size: 18px;
-    margin-left: 10px;
+    height: 46px;
+    max-width: min(220px, 52vw);
   }
   .advertise-hero__grid,
   .advertise-marquee__grid,

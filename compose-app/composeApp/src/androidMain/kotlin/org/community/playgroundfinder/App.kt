@@ -1120,29 +1120,35 @@ fun App() {
                                     onBack = { navigateBack() }
                                 )
                             }
-                            is Screen.AdvertiserDashboard -> AdvertiserDashboardScreen(
-                                playgroundService = service,
-                                soloCampaignId = (screen as Screen.AdvertiserDashboard).campaignId,
-                                onViewAllCampaigns = { navigateTo(Screen.AdvertiserDashboard()) },
-                                onNavigateToAdvertise = { navigateTo(Screen.AdvertiserEntry) },
-                                onRenew = { submissionId, regionKey ->
-                                    navigateTo(Screen.PackageSelection(submissionId, regionKey))
-                                },
-                                onBack = { navigateBack() },
-                                onPickCreativeImage = { campaignId, submissionId ->
-                                    if (submissionId.isBlank()) {
-                                        Toast.makeText(
-                                            context,
-                                            "This campaign isn’t linked to a submission for image uploads. Contact support if you need help.",
-                                            Toast.LENGTH_LONG,
-                                        ).show()
-                                    } else {
-                                        creativeImagePickContext = campaignId to submissionId
-                                        adImagePickerLauncher.launch("image/*")
-                                    }
-                                },
-                                externalReloadNonce = advertiserDashboardReloadNonce,
-                            )
+                            is Screen.AdvertiserDashboard -> {
+                                val adDash = screen as Screen.AdvertiserDashboard
+                                // Reset local dashboard state when switching “all” vs a focused campaign from the menu.
+                                key(adDash.campaignId ?: "all") {
+                                    AdvertiserDashboardScreen(
+                                        playgroundService = service,
+                                        soloCampaignId = adDash.campaignId,
+                                        onViewAllCampaigns = { navigateTo(Screen.AdvertiserDashboard()) },
+                                        onNavigateToAdvertise = { navigateTo(Screen.AdvertiserEntry) },
+                                        onRenew = { submissionId, regionKey ->
+                                            navigateTo(Screen.PackageSelection(submissionId, regionKey))
+                                        },
+                                        onBack = { navigateBack() },
+                                        onPickCreativeImage = { campaignId, submissionId ->
+                                            if (submissionId.isBlank()) {
+                                                Toast.makeText(
+                                                    context,
+                                                    "This campaign isn’t linked to a submission for image uploads. Contact support if you need help.",
+                                                    Toast.LENGTH_LONG,
+                                                ).show()
+                                            } else {
+                                                creativeImagePickContext = campaignId to submissionId
+                                                adImagePickerLauncher.launch("image/*")
+                                            }
+                                        },
+                                        externalReloadNonce = advertiserDashboardReloadNonce,
+                                    )
+                                }
+                            }
                             is Screen.AdReviewQueue -> AdReviewQueueScreen(
                                 playgroundService = service,
                                 onItemClick = { submissionId -> navigateTo(Screen.AdSubmissionReview(submissionId)) },
