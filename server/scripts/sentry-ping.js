@@ -14,9 +14,20 @@ if (process.env.NODE_ENV === 'test') {
 }
 
 const { Sentry, sentryEnabled } = require('../src/instrument');
+const serverDir = path.join(__dirname, '..');
 
-if (!Sentry || !sentryEnabled) {
-  console.error('Sentry is not enabled. Set SENTRY_DSN in server/.env, run npm install, then try again.');
+if (!Sentry) {
+  console.error(
+    '@sentry/node did not load. It must be in server/package.json; then install deps:\n' +
+      `  cd ${serverDir} && npm install\n` +
+      'If you only run npm install at the repo root, run that root install too (root package.json also lists Sentry), or use: npm install --prefix server'
+  );
+  process.exit(1);
+}
+if (!sentryEnabled) {
+  console.error(
+    'Sentry is not enabled. Set SENTRY_DSN in server/.env (or repo-root .env), and ensure NODE_ENV is not "test".'
+  );
   process.exit(1);
 }
 

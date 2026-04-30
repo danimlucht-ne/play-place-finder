@@ -5,6 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node server/src/index.js",
+    "sentry:ping": "npm run sentry:ping --prefix server",
     "test": "npm run test:go-live",
     "test:server": "npm --prefix server test",
     "test:server:ci": "npm --prefix server run test:ci",
@@ -15,6 +16,8 @@
     "test:go-live": "npm run test:server:ci && npm run test:website && npm run build:website && npm run test:compose"
   },
   "dependencies": {
+    "@sentry/node": "^8.55.0",
+    "@sentry/profiling-node": "^8.55.0",
     "@google-cloud/storage": "^7.7.0",
     "@google-cloud/vision": "^5.3.4",
     "@google/genai": "^1.45.0",

@@ -7,7 +7,7 @@ try {
   Sentry = require('@sentry/node');
 } catch (e) {
   console.error(
-    '[Sentry] @sentry/node is not installed. On the host, from the server directory run: npm install',
+    '[Sentry] @sentry/node is not installed. Ensure it is listed in server/package.json, then run: cd server && npm install',
     e && e.message
   );
 }
