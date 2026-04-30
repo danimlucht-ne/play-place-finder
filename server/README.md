@@ -22,7 +22,7 @@ npm install
 - Set at least:
   - `MONGODB_URI`
   - `MONGODB_DB` (optional, defaults to `PlaygroundApp`)
-- Optional: **Sentry** — set **`SENTRY_DSN`** so errors and (sampled) performance data go to Sentry. `ecosystem.config.cjs` forwards **`SENTRY_*`** for PM2. With no rate env vars, **production** uses **5%** traces and **5%** profiles (profiles never exceed traces); **development** uses 15% / 10%. Set **`SENTRY_ENVIRONMENT=production`** on the VM. **`SENTRY_SEND_DEFAULT_PII`** defaults to off in production; set `true` only if you need it.
+- Optional: **Sentry** — set **`SENTRY_DSN`** so errors and (sampled) performance data go to Sentry. `ecosystem.config.cjs` forwards **`SENTRY_*`** for PM2. With no rate env vars, **production** uses **5%** traces and **5%** profiles (profiles never exceed traces); **development** uses 15% / 10%. Set **`SENTRY_ENVIRONMENT=production`** on the VM. **`SENTRY_SEND_DEFAULT_PII`** defaults to off in production; set `true` only if you need it. After `SENTRY_DSN` is set, run **`npm run sentry:ping`** once to send a test event (then check Sentry **Issues**).
 
 3. Create/update required indexes (safe to run multiple times):
 
