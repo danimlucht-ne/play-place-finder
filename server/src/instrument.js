@@ -1,9 +1,25 @@
 /**
  * Sentry must load after server/.env is read (for SENTRY_DSN) but before the rest of the app.
- * Profiling extends tracing (both need @sentry/profiling-node on the host).
+ * If optional packages are missing, log once and run without Sentry (see server/ npm install).
  */
-const Sentry = require('@sentry/node');
-const { nodeProfilingIntegration } = require('@sentry/profiling-node');
+let Sentry;
+try {
+  Sentry = require('@sentry/node');
+} catch (e) {
+  console.error(
+    '[Sentry] @sentry/node is not installed. On the host, from the server directory run: npm install',
+    e && e.message
+  );
+}
+
+let nodeProfilingIntegration;
+try {
+  if (Sentry) {
+    ({ nodeProfilingIntegration } = require('@sentry/profiling-node'));
+  }
+} catch (e) {
+  console.warn('[Sentry] @sentry/profiling-node unavailable; errors still work, profiling disabled.', e && e.message);
+}
 
 function clamp01(n) {
   if (Number.isNaN(n) || n < 0) return 0;
@@ -34,9 +50,8 @@ function sendDefaultPii() {
   return v === '1' || String(v).toLowerCase() === 'true';
 }
 
-if (process.env.SENTRY_DSN && process.env.NODE_ENV !== 'test') {
-  // Production defaults: low volume + cost. Override with SENTRY_*_SAMPLE_RATE in .env.
-  // Dev: slightly more signals while developing. Tuning: profiles ≤ traces.
+let sentryEnabled = false;
+if (Sentry && process.env.SENTRY_DSN && process.env.NODE_ENV !== 'test') {
   const traces = sampleRateFromEnv('SENTRY_TRACES_SAMPLE_RATE', 0.05, 0.15);
   let profiles = sampleRateFromEnv('SENTRY_PROFILES_SAMPLE_RATE', 0.05, 0.1);
   if (traces === 0) {
@@ -45,14 +60,20 @@ if (process.env.SENTRY_DSN && process.env.NODE_ENV !== 'test') {
     profiles = Math.min(profiles, traces);
   }
 
+  const integrations = [Sentry.expressIntegration()];
+  if (typeof nodeProfilingIntegration === 'function') {
+    integrations.push(nodeProfilingIntegration());
+  }
+
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development',
     sendDefaultPii: sendDefaultPii(),
-    integrations: [Sentry.expressIntegration(), nodeProfilingIntegration()],
+    integrations,
     tracesSampleRate: traces,
-    profilesSampleRate: profiles,
+    profilesSampleRate: typeof nodeProfilingIntegration === 'function' ? profiles : 0,
   });
+  sentryEnabled = true;
 }
 
-module.exports = { Sentry, sentryEnabled: Boolean(process.env.SENTRY_DSN && process.env.NODE_ENV !== 'test') };
+module.exports = { Sentry, sentryEnabled };
