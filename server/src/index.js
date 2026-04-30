@@ -3,6 +3,7 @@ const fs = require('fs');
 // Prefer server/.env; also try repo-root .env if the process cwd differs.
 const dotenvPath = [path.join(__dirname, '../.env'), path.join(__dirname, '../../.env')].find((p) => fs.existsSync(p));
 require('dotenv').config(dotenvPath ? { path: dotenvPath } : {});
+const { Sentry, sentryEnabled } = require('./instrument');
 const express = require('express');
 const { connectToServer, getDb } = require('./database');
 const { ObjectId } = require('mongodb');
@@ -333,6 +334,23 @@ app.use((err, req, res, next) => {
         return res.status(400).json({ error: msg });
     }
     next(err);
+});
+
+if (sentryEnabled) {
+    Sentry.setupExpressErrorHandler(app);
+}
+
+// Last-resort error response (Sentry has already captured 5xx above when enabled)
+app.use((err, req, res, _next) => {
+    if (res.headersSent) {
+        return;
+    }
+    const sc = err && (err.status || err.statusCode);
+    const code = sc != null && sc >= 400 && sc < 600 ? parseInt(String(sc), 10) : 500;
+    if (code >= 500) {
+        return res.status(500).json({ error: 'Internal server error', requestId: req.id });
+    }
+    return res.status(code).json({ error: err && err.message ? String(err.message) : 'Error', requestId: req.id });
 });
 
 /**

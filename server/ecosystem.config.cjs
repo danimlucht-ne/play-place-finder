@@ -10,6 +10,9 @@
  *
  * Admin log viewer: GET /admin/server-logs (Firebase admin token) returns the last lines of SERVER_LOG_OUT.
  * Install rotation: pm2 install pm2-logrotate
+ *
+ * Sentry: set SENTRY_DSN in the shell or server/.env. Rate defaults for production are in src/instrument.js
+ * when SENTRY_TRACES_SAMPLE_RATE / SENTRY_PROFILES_SAMPLE_RATE are unset.
  */
 const path = require('path');
 
@@ -32,6 +35,12 @@ module.exports = {
         NODE_ENV: 'production',
         // Set to 0 or remove if Node is exposed directly (no nginx/LB). Behind one reverse proxy, use 1.
         TRUST_PROXY: process.env.TRUST_PROXY || '1',
+        // Forward from shell when starting PM2, or set in server/.env: SENTRY_DSN, SENTRY_ENVIRONMENT, etc.
+        SENTRY_DSN: process.env.SENTRY_DSN,
+        SENTRY_ENVIRONMENT: process.env.SENTRY_ENVIRONMENT,
+        SENTRY_TRACES_SAMPLE_RATE: process.env.SENTRY_TRACES_SAMPLE_RATE,
+        SENTRY_PROFILES_SAMPLE_RATE: process.env.SENTRY_PROFILES_SAMPLE_RATE,
+        SENTRY_SEND_DEFAULT_PII: process.env.SENTRY_SEND_DEFAULT_PII,
       },
     },
   ],
